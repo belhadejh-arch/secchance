@@ -1,0 +1,6 @@
+{
+  "name": "منصة الفرصة الثانية — Second Chance Platform",
+  "description": "منصة رقمية إنتاجية متكاملة للدعم النفسي، الاستشارات القانونية، مراكز علاج الإدمان، الجمعيات، إدارة الحالات والمواعيد والمراسلات وتوجيه الذكاء الاصطناعي.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
