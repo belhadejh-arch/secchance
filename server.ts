@@ -22,13 +22,17 @@ async function startServer() {
   const PORT = Number(process.env.PORT || 3000);
   const allowedOrigins = (process.env.FRONTEND_URL || '')
     .split(',')
-    .map(origin => origin.trim())
+    .map(origin => origin.trim().replace(/\/+$/, ''))
     .filter(Boolean);
 
   app.use((req, res, next) => {
     const requestOrigin = req.headers.origin;
-    if (requestOrigin && (allowedOrigins.length === 0 || allowedOrigins.includes(requestOrigin))) {
-      res.setHeader('Access-Control-Allow-Origin', requestOrigin);
+    const normalizedRequestOrigin = requestOrigin?.replace(/\/+$/, '');
+    if (
+      normalizedRequestOrigin &&
+      (allowedOrigins.length === 0 || allowedOrigins.includes(normalizedRequestOrigin))
+    ) {
+      res.setHeader('Access-Control-Allow-Origin', normalizedRequestOrigin);
       res.setHeader('Vary', 'Origin');
     }
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
