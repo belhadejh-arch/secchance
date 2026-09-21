@@ -75,7 +75,7 @@ const AppContent: React.FC = () => {
           </div>
           <h2 className="text-lg font-black text-slate-900">تسجيل الدخول مطلوب</h2>
           <p className="text-xs text-slate-500 leading-relaxed">
-            للوصول إلى ملفاتك ومتابعاتك الآمنة، يرجى تسجيل الدخول أو اختيار أحد الأدوار التجريبية.
+             للوصول إلى ملفاتك ومتابعاتك الآمنة، يرجى تسجيل الدخول بحسابك المعتمد.
           </p>
           <button
             onClick={() => handleOpenAuth('login')}

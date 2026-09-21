@@ -39,6 +39,17 @@ export const AdminPortal: React.FC = () => {
   const [settings, setSettings] = useState<any>({});
   const [searchQuery, setSearchQuery] = useState('');
   const [filterPriority, setFilterPriority] = useState<string>('all');
+  const [newAccount, setNewAccount] = useState({
+    first_name: '',
+    last_name: '',
+    email: '',
+    phone: '',
+    password: '',
+    role_slug: 'psychologist',
+    specialty: '',
+    license_number: '',
+  });
+  const [createAccountMsg, setCreateAccountMsg] = useState<string | null>(null);
 
   // Assignment Modal
   const [selectedCaseToAssign, setSelectedCaseToAssign] = useState<any>(null);
@@ -135,13 +146,35 @@ export const AdminPortal: React.FC = () => {
     }
   };
 
-  const handleToggleUserStatus = async (userId: number, currentStatus: number) => {
+  const handleToggleUserStatus = async (userId: number, currentStatus: string) => {
     try {
-      const newStatus = currentStatus === 1 ? 0 : 1;
-      await api.updateUserStatus(userId, { is_active: newStatus });
+      const newStatus = currentStatus === 'active' ? 'suspended' : 'active';
+      await api.updateUserStatus(userId, { status: newStatus });
       fetchUsers();
     } catch (err) {
       console.error(err);
+    }
+  };
+
+  const handleCreateAccount = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setCreateAccountMsg(null);
+    try {
+      await api.createAdminUser(newAccount);
+      setCreateAccountMsg('تم إنشاء الحساب بنجاح. الحسابات المهنية تنتظر الاعتماد قبل الدخول.');
+      setNewAccount({
+        first_name: '',
+        last_name: '',
+        email: '',
+        phone: '',
+        password: '',
+        role_slug: 'psychologist',
+        specialty: '',
+        license_number: '',
+      });
+      fetchUsers();
+    } catch (err: any) {
+      setCreateAccountMsg(err.message || 'تعذر إنشاء الحساب');
     }
   };
 
@@ -626,7 +659,33 @@ export const AdminPortal: React.FC = () => {
             {/* TAB 3: USERS & STAFF MANAGEMENT */}
             {activeTab === 'users' && (
               <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs p-5 space-y-4">
-                <h3 className="text-sm font-bold text-slate-900">إدارة حسابات الكوادر والشركاء والمستفيدين ({usersList.length})</h3>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <h3 className="text-sm font-bold text-slate-900">إدارة الحسابات ({usersList.length})</h3>
+                  <span className="text-[11px] text-slate-500">إنشاء حسابات المختصين والشركاء يتم من الإدارة فقط</span>
+                </div>
+                <form onSubmit={handleCreateAccount} className="grid grid-cols-1 md:grid-cols-4 gap-2 p-3 rounded-2xl bg-blue-50/60 border border-blue-100">
+                  <input required value={newAccount.first_name} onChange={e => setNewAccount({ ...newAccount, first_name: e.target.value })} placeholder="الاسم الأول" className="p-2 rounded-lg border border-slate-200 text-xs" />
+                  <input required value={newAccount.last_name} onChange={e => setNewAccount({ ...newAccount, last_name: e.target.value })} placeholder="اسم العائلة" className="p-2 rounded-lg border border-slate-200 text-xs" />
+                  <input required type="email" value={newAccount.email} onChange={e => setNewAccount({ ...newAccount, email: e.target.value })} placeholder="البريد الإلكتروني" dir="ltr" className="p-2 rounded-lg border border-slate-200 text-xs" />
+                  <input required value={newAccount.phone} onChange={e => setNewAccount({ ...newAccount, phone: e.target.value })} placeholder="الهاتف" dir="ltr" className="p-2 rounded-lg border border-slate-200 text-xs" />
+                  <input required type="password" minLength={8} value={newAccount.password} onChange={e => setNewAccount({ ...newAccount, password: e.target.value })} placeholder="كلمة المرور (8+)" dir="ltr" className="p-2 rounded-lg border border-slate-200 text-xs" />
+                  <select value={newAccount.role_slug} onChange={e => setNewAccount({ ...newAccount, role_slug: e.target.value })} className="p-2 rounded-lg border border-slate-200 text-xs font-bold">
+                    <option value="psychologist">أخصائي نفسي</option>
+                    <option value="lawyer">محام ومستشار</option>
+                    <option value="treatment_center">مركز علاج</option>
+                    <option value="association">جمعية</option>
+                    <option value="family">أسرة</option>
+                    <option value="patient">مستفيد</option>
+                  </select>
+                  <input value={newAccount.specialty} onChange={e => setNewAccount({ ...newAccount, specialty: e.target.value })} placeholder="التخصص / الخدمة" className="p-2 rounded-lg border border-slate-200 text-xs" />
+                  <input value={newAccount.license_number} onChange={e => setNewAccount({ ...newAccount, license_number: e.target.value })} placeholder="رقم الترخيص (للمهني)" className="p-2 rounded-lg border border-slate-200 text-xs" />
+                  <div className="md:col-span-4 flex items-center justify-between gap-2">
+                    <span className="text-[11px] text-slate-600">{createAccountMsg || 'سيتم تسجيل العملية في سجل التدقيق.'}</span>
+                    <button type="submit" className="px-4 py-2 rounded-lg bg-[#1565C0] text-white text-xs font-bold hover:bg-blue-700">
+                      إنشاء الحساب
+                    </button>
+                  </div>
+                </form>
                 <div className="overflow-x-auto">
                   <table className="w-full text-right text-xs">
                     <thead className="bg-slate-50 text-slate-500 font-bold border-y border-slate-100">
@@ -646,21 +705,21 @@ export const AdminPortal: React.FC = () => {
                           <td className="p-3 text-slate-600 font-sans">{u.email}</td>
                           <td className="p-3">
                             <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-100 text-blue-800">
-                              {u.role_name}
+                              {u.role_name || u.role_slug}
                             </span>
                           </td>
                           <td className="p-3 text-slate-600">{u.wilaya_name || 'الجزائر'}</td>
                           <td className="p-3">
-                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${u.is_active ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800'}`}>
-                              {u.is_active ? 'نشط ومعتمد' : 'معطل'}
+                              <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${u.status === 'active' ? 'bg-emerald-100 text-emerald-800' : u.status === 'pending_approval' ? 'bg-amber-100 text-amber-800' : 'bg-red-100 text-red-800'}`}>
+                              {u.status === 'active' ? 'نشط ومعتمد' : u.status === 'pending_approval' ? 'بانتظار الاعتماد' : 'معطل'}
                             </span>
                           </td>
                           <td className="p-3">
                             <button
-                              onClick={() => handleToggleUserStatus(u.id, u.is_active)}
-                              className={`px-3 py-1 rounded-lg text-[10px] font-bold ${u.is_active ? 'bg-red-50 text-red-700 hover:bg-red-100' : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'}`}
+                              onClick={() => handleToggleUserStatus(u.id, u.status)}
+                              className={`px-3 py-1 rounded-lg text-[10px] font-bold ${u.status === 'active' ? 'bg-red-50 text-red-700 hover:bg-red-100' : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'}`}
                             >
-                              {u.is_active ? 'تعطيل الحساب' : 'تفعيل واعتماد'}
+                              {u.status === 'active' ? 'تعطيل الحساب' : 'تفعيل الحساب'}
                             </button>
                           </td>
                         </tr>

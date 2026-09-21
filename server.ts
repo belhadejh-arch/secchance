@@ -16,10 +16,29 @@ import publicRoutes from './server/routes/publicRoutes';
 async function startServer() {
   // Initialize Database Schema & Seeders
   await getDb();
-  console.log('✅ SQLite Database initialized and seeded successfully.');
+  console.log('✅ PostgreSQL database initialized and seeded successfully.');
 
   const app = express();
-  const PORT = 3000;
+  const PORT = Number(process.env.PORT || 3000);
+  const allowedOrigins = (process.env.FRONTEND_URL || '')
+    .split(',')
+    .map(origin => origin.trim())
+    .filter(Boolean);
+
+  app.use((req, res, next) => {
+    const requestOrigin = req.headers.origin;
+    if (requestOrigin && (allowedOrigins.length === 0 || allowedOrigins.includes(requestOrigin))) {
+      res.setHeader('Access-Control-Allow-Origin', requestOrigin);
+      res.setHeader('Vary', 'Origin');
+    }
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
+    if (req.method === 'OPTIONS') {
+      res.sendStatus(204);
+      return;
+    }
+    next();
+  });
 
   // Body parsers
   app.use(express.json({ limit: '15mb' }));

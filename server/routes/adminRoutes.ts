@@ -1,5 +1,6 @@
 import { Router, Response } from 'express';
 import { query, queryOne, execute } from '../db';
+import { hashPassword } from '../auth';
 import { authenticateToken, AuthenticatedRequest, requireRole, createAuditLog, createNotification } from '../middleware';
 
 const router = Router();
@@ -10,9 +11,11 @@ router.get('/users', authenticateToken, requireRole('admin'), (req: Authenticate
   let sql = `
     SELECT u.id, u.first_name, u.last_name, u.email, u.phone, u.role_slug, u.status, u.is_verified, u.last_login_at, u.created_at,
            w.name_ar as wilaya_name,
+           r.name as role_name,
            sp.specialty, sp.license_number, sp.verification_status as specialist_approval
     FROM users u
     LEFT JOIN wilayas w ON u.wilaya_id = w.id
+    LEFT JOIN roles r ON u.role_id = r.id
     LEFT JOIN specialist_profiles sp ON u.id = sp.user_id
     WHERE 1=1
   `;
@@ -39,6 +42,97 @@ router.get('/users', authenticateToken, requireRole('admin'), (req: Authenticate
     success: true,
     message: 'قائمة المستخدمين',
     data: users
+  });
+});
+
+// Create a professional, partner, family, or patient account from the admin panel.
+router.post('/users', authenticateToken, requireRole('admin'), (req: AuthenticatedRequest, res: Response) => {
+  const adminId = req.user!.id;
+  const {
+    first_name,
+    last_name,
+    email,
+    phone,
+    password,
+    role_slug,
+    wilaya_id,
+    specialty,
+    license_number,
+    center_name,
+    association_name,
+    services,
+  } = req.body;
+
+  const allowedRoles = ['psychologist', 'lawyer', 'treatment_center', 'association', 'family', 'patient'];
+  const errors: Record<string, string> = {};
+  if (!first_name || String(first_name).trim().length < 2) errors.first_name = 'الاسم الأول مطلوب';
+  if (!last_name || String(last_name).trim().length < 2) errors.last_name = 'اسم العائلة مطلوب';
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email))) errors.email = 'البريد الإلكتروني غير صالح';
+  if (!phone || String(phone).trim().length < 9) errors.phone = 'رقم الهاتف مطلوب';
+  if (!password || String(password).length < 8) errors.password = 'كلمة المرور يجب أن تكون 8 أحرف على الأقل';
+  if (!allowedRoles.includes(role_slug)) errors.role_slug = 'نوع الحساب غير مسموح';
+
+  if (Object.keys(errors).length > 0) {
+    res.status(422).json({ success: false, message: 'يرجى تصحيح بيانات الحساب', errors });
+    return;
+  }
+
+  const normalizedEmail = String(email).toLowerCase().trim();
+  if (queryOne('SELECT id FROM users WHERE email = ?', [normalizedEmail])) {
+    res.status(409).json({ success: false, message: 'البريد الإلكتروني مسجل مسبقاً', errors: { email: 'Email already exists' } });
+    return;
+  }
+
+  const role = queryOne<{ id: number; name: string }>('SELECT id, name FROM roles WHERE slug = ?', [role_slug]);
+  if (!role) {
+    res.status(422).json({ success: false, message: 'الدور المطلوب غير موجود' });
+    return;
+  }
+
+  const isProfessional = ['psychologist', 'lawyer', 'treatment_center', 'association'].includes(role_slug);
+  const status = isProfessional ? 'pending_approval' : 'active';
+  const { lastInsertRowId: userId } = execute(`
+    INSERT INTO users (first_name, last_name, email, phone, password, role_id, role_slug, wilaya_id, is_verified, status)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?)
+  `, [
+    String(first_name).trim(),
+    String(last_name).trim(),
+    normalizedEmail,
+    String(phone).trim(),
+    hashPassword(String(password)),
+    role.id,
+    role_slug,
+    wilaya_id || 1,
+    status,
+  ]);
+
+  if (role_slug === 'psychologist' || role_slug === 'lawyer') {
+    execute(`
+      INSERT INTO specialist_profiles (user_id, specialty, license_number, years_of_experience, bio, verification_status)
+      VALUES (?, ?, ?, 1, ?, 'pending')
+    `, [
+      userId,
+      specialty || (role_slug === 'psychologist' ? 'استشارات نفسية' : 'استشارات قانونية'),
+      license_number || 'DZ-PENDING',
+      'تم إنشاء الحساب من طرف الإدارة، بانتظار استكمال التحقق المهني.',
+    ]);
+  } else if (role_slug === 'treatment_center') {
+    execute(`
+      INSERT INTO centers (user_id, name, wilaya_id, phone, services, verification_status)
+      VALUES (?, ?, ?, ?, ?, 'pending')
+    `, [userId, center_name || `${first_name} ${last_name}`, wilaya_id || 1, phone, services || 'علاج وتأهيل الإدمان']);
+  } else if (role_slug === 'association') {
+    execute(`
+      INSERT INTO associations (user_id, name, wilaya_id, phone, services, verification_status)
+      VALUES (?, ?, ?, ?, ?, 'pending')
+    `, [userId, association_name || `${first_name} ${last_name}`, wilaya_id || 1, phone, services || 'دعم اجتماعي ومرافقة']);
+  }
+
+  createAuditLog(adminId, 'CREATE_USER', 'users', userId, `إنشاء حساب ${role_slug} من لوحة الإدارة`, req.ip);
+  res.status(201).json({
+    success: true,
+    message: isProfessional ? 'تم إنشاء الحساب وهو بانتظار الاعتماد المهني' : 'تم إنشاء الحساب وتفعيله',
+    data: { id: userId, email: normalizedEmail, role_slug, status },
   });
 });
 

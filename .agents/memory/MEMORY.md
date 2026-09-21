@@ -1,0 +1,1 @@
+- [PostgreSQL import runtime](postgres-import-runtime.md) — synchronous imported routes cannot block on pg Promises; migrate to async handlers before replacing the worker bridge.

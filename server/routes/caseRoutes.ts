@@ -397,7 +397,7 @@ router.post('/:id/assign', authenticateToken, (req: AuthenticatedRequest, res: R
 
   // Update specific column in case_files
   if (role_type === 'psychologist') {
-    execute('UPDATE case_files SET assigned_psychologist_id = ?, status = CASE WHEN status = "NEW" THEN "ASSIGNED" ELSE status END WHERE id = ?', [specialist_id, caseId]);
+    execute("UPDATE case_files SET assigned_psychologist_id = ?, status = CASE WHEN status = 'NEW' THEN 'ASSIGNED' ELSE status END WHERE id = ?", [specialist_id, caseId]);
   } else if (role_type === 'lawyer') {
     execute('UPDATE case_files SET assigned_lawyer_id = ? WHERE id = ?', [specialist_id, caseId]);
   } else if (role_type === 'treatment_center') {

@@ -127,7 +127,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onBack, onNavigateTo, 
           onClick={() => onOpenAuth('login')}
           className="w-full py-3 bg-[#1565C0] hover:bg-blue-700 text-white font-bold rounded-2xl text-xs sm:text-sm transition-colors flex items-center justify-center gap-2 shadow-xs cursor-pointer"
         >
-          <span>تسجيل الدخول / تبديل الحساب</span>
+          <span>تسجيل الدخول إلى الحساب</span>
         </button>
       )}
     </div>

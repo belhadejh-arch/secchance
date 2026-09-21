@@ -39,11 +39,10 @@ const ROLES_INFO: Record<RoleSlug, { title: string; color: string }> = {
 };
 
 export const Navbar: React.FC<NavbarProps> = ({ onOpenAuth, onOpenAiTriage, currentView, onNavigate }) => {
-  const { user, logout, switchRole } = useAuth();
+  const { user, logout } = useAuth();
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [unreadCount, setUnreadCount] = useState<number>(0);
   const [showNotifications, setShowNotifications] = useState<boolean>(false);
-  const [showRoleMenu, setShowRoleMenu] = useState<boolean>(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState<boolean>(false);
 
   const fetchNotifications = async () => {
@@ -71,12 +70,6 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenAuth, onOpenAiTriage, curr
     } catch (err) {
       console.error(err);
     }
-  };
-
-  const handleSwitchRole = async (r: RoleSlug) => {
-    setShowRoleMenu(false);
-    await switchRole(r);
-    onNavigate('portal');
   };
 
   return (
@@ -197,11 +190,11 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenAuth, onOpenAiTriage, curr
               </div>
             )}
 
-            {/* User Profile / Quick Switcher */}
+            {/* User Profile */}
             {user ? (
               <div className="relative">
                 <button
-                  onClick={() => setShowRoleMenu(!showRoleMenu)}
+                  onClick={() => onNavigate('profile')}
                   className="flex items-center gap-2 bg-slate-50 hover:bg-slate-100 text-slate-800 px-3 py-1.5 rounded-xl border border-slate-200 transition-all cursor-pointer"
                 >
                   <div className="w-7 h-7 rounded-lg bg-blue-600 text-white flex items-center justify-center font-bold text-xs">
@@ -213,39 +206,6 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenAuth, onOpenAiTriage, curr
                   </div>
                   <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
                 </button>
-
-                {showRoleMenu && (
-                  <div className="absolute left-0 mt-2 w-64 bg-white rounded-2xl shadow-xl border border-slate-200 py-2 z-50 text-right animate-in fade-in zoom-in-95">
-                    <div className="px-4 py-2 border-b border-slate-100 text-xs font-bold text-slate-400">
-                      تبديل الحساب / الصلاحية:
-                    </div>
-                    <div className="max-h-60 overflow-y-auto py-1">
-                      {(Object.keys(ROLES_INFO) as RoleSlug[]).map((r) => (
-                        <button
-                          key={r}
-                          onClick={() => handleSwitchRole(r)}
-                          className={`w-full px-4 py-2 text-xs flex items-center justify-between hover:bg-slate-50 transition-colors ${user.role_slug === r ? 'bg-blue-50 font-bold text-[#1565C0]' : 'text-slate-700'}`}
-                        >
-                          <span className="flex items-center gap-2">
-                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold border ${ROLES_INFO[r].color}`}>
-                              {ROLES_INFO[r].title}
-                            </span>
-                          </span>
-                          {user.role_slug === r && <CheckCircle2 className="w-4 h-4 text-[#1565C0]" />}
-                        </button>
-                      ))}
-                    </div>
-                    <div className="border-t border-slate-100 pt-1 mt-1">
-                      <button
-                        onClick={logout}
-                        className="w-full px-4 py-2 text-xs text-red-600 hover:bg-red-50 font-bold flex items-center gap-2 transition-colors"
-                      >
-                        <LogOut className="w-3.5 h-3.5" />
-                        <span>تسجيل الخروج</span>
-                      </button>
-                    </div>
-                  </div>
-                )}
               </div>
             ) : (
               <div className="flex items-center gap-2">

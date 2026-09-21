@@ -3,12 +3,12 @@
 ## الحالة الحالية: قيد الإنشاء والربط الفعلي الكامل (In Active Implementation)
 - **اسم المنصة**: Second Chance Platform (SCP) — منصة الفرصة الثانية
 - **التاريخ**: سبتمبر 2026
-- **المعمارية**: Full-Stack Architecture (Node.js + Express REST API Backend + SQLite Database + React TypeScript Tailwind Frontend)
+- **المعمارية**: Full-Stack Architecture (Node.js + Express REST API Backend + PostgreSQL Database + React TypeScript Tailwind Frontend)
 - **البنية الأساسية المنجزة**:
   - [x] إعداد هوية المنصة (الألوان الرسمية: أزرق أمني `#1565C0`، أخضر تعافي `#2E7D32`، أصفر تحذيري `#F9A825`، أحمر خطر `#D32F2F`، خلفية `#F8FAFC`).
   - [x] دعم اللغة العربية أولاً بواجهة كاملة من اليمين إلى اليسار (RTL) وخط Cairo المعتمد.
-  - [x] تثبيت حزم التشفير والتوثيق JWT والأمان (`jsonwebtoken`, `bcryptjs`, `uuid`, `sql.js`).
-  - [ ] بناء قاعدة البيانات الكاملة SQLite بمخطط الجداول المعتمد والعلاقات والفهارس.
+  - [x] تثبيت حزم التشفير والتوثيق JWT والأمان (`jsonwebtoken`, `bcryptjs`, `uuid`, `pg`).
+  - [x] بناء مخطط قاعدة البيانات PostgreSQL مع تهيئة آمنة وحساب أدمن أساسي دون بيانات تجريبية.
   - [ ] تنفيذ REST API v1 مع كافة المسارات ونظام الصلاحيات الموحد (RBAC & Policies).
   - [ ] تنفيذ بوابة دورة حياة الحالة والتحقق من الأولويات والاستجابة المستهدفة.
   - [ ] تنفيذ لوحات التحكم المتخصصة (الأسرة، المستفيد، الأخصائي النفسي، المحامي، مركز العلاج، الجمعية، الإدارة العامة).

@@ -9,23 +9,10 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<void>;
   register: (data: any) => Promise<string>;
   logout: () => void;
-  switchRole: (role: RoleSlug) => Promise<void>;
   refreshMe: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
-
-// Preset accounts for seamless evaluation
-const ROLE_CREDENTIALS: Record<RoleSlug, { email: string; pass: string }> = {
-  admin: { email: 'admin@scp.dz', pass: 'password123' },
-  psychologist: { email: 'psychologist@scp.dz', pass: 'password123' },
-  lawyer: { email: 'lawyer@scp.dz', pass: 'password123' },
-  treatment_center: { email: 'center@scp.dz', pass: 'password123' },
-  association: { email: 'association@scp.dz', pass: 'password123' },
-  family: { email: 'family@scp.dz', pass: 'password123' },
-  patient: { email: 'patient@scp.dz', pass: 'password123' },
-  guest: { email: '', pass: '' }
-};
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
@@ -106,19 +93,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setUser(null);
   };
 
-  const switchRole = async (role: RoleSlug) => {
-    if (role === 'guest') {
-      logout();
-      return;
-    }
-    const creds = ROLE_CREDENTIALS[role];
-    if (creds && creds.email) {
-      await login(creds.email, creds.pass);
-    }
-  };
-
   return (
-    <AuthContext.Provider value={{ user, token, isLoading, login, register, logout, switchRole, refreshMe }}>
+    <AuthContext.Provider value={{ user, token, isLoading, login, register, logout, refreshMe }}>
       {children}
     </AuthContext.Provider>
   );

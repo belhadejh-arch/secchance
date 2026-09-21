@@ -1,4 +1,5 @@
-const API_BASE = '/api/v1';
+const configuredApiUrl = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
+const API_BASE = `${configuredApiUrl}/api/v1`;
 
 export class ApiError extends Error {
   errors?: Record<string, string>;
@@ -114,6 +115,7 @@ export const api = {
     const q = params ? '?' + new URLSearchParams(params).toString() : '';
     return apiRequest(`/admin/users${q}`);
   },
+  createAdminUser: (data: any) => apiRequest('/admin/users', { method: 'POST', body: JSON.stringify(data) }),
   updateUserStatus: (id: number, data: any) => apiRequest(`/admin/users/${id}/status`, { method: 'PUT', body: JSON.stringify(data) }),
   getAuditLogs: () => apiRequest('/admin/audit-logs'),
   getSystemSettings: () => apiRequest('/admin/settings'),

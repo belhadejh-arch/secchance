@@ -17,7 +17,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   defaultTab = 'login',
   defaultRole = 'family'
 }) => {
-  const { login, register, switchRole } = useAuth();
+  const { login, register } = useAuth();
   const [tab, setTab] = useState<'login' | 'register'>(defaultTab);
   const [wilayas, setWilayas] = useState<Wilaya[]>([]);
 
@@ -184,40 +184,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               {loading ? 'جاري التحقق...' : 'دخول إلى حسابي'}
             </button>
 
-            {/* Quick Demo Presets */}
-            <div className="pt-4 border-t border-slate-100 space-y-2">
-              <div className="text-[11px] font-bold text-slate-400">حسابات تجريبية سريعة بنقرة واحدة (1-Click Presets):</div>
-              <div className="grid grid-cols-2 gap-2 text-[11px]">
-                <button
-                  type="button"
-                  onClick={() => { switchRole('admin'); onClose(); }}
-                  className="p-1.5 rounded-lg border border-purple-200 bg-purple-50 text-purple-800 font-bold hover:bg-purple-100 text-right"
-                >
-                  ⚡ مدير النظام
-                </button>
-                <button
-                  type="button"
-                  onClick={() => { switchRole('psychologist'); onClose(); }}
-                  className="p-1.5 rounded-lg border border-blue-200 bg-blue-50 text-blue-800 font-bold hover:bg-blue-100 text-right"
-                >
-                  ⚡ أخصائية نفسية
-                </button>
-                <button
-                  type="button"
-                  onClick={() => { switchRole('lawyer'); onClose(); }}
-                  className="p-1.5 rounded-lg border border-amber-200 bg-amber-50 text-amber-800 font-bold hover:bg-amber-100 text-right"
-                >
-                  ⚡ محامٍ ومستشار
-                </button>
-                <button
-                  type="button"
-                  onClick={() => { switchRole('family'); onClose(); }}
-                  className="p-1.5 rounded-lg border border-indigo-200 bg-indigo-50 text-indigo-800 font-bold hover:bg-indigo-100 text-right"
-                >
-                  ⚡ ولي أمر / أسرة
-                </button>
-              </div>
-            </div>
           </form>
         ) : (
           /* Register Form */
