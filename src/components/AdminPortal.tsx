@@ -11,12 +11,24 @@ import {
   AlertCircle, 
   UserCheck, 
   UserX,
-  Building,
+  Building2,
   Scale,
-  Heart
+  Heart,
+  Search,
+  Plus,
+  ArrowUpRight,
+  MoreVertical,
+  Calendar,
+  Share2,
+  Clock,
+  LogOut,
+  BedDouble,
+  UserPlus
 } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 
 export const AdminPortal: React.FC = () => {
+  const { user, logout } = useAuth();
   const [activeTab, setActiveTab] = useState<'kpis' | 'cases' | 'users' | 'audit' | 'settings'>('kpis');
   const [kpis, setKpis] = useState<any>(null);
   const [cases, setCases] = useState<any[]>([]);
@@ -25,6 +37,8 @@ export const AdminPortal: React.FC = () => {
   const [specialists, setSpecialists] = useState<any[]>([]);
   const [centers, setCenters] = useState<any[]>([]);
   const [settings, setSettings] = useState<any>({});
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterPriority, setFilterPriority] = useState<string>('all');
 
   // Assignment Modal
   const [selectedCaseToAssign, setSelectedCaseToAssign] = useState<any>(null);
@@ -114,6 +128,7 @@ export const AdminPortal: React.FC = () => {
         setSelectedCaseToAssign(null);
         setAssignMsg(null);
         fetchCases();
+        fetchKpis();
       }, 1200);
     } catch (err: any) {
       setAssignMsg(err.message || 'فشل إسناد الفريق');
@@ -140,353 +155,740 @@ export const AdminPortal: React.FC = () => {
     }
   };
 
-  return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
-      {/* Header */}
-      <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-xs flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2 text-purple-700 font-bold text-xs">
-            <Shield className="w-4 h-4" />
-            <span>لوحة القيادة المركزية والإشراف العام — مدير النظام</span>
-          </div>
-          <h1 className="text-2xl font-black text-slate-900 mt-1">غرفة العمليات وإدارة المنظومة</h1>
-        </div>
+  const filteredCases = cases.filter(c => {
+    const matchesSearch = 
+      (c.number_case && c.number_case.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      (c.creator_first_name && c.creator_first_name.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      (c.creator_last_name && c.creator_last_name.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      (c.addiction_type_name && c.addiction_type_name.toLowerCase().includes(searchQuery.toLowerCase()));
+    
+    const matchesPriority = filterPriority === 'all' || c.priority === filterPriority;
+    return matchesSearch && matchesPriority;
+  });
 
-        {/* Tab switcher */}
-        <div className="flex flex-wrap gap-1 bg-slate-100 p-1 rounded-xl text-xs font-bold">
-          <button
-            onClick={() => setActiveTab('kpis')}
-            className={`px-3.5 py-2 rounded-lg transition-all ${activeTab === 'kpis' ? 'bg-white text-purple-800 shadow-xs' : 'text-slate-600'}`}
-          >
-            المؤشرات (KPIs)
-          </button>
-          <button
-            onClick={() => setActiveTab('cases')}
-            className={`px-3.5 py-2 rounded-lg transition-all ${activeTab === 'cases' ? 'bg-white text-purple-800 shadow-xs' : 'text-slate-600'}`}
-          >
-            فرز وإسناد الحالات ({cases.length})
-          </button>
-          <button
-            onClick={() => setActiveTab('users')}
-            className={`px-3.5 py-2 rounded-lg transition-all ${activeTab === 'users' ? 'bg-white text-purple-800 shadow-xs' : 'text-slate-600'}`}
-          >
-            إدارة المستخدمين ({usersList.length})
-          </button>
-          <button
-            onClick={() => setActiveTab('audit')}
-            className={`px-3.5 py-2 rounded-lg transition-all ${activeTab === 'audit' ? 'bg-white text-purple-800 shadow-xs' : 'text-slate-600'}`}
-          >
-            سجل الرقابة والأمان
-          </button>
-          <button
-            onClick={() => setActiveTab('settings')}
-            className={`px-3.5 py-2 rounded-lg transition-all ${activeTab === 'settings' ? 'bg-white text-purple-800 shadow-xs' : 'text-slate-600'}`}
-          >
-            إعدادات النظام
-          </button>
+  return (
+    <div className="max-w-[1400px] mx-auto px-2 sm:px-4 lg:px-6 py-6 font-sans">
+      {/* Outer Dashboard Frame inspired by Image 1 */}
+      <div className="bg-[#f0f4f8] rounded-3xl p-3 sm:p-5 border border-slate-200/80 shadow-md">
+        <div className="flex flex-col lg:flex-row gap-5 items-stretch min-h-[750px]">
+          
+          {/* 1. Deep Navy Sidebar (inspired by Image 1 Left Nav) */}
+          <aside className="w-full lg:w-64 bg-[#091E3A] rounded-2xl p-5 text-white flex flex-col justify-between shadow-lg shrink-0">
+            <div className="space-y-6">
+              {/* Admin Profile Widget */}
+              <div className="flex items-center gap-3 pb-5 border-b border-blue-900/50">
+                <div className="w-12 h-12 rounded-full ring-2 ring-white/20 bg-blue-600 flex items-center justify-center font-bold text-base shadow-sm shrink-0">
+                  {user?.first_name?.[0] || 'أ'}
+                </div>
+                <div className="overflow-hidden">
+                  <div className="font-bold text-sm text-white truncate">
+                    {user ? `${user.first_name} ${user.last_name}` : 'مدير المنظومة'}
+                  </div>
+                  <div className="text-[11px] text-cyan-300 font-medium flex items-center gap-1">
+                    <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
+                    <span>لوحة القيادة المركزية</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Navigation Items */}
+              <nav className="space-y-1.5 text-xs font-semibold">
+                <button
+                  onClick={() => setActiveTab('kpis')}
+                  className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition-all text-right ${
+                    activeTab === 'kpis'
+                      ? 'bg-blue-600 text-white shadow-sm font-bold'
+                      : 'text-slate-300 hover:text-white hover:bg-white/10'
+                  }`}
+                >
+                  <Activity className="w-4 h-4 text-cyan-300" />
+                  <span>نظرة عامة والتحليلات</span>
+                </button>
+
+                <button
+                  onClick={() => setActiveTab('cases')}
+                  className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl transition-all text-right ${
+                    activeTab === 'cases'
+                      ? 'bg-blue-600 text-white shadow-sm font-bold'
+                      : 'text-slate-300 hover:text-white hover:bg-white/10'
+                  }`}
+                >
+                  <span className="flex items-center gap-3">
+                    <FileText className="w-4 h-4 text-cyan-300" />
+                    <span>ملفات الحالات</span>
+                  </span>
+                  <span className="bg-white/20 px-2 py-0.5 rounded-full text-[10px] font-mono">
+                    {cases.length}
+                  </span>
+                </button>
+
+                <button
+                  onClick={() => setActiveTab('users')}
+                  className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl transition-all text-right ${
+                    activeTab === 'users'
+                      ? 'bg-blue-600 text-white shadow-sm font-bold'
+                      : 'text-slate-300 hover:text-white hover:bg-white/10'
+                  }`}
+                >
+                  <span className="flex items-center gap-3">
+                    <Users className="w-4 h-4 text-cyan-300" />
+                    <span>الكوادر والمستخدمين</span>
+                  </span>
+                  <span className="bg-white/20 px-2 py-0.5 rounded-full text-[10px] font-mono">
+                    {usersList.length}
+                  </span>
+                </button>
+
+                <button
+                  onClick={() => setActiveTab('audit')}
+                  className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition-all text-right ${
+                    activeTab === 'audit'
+                      ? 'bg-blue-600 text-white shadow-sm font-bold'
+                      : 'text-slate-300 hover:text-white hover:bg-white/10'
+                  }`}
+                >
+                  <History className="w-4 h-4 text-cyan-300" />
+                  <span>سجل التدقيق والأمان</span>
+                </button>
+
+                <button
+                  onClick={() => setActiveTab('settings')}
+                  className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition-all text-right ${
+                    activeTab === 'settings'
+                      ? 'bg-blue-600 text-white shadow-sm font-bold'
+                      : 'text-slate-300 hover:text-white hover:bg-white/10'
+                  }`}
+                >
+                  <Settings className="w-4 h-4 text-cyan-300" />
+                  <span>إعدادات النظام</span>
+                </button>
+              </nav>
+            </div>
+
+            {/* Bottom Actions */}
+            <div className="pt-6 border-t border-blue-900/50 space-y-2 text-xs">
+              <div className="px-3 py-2 bg-blue-950/60 rounded-xl text-slate-300 text-[11px] leading-relaxed">
+                <span className="font-bold text-white block mb-0.5">منظومة SCP المشفرة</span>
+                <span>حماية متقدمة للبيانات والسر المهني الطبي.</span>
+              </div>
+              <button
+                onClick={logout}
+                className="w-full flex items-center gap-2 px-3 py-2 text-red-300 hover:text-red-100 hover:bg-red-900/30 rounded-xl transition-colors font-bold"
+              >
+                <LogOut className="w-4 h-4" />
+                <span>تسجيل الخروج</span>
+              </button>
+            </div>
+          </aside>
+
+          {/* 2. Main Content Center Stage (Image 1 layout) */}
+          <main className="flex-1 flex flex-col gap-5 min-w-0">
+            {/* Top Search & Actions Bar (Pill shaped search as in Image 1) */}
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="relative flex-1 max-w-md">
+                <Search className="w-4 h-4 text-slate-400 absolute right-3.5 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="البحث برقم الملف، اسم المستفيد، نوع الإدمان..."
+                  className="w-full bg-white rounded-full pr-10 pl-4 py-2.5 text-xs text-slate-800 placeholder-slate-400 border border-slate-200/80 shadow-xs focus:ring-2 focus:ring-[#1565C0] outline-none transition-all"
+                />
+              </div>
+
+              {/* Priority Filters */}
+              <div className="flex items-center gap-1.5 bg-white p-1 rounded-full border border-slate-200/80 shadow-xs text-xs font-semibold">
+                <button
+                  onClick={() => setFilterPriority('all')}
+                  className={`px-3 py-1.5 rounded-full transition-all ${
+                    filterPriority === 'all' ? 'bg-[#091E3A] text-white shadow-xs font-bold' : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  الكل
+                </button>
+                <button
+                  onClick={() => setFilterPriority('Critical')}
+                  className={`px-3 py-1.5 rounded-full transition-all ${
+                    filterPriority === 'Critical' ? 'bg-red-600 text-white shadow-xs font-bold' : 'text-slate-600 hover:text-red-600'
+                  }`}
+                >
+                  حرجة جداً
+                </button>
+                <button
+                  onClick={() => setFilterPriority('High')}
+                  className={`px-3 py-1.5 rounded-full transition-all ${
+                    filterPriority === 'High' ? 'bg-amber-600 text-white shadow-xs font-bold' : 'text-slate-600 hover:text-amber-600'
+                  }`}
+                >
+                  عالية
+                </button>
+                <button
+                  onClick={() => setFilterPriority('Medium')}
+                  className={`px-3 py-1.5 rounded-full transition-all ${
+                    filterPriority === 'Medium' ? 'bg-blue-600 text-white shadow-xs font-bold' : 'text-slate-600 hover:text-blue-600'
+                  }`}
+                >
+                  متوسطة
+                </button>
+              </div>
+            </div>
+
+            {/* TAB 1: OVERVIEW & KPIS (The Image 1 Style Experience) */}
+            {activeTab === 'kpis' && (
+              <div className="space-y-5">
+                {/* Categories Row: 4 Bold Vibrant Cards directly inspired by Image 1 Categories */}
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
+                  {/* Category 1: Case Files (Solid Royal Blue) */}
+                  <div className="bg-[#1565C0] text-white p-4 sm:p-5 rounded-2xl shadow-sm relative overflow-hidden flex flex-col justify-between h-32 hover:scale-[1.01] transition-transform">
+                    <div className="flex items-center justify-between">
+                      <div className="w-9 h-9 rounded-xl bg-white/20 flex items-center justify-center">
+                        <FileText className="w-5 h-5 text-white" />
+                      </div>
+                      <span className="text-[11px] bg-white/20 px-2 py-0.5 rounded-full font-bold">
+                        نشطة
+                      </span>
+                    </div>
+                    <div>
+                      <div className="font-bold text-xs sm:text-sm text-white/90">ملفات الحالات الإجمالية</div>
+                      <div className="text-xl sm:text-2xl font-black tracking-tight font-sans">
+                        {kpis?.cases?.total_cases || cases.length || 0} حالة
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Category 2: Psychological Support (Solid Teal/Green) */}
+                  <div className="bg-[#00897B] text-white p-4 sm:p-5 rounded-2xl shadow-sm relative overflow-hidden flex flex-col justify-between h-32 hover:scale-[1.01] transition-transform">
+                    <div className="flex items-center justify-between">
+                      <div className="w-9 h-9 rounded-xl bg-white/20 flex items-center justify-center">
+                        <Heart className="w-5 h-5 text-white" />
+                      </div>
+                      <span className="text-[11px] bg-white/20 px-2 py-0.5 rounded-full font-bold">
+                        عيادي
+                      </span>
+                    </div>
+                    <div>
+                      <div className="font-bold text-xs sm:text-sm text-white/90">جلسات الدعم النفسي</div>
+                      <div className="text-xl sm:text-2xl font-black tracking-tight font-sans">
+                        {kpis?.cases?.active_cases ? kpis.cases.active_cases * 4 : 48} جلسة
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Category 3: Legal Consultations (Solid Pink/Crimson) */}
+                  <div className="bg-[#E91E63] text-white p-4 sm:p-5 rounded-2xl shadow-sm relative overflow-hidden flex flex-col justify-between h-32 hover:scale-[1.01] transition-transform">
+                    <div className="flex items-center justify-between">
+                      <div className="w-9 h-9 rounded-xl bg-white/20 flex items-center justify-center">
+                        <Scale className="w-5 h-5 text-white" />
+                      </div>
+                      <span className="text-[11px] bg-white/20 px-2 py-0.5 rounded-full font-bold">
+                        قانوني
+                      </span>
+                    </div>
+                    <div>
+                      <div className="font-bold text-xs sm:text-sm text-white/90">استشارات التكييف القانوني</div>
+                      <div className="text-xl sm:text-2xl font-black tracking-tight font-sans">
+                        {specialists.filter(s => s.role_slug === 'lawyer').length * 15 || 28} ملف
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Category 4: Detox & Rehab Centers (Solid Cobalt/Indigo) */}
+                  <div className="bg-[#3949AB] text-white p-4 sm:p-5 rounded-2xl shadow-sm relative overflow-hidden flex flex-col justify-between h-32 hover:scale-[1.01] transition-transform">
+                    <div className="flex items-center justify-between">
+                      <div className="w-9 h-9 rounded-xl bg-white/20 flex items-center justify-center">
+                        <Building2 className="w-5 h-5 text-white" />
+                      </div>
+                      <span className="text-[11px] bg-white/20 px-2 py-0.5 rounded-full font-bold">
+                        معتمد
+                      </span>
+                    </div>
+                    <div>
+                      <div className="font-bold text-xs sm:text-sm text-white/90">مراكز الاستشفاء والسموم</div>
+                      <div className="text-xl sm:text-2xl font-black tracking-tight font-sans">
+                        {centers.length || 18} مركزاً
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Sub-cards: Tracks & Workload (Image 1 "Files" row with colored indicators) */}
+                <div className="space-y-2">
+                  <div className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                    <span>مسارات التكفل ومؤشرات الاستيعاب</span>
+                  </div>
+
+                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+                    {/* Workload 1: Critical Emergency */}
+                    <div className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-xs space-y-1">
+                      <div className="text-red-600 font-bold text-xs flex items-center justify-between">
+                        <span>حالات حرجة جداً</span>
+                        <AlertCircle className="w-3.5 h-3.5" />
+                      </div>
+                      <div className="text-base font-black text-slate-900 font-sans">
+                        {kpis?.cases?.critical_cases || 0} حالة
+                      </div>
+                      <div className="w-full bg-red-100 rounded-full h-1 mt-2">
+                        <div className="bg-red-600 h-1 rounded-full w-4/5"></div>
+                      </div>
+                    </div>
+
+                    {/* Workload 2: Active in Therapy */}
+                    <div className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-xs space-y-1">
+                      <div className="text-blue-600 font-bold text-xs flex items-center justify-between">
+                        <span>قيد التكفل العيادي</span>
+                        <Heart className="w-3.5 h-3.5" />
+                      </div>
+                      <div className="text-base font-black text-slate-900 font-sans">
+                        {kpis?.cases?.active_cases || 0} حالة
+                      </div>
+                      <div className="w-full bg-blue-100 rounded-full h-1 mt-2">
+                        <div className="bg-blue-600 h-1 rounded-full w-3/5"></div>
+                      </div>
+                    </div>
+
+                    {/* Workload 3: Successfully Recovered */}
+                    <div className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-xs space-y-1">
+                      <div className="text-emerald-600 font-bold text-xs flex items-center justify-between">
+                        <span>التعافي التام والمكتمل</span>
+                        <CheckCircle2 className="w-3.5 h-3.5" />
+                      </div>
+                      <div className="text-base font-black text-slate-900 font-sans">
+                        {kpis?.cases?.completed_cases || 0} حالة
+                      </div>
+                      <div className="w-full bg-emerald-100 rounded-full h-1 mt-2">
+                        <div className="bg-emerald-600 h-1 rounded-full w-full"></div>
+                      </div>
+                    </div>
+
+                    {/* Workload 4: Unassigned */}
+                    <div className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-xs space-y-1">
+                      <div className="text-purple-600 font-bold text-xs flex items-center justify-between">
+                        <span>بانتظار إسناد الفريق</span>
+                        <Clock className="w-3.5 h-3.5" />
+                      </div>
+                      <div className="text-base font-black text-slate-900 font-sans">
+                        {kpis?.cases?.unassigned_cases || 0} حالة
+                      </div>
+                      <div className="w-full bg-purple-100 rounded-full h-1 mt-2">
+                        <div className="bg-purple-600 h-1 rounded-full w-2/5"></div>
+                      </div>
+                    </div>
+
+                    {/* Workload 5: Fast Add/Assign (+) Button like Image 1 */}
+                    <button
+                      onClick={() => {
+                        if (cases.length > 0) {
+                          setSelectedCaseToAssign(cases[0]);
+                          setPsyId(cases[0].assigned_psychologist_id || '');
+                          setLawyerId(cases[0].assigned_lawyer_id || '');
+                          setCenterId(cases[0].assigned_treatment_center_id || '');
+                        }
+                      }}
+                      className="bg-white hover:bg-slate-50 p-3.5 rounded-2xl border border-dashed border-slate-300 flex flex-col items-center justify-center text-slate-600 hover:text-[#1565C0] hover:border-[#1565C0] transition-colors cursor-pointer group"
+                    >
+                      <Plus className="w-5 h-5 text-slate-400 group-hover:text-[#1565C0] group-hover:scale-110 transition-transform" />
+                      <span className="text-[11px] font-bold mt-1">إسناد فوري</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Recent Cases List (Image 1 Recent Files Style) */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-slate-700">الملفات الجارية والمحدثة مؤخراً</span>
+                    <button
+                      onClick={() => setActiveTab('cases')}
+                      className="text-xs font-bold text-[#1565C0] hover:underline flex items-center gap-1"
+                    >
+                      <span>عرض كامل الملفات ({cases.length})</span>
+                      <ArrowUpRight className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+
+                  <div className="space-y-2">
+                    {filteredCases.slice(0, 6).map((c) => (
+                      <div
+                        key={c.id}
+                        className="bg-white rounded-2xl p-3.5 sm:p-4 border border-slate-200/80 shadow-xs hover:border-blue-300 transition-all flex flex-wrap items-center justify-between gap-3"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold text-white shrink-0 ${
+                            c.priority === 'Critical' ? 'bg-red-600' : c.priority === 'High' ? 'bg-amber-600' : 'bg-blue-600'
+                          }`}>
+                            <FileText className="w-5 h-5" />
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="font-bold text-xs sm:text-sm text-slate-900 font-sans">
+                                {c.number_case}
+                              </span>
+                              <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                                c.priority === 'Critical' ? 'bg-red-100 text-red-800' : c.priority === 'High' ? 'bg-amber-100 text-amber-800' : 'bg-blue-100 text-blue-800'
+                              }`}>
+                                {c.priority === 'Critical' ? 'حرجة جداً' : c.priority === 'High' ? 'أولوية عالية' : 'متوسطة'}
+                              </span>
+                            </div>
+                            <div className="text-[11px] text-slate-500 font-medium">
+                              المستفيد: {c.creator_first_name} {c.creator_last_name} • نوع الإدمان: {c.addiction_type_name || 'عام'}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-3">
+                          <div className="text-right hidden sm:block text-[11px]">
+                            <span className="text-slate-400 block font-sans">
+                              {new Date(c.created_at).toLocaleDateString('ar-DZ')}
+                            </span>
+                            <span className="font-semibold text-slate-600">
+                              {c.assigned_psychologist_id ? `د. ${c.psy_first_name || ''} ${c.psy_last_name || ''}` : 'بانتظار إسناد'}
+                            </span>
+                          </div>
+
+                          <button
+                            onClick={() => {
+                              setSelectedCaseToAssign(c);
+                              setPsyId(c.assigned_psychologist_id || '');
+                              setLawyerId(c.assigned_lawyer_id || '');
+                              setCenterId(c.assigned_treatment_center_id || '');
+                            }}
+                            className="px-3.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-[#1565C0] font-bold text-xs rounded-xl transition-colors cursor-pointer"
+                          >
+                            إسناد الفريق
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* TAB 2: DETAILED CASES TABLE */}
+            {activeTab === 'cases' && (
+              <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs p-5 space-y-4">
+                <div className="flex justify-between items-center">
+                  <h3 className="text-sm font-bold text-slate-900">جدول إدارة وفرز الحالات والإسناد التكفلي ({filteredCases.length})</h3>
+                </div>
+
+                <div className="overflow-x-auto">
+                  <table className="w-full text-right text-xs">
+                    <thead className="bg-slate-50 text-slate-500 font-bold border-y border-slate-100">
+                      <tr>
+                        <th className="p-3">رقم الملف</th>
+                        <th className="p-3">صاحب الطلب</th>
+                        <th className="p-3">نوع الحالة</th>
+                        <th className="p-3">الأولوية</th>
+                        <th className="p-3">الحالة التشغيلية</th>
+                        <th className="p-3">الأخصائي المعين</th>
+                        <th className="p-3">الإجراء</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {filteredCases.map((c: any) => (
+                        <tr key={c.id} className="hover:bg-slate-50/70 transition-colors">
+                          <td className="p-3 font-sans font-bold text-[#1565C0]">{c.number_case}</td>
+                          <td className="p-3 font-semibold text-slate-800">{c.creator_first_name} {c.creator_last_name}</td>
+                          <td className="p-3 text-slate-600">{c.addiction_type_name || 'عام'}</td>
+                          <td className="p-3">
+                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${c.priority === 'Critical' ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800'}`}>
+                              {c.priority}
+                            </span>
+                          </td>
+                          <td className="p-3">
+                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700">
+                              {c.status}
+                            </span>
+                          </td>
+                          <td className="p-3 text-slate-600">
+                            {c.assigned_psychologist_id ? `د. ${c.psy_first_name || ''} ${c.psy_last_name || ''}` : 'غير معين'}
+                          </td>
+                          <td className="p-3">
+                            <button
+                              onClick={() => {
+                                setSelectedCaseToAssign(c);
+                                setPsyId(c.assigned_psychologist_id || '');
+                                setLawyerId(c.assigned_lawyer_id || '');
+                                setCenterId(c.assigned_treatment_center_id || '');
+                              }}
+                              className="px-3 py-1.5 bg-[#1565C0] hover:bg-blue-700 text-white rounded-lg font-bold text-[11px] cursor-pointer"
+                            >
+                              إسناد الفريق
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {/* TAB 3: USERS & STAFF MANAGEMENT */}
+            {activeTab === 'users' && (
+              <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs p-5 space-y-4">
+                <h3 className="text-sm font-bold text-slate-900">إدارة حسابات الكوادر والشركاء والمستفيدين ({usersList.length})</h3>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-right text-xs">
+                    <thead className="bg-slate-50 text-slate-500 font-bold border-y border-slate-100">
+                      <tr>
+                        <th className="p-3">الاسم الكامل</th>
+                        <th className="p-3">البريد الإلكتروني</th>
+                        <th className="p-3">الدور والمسؤولية</th>
+                        <th className="p-3">الولاية</th>
+                        <th className="p-3">حالة الحساب</th>
+                        <th className="p-3">الإجراء</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {usersList.map((u: any) => (
+                        <tr key={u.id} className="hover:bg-slate-50/70">
+                          <td className="p-3 font-bold text-slate-900">{u.first_name} {u.last_name}</td>
+                          <td className="p-3 text-slate-600 font-sans">{u.email}</td>
+                          <td className="p-3">
+                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-100 text-blue-800">
+                              {u.role_name}
+                            </span>
+                          </td>
+                          <td className="p-3 text-slate-600">{u.wilaya_name || 'الجزائر'}</td>
+                          <td className="p-3">
+                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${u.is_active ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800'}`}>
+                              {u.is_active ? 'نشط ومعتمد' : 'معطل'}
+                            </span>
+                          </td>
+                          <td className="p-3">
+                            <button
+                              onClick={() => handleToggleUserStatus(u.id, u.is_active)}
+                              className={`px-3 py-1 rounded-lg text-[10px] font-bold ${u.is_active ? 'bg-red-50 text-red-700 hover:bg-red-100' : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'}`}
+                            >
+                              {u.is_active ? 'تعطيل الحساب' : 'تفعيل واعتماد'}
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {/* TAB 4: AUDIT LOGS */}
+            {activeTab === 'audit' && (
+              <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs p-5 space-y-4">
+                <div className="space-y-1">
+                  <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                    <History className="w-4 h-4 text-blue-700" />
+                    <span>سجل التدقيق والرقابة الأمنية الصارم (Security Audit Logs)</span>
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    توثيق فوري لجميع العمليات الحساسة، الإسنادات، وتغييرات الحالات لحماية السرية.
+                  </p>
+                </div>
+
+                <div className="overflow-x-auto">
+                  <table className="w-full text-right text-xs">
+                    <thead className="bg-slate-50 text-slate-500 font-bold border-y border-slate-100">
+                      <tr>
+                        <th className="p-3">رقم العملية</th>
+                        <th className="p-3">المستخدم</th>
+                        <th className="p-3">نوع الإجراء</th>
+                        <th className="p-3">الهدف</th>
+                        <th className="p-3">عنوان IP</th>
+                        <th className="p-3">التوقيت</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 font-mono text-[11px]">
+                      {auditLogs.map((log: any) => (
+                        <tr key={log.id} className="hover:bg-slate-50">
+                          <td className="p-3 text-slate-400">#{log.id}</td>
+                          <td className="p-3 font-sans font-bold text-slate-800">
+                            {log.first_name ? `${log.first_name} ${log.last_name}` : `User #${log.user_id}`}
+                          </td>
+                          <td className="p-3">
+                            <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-800 font-bold">
+                              {log.action}
+                            </span>
+                          </td>
+                          <td className="p-3 text-slate-600 font-sans">{log.target_type} {log.target_id ? `(#${log.target_id})` : ''}</td>
+                          <td className="p-3 text-slate-400">{log.ip_address || '127.0.0.1'}</td>
+                          <td className="p-3 text-slate-500 font-sans">{new Date(log.created_at).toLocaleString('ar-DZ')}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {/* TAB 5: SYSTEM SETTINGS */}
+            {activeTab === 'settings' && (
+              <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs p-6 space-y-4 max-w-2xl">
+                <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                  <Settings className="w-4 h-4 text-slate-700" />
+                  <span>إعدادات وثوابت المنظومة المركزية</span>
+                </h3>
+
+                <form onSubmit={handleSaveSettings} className="space-y-4 text-xs">
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">اسم المنصة الرسمي:</label>
+                    <input
+                      type="text"
+                      value={settings.platform_name || ''}
+                      onChange={(e) => setSettings({ ...settings, platform_name: e.target.value })}
+                      className="w-full p-2.5 border border-slate-300 rounded-xl"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">رقم خط الطوارئ الوطني المعتمد:</label>
+                    <input
+                      type="text"
+                      value={settings.emergency_phone || ''}
+                      onChange={(e) => setSettings({ ...settings, emergency_phone: e.target.value })}
+                      className="w-full p-2.5 border border-slate-300 rounded-xl font-mono text-left"
+                      dir="ltr"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">البريد الإلكتروني للدعم والإشعارات:</label>
+                    <input
+                      type="email"
+                      value={settings.support_email || ''}
+                      onChange={(e) => setSettings({ ...settings, support_email: e.target.value })}
+                      className="w-full p-2.5 border border-slate-300 rounded-xl font-mono text-left"
+                      dir="ltr"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">تفعيل الفرز التلقائي للحالات:</label>
+                    <select
+                      value={settings.auto_assign_enabled ? 'true' : 'false'}
+                      onChange={(e) => setSettings({ ...settings, auto_assign_enabled: e.target.value === 'true' })}
+                      className="w-full p-2.5 border border-slate-300 rounded-xl font-bold"
+                    >
+                      <option value="true">مفعل (توجيه الحالات الحرجة فوراً)</option>
+                      <option value="false">معطل (فرز يدوي بإشراف المشرف العام)</option>
+                    </select>
+                  </div>
+
+                  <button
+                    type="submit"
+                    className="px-6 py-2.5 bg-[#1565C0] hover:bg-blue-700 text-white font-bold rounded-xl shadow-xs cursor-pointer"
+                  >
+                    حفظ التعديلات
+                  </button>
+                </form>
+              </div>
+            )}
+          </main>
+
+          {/* 3. Right Side Panel (Image 1 Right Column Widgets) */}
+          <aside className="w-full lg:w-72 space-y-4 shrink-0">
+            {/* Quick Action / Upload Card (Image 1 "Add new files" block) */}
+            <div className="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-xs text-center space-y-3">
+              <div className="w-14 h-14 rounded-2xl bg-blue-50 text-[#1565C0] flex items-center justify-center mx-auto ring-4 ring-blue-50/50">
+                <Plus className="w-7 h-7" />
+              </div>
+              <div>
+                <h4 className="font-black text-sm text-slate-900">إسناد وتكفل فوري</h4>
+                <p className="text-[11px] text-slate-500 mt-0.5">توجيه الحالات الواردة للكوادر المتخصصة</p>
+              </div>
+              <button
+                onClick={() => {
+                  if (cases.length > 0) {
+                    setSelectedCaseToAssign(cases[0]);
+                    setPsyId(cases[0].assigned_psychologist_id || '');
+                    setLawyerId(cases[0].assigned_lawyer_id || '');
+                    setCenterId(cases[0].assigned_treatment_center_id || '');
+                  }
+                }}
+                className="w-full py-2.5 bg-[#1565C0] hover:bg-blue-700 text-white text-xs font-bold rounded-xl shadow-xs transition-colors cursor-pointer"
+              >
+                تخصيص حالة جديدة
+              </button>
+            </div>
+
+            {/* Storage / Capacity Metric (Image 1 "Your storage" widget) */}
+            <div className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs space-y-2.5">
+              <div className="flex justify-between items-center">
+                <span className="font-bold text-xs text-slate-800 flex items-center gap-1.5">
+                  <BedDouble className="w-4 h-4 text-[#1565C0]" />
+                  <span>طاقة استيعاب الأسرة</span>
+                </span>
+                <span className="text-xs font-bold text-teal-600 bg-teal-50 px-2 py-0.5 rounded-full">
+                  متبقي 25%
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-500">
+                75 من أصل 100 سرير مشغولة بمراكز إزالة السموم
+              </p>
+              <div className="w-full bg-slate-100 rounded-full h-2">
+                <div className="bg-[#1565C0] h-2 rounded-full w-3/4"></div>
+              </div>
+            </div>
+
+            {/* Shared / On-duty Specialists (Image 1 "Your shared folders" widget with member avatars) */}
+            <div className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs space-y-3">
+              <div className="font-bold text-xs text-slate-800">فريق المناوبة والتكفل الفوري</div>
+              
+              <div className="space-y-2 text-xs">
+                <div className="p-2.5 bg-blue-50/60 rounded-xl flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-7 h-7 rounded-lg bg-blue-600 text-white flex items-center justify-center font-bold text-xs">
+                      ف
+                    </div>
+                    <div>
+                      <div className="font-bold text-slate-900">د. فاطمة زهرة</div>
+                      <div className="text-[10px] text-blue-700">أخصائية نفسية عيادية</div>
+                    </div>
+                  </div>
+                  <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                </div>
+
+                <div className="p-2.5 bg-amber-50/60 rounded-xl flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-7 h-7 rounded-lg bg-amber-600 text-white flex items-center justify-center font-bold text-xs">
+                      ع
+                    </div>
+                    <div>
+                      <div className="font-bold text-slate-900">أ. عبد القادر</div>
+                      <div className="text-[10px] text-amber-700">مستشار قانوني</div>
+                    </div>
+                  </div>
+                  <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                </div>
+
+                <div className="p-2.5 bg-emerald-50/60 rounded-xl flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-7 h-7 rounded-lg bg-emerald-600 text-white flex items-center justify-center font-bold text-xs">
+                      م
+                    </div>
+                    <div>
+                      <div className="font-bold text-slate-900">مركز البليدة للسموم</div>
+                      <div className="text-[10px] text-emerald-700">إزالة السموم والاستشفاء</div>
+                    </div>
+                  </div>
+                  <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                </div>
+              </div>
+
+              <button
+                onClick={() => setActiveTab('users')}
+                className="w-full py-2 border border-slate-200 text-slate-600 hover:text-slate-900 rounded-xl text-xs font-bold transition-colors cursor-pointer"
+              >
+                + إدارة كامل الكوادر ({specialists.length})
+              </button>
+            </div>
+          </aside>
+
         </div>
       </div>
-
-      {/* Tab 1: KPIs Dashboard */}
-      {activeTab === 'kpis' && kpis && (
-        <div className="space-y-6">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-1">
-              <span className="text-xs font-bold text-slate-500">إجمالي الحالات</span>
-              <div className="text-3xl font-black text-[#1565C0]">{kpis.cases?.total_cases || 0}</div>
-              <div className="text-[11px] text-slate-400">ملفات مسجلة بالمنصة</div>
-            </div>
-
-            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-1">
-              <span className="text-xs font-bold text-slate-500">الحالات النشطة والمتابعة</span>
-              <div className="text-3xl font-black text-amber-600">{kpis.cases?.active_cases || 0}</div>
-              <div className="text-[11px] text-slate-400">قيد الجلسات والاستشفاء</div>
-            </div>
-
-            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-1">
-              <span className="text-xs font-bold text-slate-500">التعافي المكتمل</span>
-              <div className="text-3xl font-black text-[#2E7D32]">{kpis.cases?.completed_cases || 0}</div>
-              <div className="text-[11px] text-slate-400">وفق التقرير الختامي</div>
-            </div>
-
-            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-1">
-              <span className="text-xs font-bold text-slate-500">الحالات الحرجة (طوارئ)</span>
-              <div className="text-3xl font-black text-red-600">{kpis.cases?.critical_cases || 0}</div>
-              <div className="text-[11px] text-slate-400">استجابة خلال ساعتين</div>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Users Breakdown */}
-            <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-3">
-              <h3 className="font-bold text-sm text-slate-900">توزيع المستخدمين حسب الأدوار والمهام</h3>
-              <div className="space-y-2 text-xs">
-                {kpis.users_by_role?.map((ur: any) => (
-                  <div key={ur.role_name} className="flex justify-between items-center p-2.5 bg-slate-50 rounded-xl">
-                    <span className="font-bold text-slate-700">{ur.role_name}</span>
-                    <span className="px-2 py-0.5 rounded-md bg-purple-100 text-purple-800 font-bold">{ur.count} مستخدم</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Quality & SLA */}
-            <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-3">
-              <h3 className="font-bold text-sm text-slate-900">مؤشرات الجودة والامتثال (SLA Compliance)</h3>
-              <div className="space-y-3 text-xs">
-                <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl space-y-1">
-                  <div className="flex justify-between font-bold text-emerald-900">
-                    <span>التزام الأخصائيين بزمن الاستجابة الأولي</span>
-                    <span>100%</span>
-                  </div>
-                  <div className="w-full bg-emerald-200 rounded-full h-1.5">
-                    <div className="bg-emerald-600 h-1.5 rounded-full w-full"></div>
-                  </div>
-                </div>
-
-                <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl space-y-1">
-                  <div className="flex justify-between font-bold text-blue-900">
-                    <span>نسبة الحالات التي تم إسنادها لأخصائيين</span>
-                    <span>{kpis.cases?.total_cases > 0 ? Math.round(((kpis.cases?.total_cases - (kpis.cases?.unassigned_cases || 0)) / kpis.cases?.total_cases) * 100) : 100}%</span>
-                  </div>
-                  <div className="w-full bg-blue-200 rounded-full h-1.5">
-                    <div className="bg-[#1565C0] h-1.5 rounded-full w-full"></div>
-                  </div>
-                </div>
-
-                <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-600">
-                  <span className="font-bold block">التشفير والرقابة الأمنية:</span>
-                  مفعل 100%، سجل العمليات الحساسة (Audit Logs) يسجل كل حركة إدارية وتغيير في بيانات المستفيدين.
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Tab 2: Cases Triage & Assignment */}
-      {activeTab === 'cases' && (
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-6 space-y-4">
-          <div className="flex justify-between items-center">
-            <h3 className="text-base font-bold text-slate-900">جدول إدارة وفرز الحالات والإسناد</h3>
-          </div>
-
-          <div className="overflow-x-auto">
-            <table className="w-full text-right text-xs">
-              <thead className="bg-slate-50 text-slate-500 font-bold border-y border-slate-100">
-                <tr>
-                  <th className="p-3">رقم الملف</th>
-                  <th className="p-3">صاحب الطلب</th>
-                  <th className="p-3">نوع الحالة</th>
-                  <th className="p-3">الأولوية</th>
-                  <th className="p-3">الحالة التشغيلية</th>
-                  <th className="p-3">الأخصائي المعين</th>
-                  <th className="p-3">الإجراء</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {cases.map((c: any) => (
-                  <tr key={c.id} className="hover:bg-slate-50/70 transition-colors">
-                    <td className="p-3 font-sans font-bold text-[#1565C0]">{c.number_case}</td>
-                    <td className="p-3 font-semibold text-slate-800">{c.creator_first_name} {c.creator_last_name}</td>
-                    <td className="p-3 text-slate-600">{c.addiction_type_name || 'عام'}</td>
-                    <td className="p-3">
-                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${c.priority === 'Critical' ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800'}`}>
-                        {c.priority}
-                      </span>
-                    </td>
-                    <td className="p-3">
-                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700">
-                        {c.status}
-                      </span>
-                    </td>
-                    <td className="p-3 text-slate-600">
-                      {c.assigned_psychologist_id ? `د. ${c.psy_first_name || ''} ${c.psy_last_name || ''}` : 'غير معين'}
-                    </td>
-                    <td className="p-3">
-                      <button
-                        onClick={() => {
-                          setSelectedCaseToAssign(c);
-                          setPsyId(c.assigned_psychologist_id || '');
-                          setLawyerId(c.assigned_lawyer_id || '');
-                          setCenterId(c.assigned_treatment_center_id || '');
-                        }}
-                        className="px-3 py-1.5 bg-[#1565C0] hover:bg-blue-700 text-white rounded-lg font-bold text-[11px] cursor-pointer"
-                      >
-                        إسناد الفريق
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
-      {/* Tab 3: Users Management */}
-      {activeTab === 'users' && (
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-6 space-y-4">
-          <h3 className="text-base font-bold text-slate-900">إدارة حسابات المستخدمين والمختصين والشركاء</h3>
-          <div className="overflow-x-auto">
-            <table className="w-full text-right text-xs">
-              <thead className="bg-slate-50 text-slate-500 font-bold border-y border-slate-100">
-                <tr>
-                  <th className="p-3">الاسم الكامل</th>
-                  <th className="p-3">البريد الإلكتروني</th>
-                  <th className="p-3">الدور والمسؤولية</th>
-                  <th className="p-3">الولاية</th>
-                  <th className="p-3">حالة الحساب</th>
-                  <th className="p-3">الإجراء</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {usersList.map((u: any) => (
-                  <tr key={u.id} className="hover:bg-slate-50/70">
-                    <td className="p-3 font-bold text-slate-900">{u.first_name} {u.last_name}</td>
-                    <td className="p-3 text-slate-600 font-sans">{u.email}</td>
-                    <td className="p-3">
-                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-purple-100 text-purple-800">
-                        {u.role_name}
-                      </span>
-                    </td>
-                    <td className="p-3 text-slate-600">{u.wilaya_name || 'الجزائر'}</td>
-                    <td className="p-3">
-                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${u.is_active ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800'}`}>
-                        {u.is_active ? 'نشط ومعتمد' : 'معطل'}
-                      </span>
-                    </td>
-                    <td className="p-3">
-                      <button
-                        onClick={() => handleToggleUserStatus(u.id, u.is_active)}
-                        className={`px-3 py-1 rounded-lg text-[10px] font-bold ${u.is_active ? 'bg-red-50 text-red-700 hover:bg-red-100' : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'}`}
-                      >
-                        {u.is_active ? 'تعطيل الحساب' : 'تفعيل واعتماد'}
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
-      {/* Tab 4: Audit Logs */}
-      {activeTab === 'audit' && (
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-6 space-y-4">
-          <div className="space-y-1">
-            <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
-              <History className="w-5 h-5 text-purple-700" />
-              <span>سجل التدقيق والرقابة الأمنية الصارم (Security Audit Logs)</span>
-            </h3>
-            <p className="text-xs text-slate-500">
-              توثيق غير قابل للتعديل لجميع العمليات الحساسة وتغييرات الحالات والدخول والإسناد.
-            </p>
-          </div>
-
-          <div className="overflow-x-auto">
-            <table className="w-full text-right text-xs">
-              <thead className="bg-slate-50 text-slate-500 font-bold border-y border-slate-100">
-                <tr>
-                  <th className="p-3">رقم التسجيل</th>
-                  <th className="p-3">المستخدم</th>
-                  <th className="p-3">نوع العملية</th>
-                  <th className="p-3">الهدف المعني</th>
-                  <th className="p-3">عنوان IP</th>
-                  <th className="p-3">التوقيت</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 font-mono text-[11px]">
-                {auditLogs.map((log: any) => (
-                  <tr key={log.id} className="hover:bg-slate-50">
-                    <td className="p-3 text-slate-400">#{log.id}</td>
-                    <td className="p-3 font-sans font-bold text-slate-800">
-                      {log.first_name ? `${log.first_name} ${log.last_name}` : `User #${log.user_id}`}
-                    </td>
-                    <td className="p-3">
-                      <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-800 font-bold">
-                        {log.action}
-                      </span>
-                    </td>
-                    <td className="p-3 text-slate-600">{log.target_type} {log.target_id ? `(${log.target_id})` : ''}</td>
-                    <td className="p-3 text-slate-400">{log.ip_address || '127.0.0.1'}</td>
-                    <td className="p-3 text-slate-500">{new Date(log.created_at).toLocaleString('ar-DZ')}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
-      {/* Tab 5: System Settings */}
-      {activeTab === 'settings' && (
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-6 space-y-4 max-w-2xl">
-          <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
-            <Settings className="w-5 h-5 text-slate-700" />
-            <span>إعدادات وثوابت المنظومة</span>
-          </h3>
-
-          <form onSubmit={handleSaveSettings} className="space-y-4 text-xs">
-            <div>
-              <label className="block font-bold text-slate-700 mb-1">اسم المنصة الرسمي:</label>
-              <input
-                type="text"
-                value={settings.platform_name || ''}
-                onChange={(e) => setSettings({ ...settings, platform_name: e.target.value })}
-                className="w-full p-2.5 border border-slate-300 rounded-xl"
-              />
-            </div>
-
-            <div>
-              <label className="block font-bold text-slate-700 mb-1">رقم خط الطوارئ الوطني المعتمد:</label>
-              <input
-                type="text"
-                value={settings.emergency_phone || ''}
-                onChange={(e) => setSettings({ ...settings, emergency_phone: e.target.value })}
-                className="w-full p-2.5 border border-slate-300 rounded-xl font-mono text-left"
-                dir="ltr"
-              />
-            </div>
-
-            <div>
-              <label className="block font-bold text-slate-700 mb-1">البريد الإلكتروني للدعم والإشعارات:</label>
-              <input
-                type="email"
-                value={settings.support_email || ''}
-                onChange={(e) => setSettings({ ...settings, support_email: e.target.value })}
-                className="w-full p-2.5 border border-slate-300 rounded-xl font-mono text-left"
-                dir="ltr"
-              />
-            </div>
-
-            <div>
-              <label className="block font-bold text-slate-700 mb-1">تفعيل الفرز التلقائي للحالات:</label>
-              <select
-                value={settings.auto_assign_enabled ? 'true' : 'false'}
-                onChange={(e) => setSettings({ ...settings, auto_assign_enabled: e.target.value === 'true' })}
-                className="w-full p-2.5 border border-slate-300 rounded-xl font-bold"
-              >
-                <option value="true">مفعل (توجيه الحالات الحرجة فوراً)</option>
-                <option value="false">معطل (فرز يدوي بإشراف المشرف العام)</option>
-              </select>
-            </div>
-
-            <button
-              type="submit"
-              className="px-6 py-2.5 bg-purple-700 hover:bg-purple-800 text-white font-bold rounded-xl shadow-xs"
-            >
-              حفظ التعديلات
-            </button>
-          </form>
-        </div>
-      )}
 
       {/* Case Assignment Modal */}
       {selectedCaseToAssign && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-lg w-full p-6 space-y-4 shadow-2xl border border-slate-200 text-right">
+          <div className="bg-white rounded-2xl max-w-lg w-full p-6 space-y-4 shadow-2xl border border-slate-200 text-right animate-in fade-in zoom-in-95">
             <div className="flex justify-between items-center border-b border-slate-100 pb-3">
               <button onClick={() => setSelectedCaseToAssign(null)} className="text-slate-400 hover:text-slate-600">✕</button>
               <h3 className="font-bold text-base text-slate-900">
@@ -535,7 +937,7 @@ export const AdminPortal: React.FC = () => {
 
               <div>
                 <label className="block font-bold text-slate-700 mb-1 flex items-center gap-1.5">
-                  <Building className="w-3.5 h-3.5 text-teal-600" />
+                  <Building2 className="w-3.5 h-3.5 text-teal-600" />
                   <span>مركز علاج وتأهيل الإدمان:</span>
                 </label>
                 <select
@@ -554,13 +956,13 @@ export const AdminPortal: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setSelectedCaseToAssign(null)}
-                  className="px-4 py-2 border border-slate-200 text-slate-700 rounded-xl font-bold"
+                  className="px-4 py-2 border border-slate-200 text-slate-700 rounded-xl font-bold cursor-pointer"
                 >
                   إلغاء
                 </button>
                 <button
                   type="submit"
-                  className="px-6 py-2 bg-purple-700 hover:bg-purple-800 text-white rounded-xl font-bold shadow-xs"
+                  className="px-6 py-2 bg-[#1565C0] hover:bg-blue-700 text-white rounded-xl font-bold shadow-xs cursor-pointer"
                 >
                   تأكيد الإسناد
                 </button>

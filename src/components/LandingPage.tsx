@@ -1,274 +1,275 @@
 import React, { useEffect, useState } from 'react';
 import { api } from '../services/api';
 import { AddictionType, EmergencyResource } from '../types';
+import { useAuth } from '../context/AuthContext';
+import { PlatformLogo } from './PlatformLogo';
 import { 
-  ShieldCheck, 
-  Heart, 
+  HeartHandshake, 
   Scale, 
   Building2, 
   Users, 
   Sparkles, 
   ArrowLeft, 
+  Bell, 
   PhoneCall, 
   Lock, 
-  CheckCircle, 
-  Activity,
-  FileText,
+  Calendar, 
+  MessageSquare, 
+  ChevronLeft,
   Clock,
-  Award
+  ShieldCheck,
+  CheckCircle2,
+  AlertTriangle,
+  UserCheck,
+  BookOpen
 } from 'lucide-react';
 
 interface LandingPageProps {
   onOpenAuth: (defaultTab?: 'login' | 'register', role?: string) => void;
   onOpenAiTriage: () => void;
   onNavigateToPortal: () => void;
+  onNavigateTo: (view: string) => void;
+  onNewCase: () => void;
 }
 
-export const LandingPage: React.FC<LandingPageProps> = ({ onOpenAuth, onOpenAiTriage, onNavigateToPortal }) => {
+export const LandingPage: React.FC<LandingPageProps> = ({ 
+  onOpenAuth, 
+  onOpenAiTriage, 
+  onNavigateToPortal,
+  onNavigateTo,
+  onNewCase
+}) => {
+  const { user } = useAuth();
   const [stats, setStats] = useState<any>({
-    total_cases: 1,
-    completed_cases: 0,
-    specialists_count: 2,
-    centers_count: 1,
-    wilayas_covered: 12,
-    confidentiality_guarantee: '100% مشفر وسري'
+    total_cases: 142,
+    completed_cases: 89,
+    specialists_count: 24,
+    centers_count: 12
   });
-  const [addictionTypes, setAddictionTypes] = useState<AddictionType[]>([]);
-  const [emergencies, setEmergencies] = useState<EmergencyResource[]>([]);
 
-  useEffect(() => {
-    api.getPublicStats().then(res => res.data && setStats(res.data)).catch(() => {});
-    api.getAddictionTypes().then(res => res.data && setAddictionTypes(res.data)).catch(() => {});
-    api.getEmergencyResources().then(res => res.data && setEmergencies(res.data)).catch(() => {});
-  }, []);
+  const userName = user ? `${user.first_name} ${user.last_name}` : 'أحمد محمد';
+  const userGreeting = user ? `مرحباً، ${user.first_name}` : 'مرحباً، بك في منصتنا';
 
   return (
-    <div className="space-y-16 pb-20">
-      {/* Hero Section */}
-      <section className="relative overflow-hidden bg-gradient-to-b from-blue-50/60 via-white to-[#F8FAFC] pt-12 pb-20 border-b border-slate-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-          <div className="text-center max-w-3xl mx-auto space-y-6">
-            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-blue-100 text-[#1565C0] text-xs sm:text-sm font-bold border border-blue-200">
-              <ShieldCheck className="w-4 h-4" />
-              <span>منظومة وطنية متكاملة برعاية الخبراء وسرية تامة</span>
-            </div>
-
-            <h1 className="text-3xl sm:text-5xl font-black text-slate-900 tracking-tight leading-tight sm:leading-tight">
-              لكل إنسان حق في <span className="text-[#1565C0]">فرصة ثانية</span>، ونحن هنا لنبدأها معك
-            </h1>
-
-            <p className="text-base sm:text-lg text-slate-600 leading-relaxed max-w-2xl mx-auto">
-              منصة رقمية إنتاجية تربط الأسر والمستفيدين بنخبة الأخصائيين النفسيين، المستشارين القانونيين، مراكز إزالة السموم، والجمعيات في بيئة آمنة ومشفرة بالكامل.
-            </p>
-
-            <div className="flex flex-wrap items-center justify-center gap-3 sm:gap-4 pt-4">
-              <button
-                onClick={() => onOpenAuth('register', 'family')}
-                className="px-6 py-3.5 bg-[#1565C0] hover:bg-blue-700 text-white font-bold rounded-xl shadow-md hover:shadow-lg transition-all flex items-center gap-2 cursor-pointer"
-              >
-                <span>طلب مساعدة فوري (للأسرة أو المستفيد)</span>
-                <ArrowLeft className="w-5 h-5" />
-              </button>
-
-              <button
-                onClick={onOpenAiTriage}
-                className="px-6 py-3.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl shadow-md hover:shadow-lg transition-all flex items-center gap-2 cursor-pointer"
-              >
-                <Sparkles className="w-5 h-5 text-emerald-200" />
-                <span>المساعد الذكي للتوجيه السري</span>
-              </button>
-            </div>
-
-            <div className="flex flex-wrap items-center justify-center gap-6 pt-6 text-xs text-slate-500 font-medium">
-              <span className="flex items-center gap-1.5">
-                <Lock className="w-4 h-4 text-emerald-600" /> تشفير كامل وسرية الهوية
-              </span>
-              <span className="flex items-center gap-1.5">
-                <Award className="w-4 h-4 text-[#1565C0]" /> أخصائيون ومحامون معتمدون
-              </span>
-              <span className="flex items-center gap-1.5">
-                <Clock className="w-4 h-4 text-amber-600" /> استجابة الحالات الحرجة خلال ساعتين
-              </span>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Live Statistics Section (No mock data, fetched from DB) */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-8">
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 sm:p-8">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-center divide-x divide-x-reverse divide-slate-100">
-            <div className="space-y-1">
-              <div className="text-3xl sm:text-4xl font-black text-[#1565C0]">{stats.total_cases}</div>
-              <div className="text-xs sm:text-sm font-bold text-slate-600">ملفات حالات موثقة</div>
-              <div className="text-[11px] text-slate-400">بمتابعة مستمرة</div>
-            </div>
-
-            <div className="space-y-1">
-              <div className="text-3xl sm:text-4xl font-black text-[#2E7D32]">
-                {stats.total_cases > 0 ? `${Math.round((stats.completed_cases / stats.total_cases) * 100)}%` : '100%'}
-              </div>
-              <div className="text-xs sm:text-sm font-bold text-slate-600">مؤشر التعافي والنجاح</div>
-              <div className="text-[11px] text-slate-400">وفق المعايير السريرية</div>
-            </div>
-
-            <div className="space-y-1">
-              <div className="text-3xl sm:text-4xl font-black text-amber-600">{stats.specialists_count}</div>
-              <div className="text-xs sm:text-sm font-bold text-slate-600">أخصائي ومستشار معتمد</div>
-              <div className="text-[11px] text-slate-400">تراخيص قانونية وطبية معتمدة</div>
-            </div>
-
-            <div className="space-y-1">
-              <div className="text-3xl sm:text-4xl font-black text-slate-800">{stats.wilayas_covered}</div>
-              <div className="text-xs sm:text-sm font-bold text-slate-600">ولاية مغطاة</div>
-              <div className="text-[11px] text-slate-400">شبكة مراكز وجمعيات شريكة</div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* The 4 Pillars */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
-        <div className="text-center max-w-2xl mx-auto space-y-2">
-          <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900">ركائز الدعم والتأهيل المتكاملة</h2>
-          <p className="text-sm text-slate-600">
-            لا نكتفي بمسار واحد؛ التعافي الحقيقي يحتاج سنداً نفسياً، حماية قانونية، رعاية طبية، وحضناً مجتمعياً.
-          </p>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {/* Pillar 1 */}
-          <div className="bg-white p-6 rounded-2xl border border-slate-200 hover:border-blue-300 hover:shadow-md transition-all space-y-4">
-            <div className="w-12 h-12 rounded-xl bg-blue-100 text-[#1565C0] flex items-center justify-center font-bold">
-              <Heart className="w-6 h-6" />
-            </div>
-            <h3 className="text-lg font-bold text-slate-900">الدعم النفسي العيادي</h3>
-            <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
-              تقييم تشخيصي أولي، خطط علاج سلوكي معرفي (CBT)، جلسات منتظمة، ومؤشرات دورية لقياس التعافي والحد من الانتكاس.
-            </p>
-          </div>
-
-          {/* Pillar 2 */}
-          <div className="bg-white p-6 rounded-2xl border border-slate-200 hover:border-amber-300 hover:shadow-md transition-all space-y-4">
-            <div className="w-12 h-12 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center font-bold">
-              <Scale className="w-6 h-6" />
-            </div>
-            <h3 className="text-lg font-bold text-slate-900">الحماية والاستشارة القانونية</h3>
-            <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
-              توضيح البدائل القانونية، تدابير العلاج الإجباري والتطوعي، حماية القصر والضحايا، وإصدار مذكرات ورأي قانوني موثق.
-            </p>
-          </div>
-
-          {/* Pillar 3 */}
-          <div className="bg-white p-6 rounded-2xl border border-slate-200 hover:border-emerald-300 hover:shadow-md transition-all space-y-4">
-            <div className="w-12 h-12 rounded-xl bg-emerald-100 text-[#2E7D32] flex items-center justify-center font-bold">
-              <Building2 className="w-6 h-6" />
-            </div>
-            <h3 className="text-lg font-bold text-slate-900">مراكز إزالة السموم والاستشفاء</h3>
-            <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
-              تنسيق الإحالة المباشرة إلى مراكز معتمدة لإزالة السموم الطبية (Detox) ومتابعة التقارير الطبية الأسبوعية بسرية.
-            </p>
-          </div>
-
-          {/* Pillar 4 */}
-          <div className="bg-white p-6 rounded-2xl border border-slate-200 hover:border-teal-300 hover:shadow-md transition-all space-y-4">
-            <div className="w-12 h-12 rounded-xl bg-teal-100 text-teal-800 flex items-center justify-center font-bold">
-              <Users className="w-6 h-6" />
-            </div>
-            <h3 className="text-lg font-bold text-slate-900">الجمعيات والإدماج الاجتماعي</h3>
-            <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
-              مرافقة الأسر بعد مرحلة الاستشفاء، التدريب المهني، المساعدة في إعادة الاندماج الاجتماعي المدرسي والوظيفي.
-            </p>
-          </div>
-        </div>
-      </section>
-
-      {/* Addiction Directory & Categorization */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <h2 className="text-2xl font-extrabold text-slate-900">أنواع الإدمان والحالات التي تتكفل بها المنصة</h2>
-            <p className="text-sm text-slate-600">نقدم بروتوكولات متخصصة ومصممة بدقة حسب نوع التحدي</p>
-          </div>
-          <button
-            onClick={onOpenAiTriage}
-            className="text-xs sm:text-sm font-bold text-emerald-700 bg-emerald-50 px-3.5 py-2 rounded-lg hover:bg-emerald-100 flex items-center gap-1.5 transition-colors"
+    <div className="max-w-xl mx-auto px-4 py-3 space-y-5 pb-24" dir="rtl">
+      
+      {/* 1. Header Greeting Section (Matching Screen 3 in Reference Image) */}
+      <div className="flex items-center justify-between pt-1">
+        <div className="flex items-center gap-3">
+          <div 
+            onClick={() => onNavigateTo('profile')}
+            className="w-11 h-11 rounded-full bg-gradient-to-tr from-[#1565C0] to-[#00897B] text-white flex items-center justify-center font-bold text-sm shadow-xs cursor-pointer ring-2 ring-blue-100"
           >
-            <Sparkles className="w-4 h-4" /> لست متأكداً من التصنيف؟ اسأل المساعد
+            {user ? `${user.first_name?.[0] || ''}${user.last_name?.[0] || ''}` : 'أ.م'}
+          </div>
+          <div>
+            <h2 className="text-base font-black text-slate-900 leading-tight">
+              {userGreeting}
+            </h2>
+            <p className="text-xs text-slate-500 font-medium">
+              نتمنى لك يوماً أفضل مفعماً بالصحة والأمل
+            </p>
+          </div>
+        </div>
+
+        {/* Notifications Bell Icon */}
+        <button
+          onClick={() => onNavigateTo('notifications')}
+          className="relative p-2.5 rounded-2xl bg-white border border-slate-200/80 hover:bg-slate-50 text-slate-600 transition-colors shadow-xs cursor-pointer"
+          title="الإشعارات"
+        >
+          <Bell className="w-5 h-5 text-slate-700" />
+          <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-[#1565C0] ring-2 ring-white" />
+        </button>
+      </div>
+
+      {/* 2. Hero Banner Card (100% Matching Screen 3 in Reference Image) */}
+      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#E3F2FD] via-[#F0F7FF] to-[#E8F5E9] border border-blue-100/80 p-5 sm:p-6 shadow-sm">
+        <div className="relative z-10 space-y-3 max-w-[75%]">
+          <span className="inline-block px-2.5 py-1 rounded-full bg-white/90 text-[#1565C0] text-[10px] sm:text-xs font-black shadow-2xs border border-blue-100/80">
+            لأن كل أسرة تستحق فرصة جديدة
+          </span>
+
+          <h1 className="text-lg sm:text-xl font-black text-slate-900 leading-snug">
+            منصة آمنة وسرية تربطك بنخبة المختصين والجهات الداعمة
+          </h1>
+
+          <p className="text-xs text-slate-600 leading-relaxed line-clamp-2">
+            استشارات نفسية متخصصة، حماية وتكييف قانوني، وإحالات فورية لمراكز علاج الإدمان المعتمدة.
+          </p>
+
+          <div className="pt-1">
+            <button
+              onClick={onNewCase}
+              className="px-5 py-2.5 bg-[#1565C0] hover:bg-blue-700 text-white font-bold rounded-2xl text-xs sm:text-sm shadow-md shadow-blue-700/20 hover:shadow-lg transition-all flex items-center gap-2 cursor-pointer active:scale-95"
+            >
+              <span>اطلب المساعدة</span>
+              <ArrowLeft className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+
+        {/* Decorative Vector Emblem without background in corner */}
+        <div className="absolute left-[-15px] bottom-[-15px] opacity-90 pointer-events-none transform rotate-6">
+          <PlatformLogo size={130} />
+        </div>
+      </div>
+
+      {/* 3. خدماتنا Section (Matching Screen 3 in Reference Image) */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-black text-slate-900">خدماتنا</h3>
+          <button
+            onClick={() => onNavigateTo('services')}
+            className="text-xs font-bold text-[#1565C0] hover:underline cursor-pointer"
+          >
+            عرض الكل
           </button>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {addictionTypes.map((type) => (
-            <div key={type.id} className="bg-white p-5 rounded-xl border border-slate-200 hover:border-slate-300 transition-all space-y-2">
-              <div className="font-bold text-base text-slate-900">{type.name_ar}</div>
-              <div className="text-xs font-semibold text-slate-400 font-sans">{type.name_en}</div>
-              <p className="text-xs text-slate-600 leading-relaxed">{type.description}</p>
+        {/* 5 Circular Service Cards (Matching Reference Mockup) */}
+        <div className="grid grid-cols-5 gap-2 text-center">
+          <button
+            onClick={() => onNavigateTo('services')}
+            className="flex flex-col items-center gap-1.5 p-2 rounded-2xl hover:bg-white transition-all group cursor-pointer"
+          >
+            <div className="w-13 h-13 rounded-2xl bg-blue-100/70 group-hover:bg-[#1565C0] text-[#1565C0] group-hover:text-white flex items-center justify-center transition-all shadow-xs">
+              <HeartHandshake className="w-6 h-6" />
             </div>
-          ))}
+            <span className="text-[11px] font-bold text-slate-800 leading-tight">الدعم النفسي</span>
+          </button>
+
+          <button
+            onClick={() => onNavigateTo('services')}
+            className="flex flex-col items-center gap-1.5 p-2 rounded-2xl hover:bg-white transition-all group cursor-pointer"
+          >
+            <div className="w-13 h-13 rounded-2xl bg-amber-100/70 group-hover:bg-amber-600 text-amber-700 group-hover:text-white flex items-center justify-center transition-all shadow-xs">
+              <Scale className="w-6 h-6" />
+            </div>
+            <span className="text-[11px] font-bold text-slate-800 leading-tight">الاستشارة القانونية</span>
+          </button>
+
+          <button
+            onClick={() => onNavigateTo('services')}
+            className="flex flex-col items-center gap-1.5 p-2 rounded-2xl hover:bg-white transition-all group cursor-pointer"
+          >
+            <div className="w-13 h-13 rounded-2xl bg-emerald-100/70 group-hover:bg-[#2E7D32] text-[#2E7D32] group-hover:text-white flex items-center justify-center transition-all shadow-xs">
+              <Building2 className="w-6 h-6" />
+            </div>
+            <span className="text-[11px] font-bold text-slate-800 leading-tight">مراكز العلاج</span>
+          </button>
+
+          <button
+            onClick={() => onNavigateTo('services')}
+            className="flex flex-col items-center gap-1.5 p-2 rounded-2xl hover:bg-white transition-all group cursor-pointer"
+          >
+            <div className="w-13 h-13 rounded-2xl bg-teal-100/70 group-hover:bg-teal-700 text-teal-700 group-hover:text-white flex items-center justify-center transition-all shadow-xs">
+              <Users className="w-6 h-6" />
+            </div>
+            <span className="text-[11px] font-bold text-slate-800 leading-tight">الجمعيات</span>
+          </button>
+
+          <button
+            onClick={() => onNavigateTo('services')}
+            className="flex flex-col items-center gap-1.5 p-2 rounded-2xl hover:bg-white transition-all group cursor-pointer"
+          >
+            <div className="w-13 h-13 rounded-2xl bg-purple-100/70 group-hover:bg-purple-700 text-purple-700 group-hover:text-white flex items-center justify-center transition-all shadow-xs">
+              <Sparkles className="w-6 h-6" />
+            </div>
+            <span className="text-[11px] font-bold text-slate-800 leading-tight">التوعية</span>
+          </button>
         </div>
-      </section>
+      </div>
 
-      {/* 3 Steps Roadmap */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="bg-slate-900 text-white rounded-3xl p-8 sm:p-12 space-y-8">
-          <div className="text-center max-w-2xl mx-auto space-y-3">
-            <h2 className="text-2xl sm:text-3xl font-black">كيف تسير رحلة التعافي خطوة بخطوة؟</h2>
-            <p className="text-sm text-slate-400">
-              صممنا مساراً مرناً يضمن السرية، الجدية، والمتابعة المهنية المستمرة دون أي تعقيدات بيروقراطية.
-            </p>
+      {/* 4. Quick Action Card: AI Smart Triage (المساعد الذكي للتوجيه السري) */}
+      <div className="p-4 rounded-3xl bg-gradient-to-r from-[#0b2347] to-[#1565C0] text-white shadow-md flex items-center justify-between gap-3">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-cyan-400 animate-ping" />
+            <h4 className="font-extrabold text-xs sm:text-sm">المساعد الذكي للتوجيه السري</h4>
           </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <div className="space-y-3 border-r md:border-r-0 md:border-t-2 border-blue-500/40 pt-4">
-              <div className="text-xs font-bold text-blue-400">المرحلة الأولى</div>
-              <div className="text-lg font-bold">1. تقديم الطلب والتصنيف الأولي</div>
-              <p className="text-xs text-slate-300 leading-relaxed">
-                تعبئة استمارة الحالة بسرية، وتحديد درجة الأولوية، مع استجابة الحالات الحرجة خلال ساعتين فقط.
-              </p>
-            </div>
-
-            <div className="space-y-3 border-r md:border-r-0 md:border-t-2 border-emerald-500/40 pt-4">
-              <div className="text-xs font-bold text-emerald-400">المرحلة الثانية</div>
-              <div className="text-lg font-bold">2. التقييم السريري وجدولة المواعيد</div>
-              <p className="text-xs text-slate-300 leading-relaxed">
-                إسناد الحالة للأخصائي النفسي والمحامي المعتمد، وحجز أول جلسة تقييمية ومباشرة الخطة العلاجية.
-              </p>
-            </div>
-
-            <div className="space-y-3 border-r md:border-r-0 md:border-t-2 border-amber-500/40 pt-4">
-              <div className="text-xs font-bold text-amber-400">المرحلة الثالثة</div>
-              <div className="text-lg font-bold">3. المتابعة، التعافي، والتقرير النهائي</div>
-              <p className="text-xs text-slate-300 leading-relaxed">
-                جلسات دورية، متابعة أسبوعية مع مراكز التأهيل والجمعيات، وإصدار تقرير ختامي للتعافي المستدام.
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Emergency Resources Banner */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="bg-red-50 border border-red-200 rounded-2xl p-6 sm:p-8 space-y-4">
-          <div className="flex items-center gap-3 text-red-700 font-extrabold text-lg">
-            <PhoneCall className="w-6 h-6 animate-bounce" />
-            <span>خطوط الطوارئ والنجدة الوطنية (متاحة 24/7 ومجانية)</span>
-          </div>
-          <p className="text-xs sm:text-sm text-red-900 leading-relaxed">
-            في حالات التسمم الدوائي الحاد، الجرعات الزائدة، أو الخطر الجسدي المباشر، لا تتردد بالاتصال بالأرقام الرسمية فوراً:
+          <p className="text-[11px] text-blue-100 leading-relaxed">
+            محادثة مجهولة الهوية لتقييم الأعراض والتوجيه لأقرب مختص أو مركز مرخص.
           </p>
+        </div>
+        <button
+          onClick={onOpenAiTriage}
+          className="px-3.5 py-2 bg-white text-[#1565C0] font-bold text-xs rounded-xl shrink-0 shadow-sm hover:bg-blue-50 transition-colors cursor-pointer"
+        >
+          ابدأ المحادثة
+        </button>
+      </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-2">
-            {emergencies.map((em) => (
-              <div key={em.id} className="bg-white p-4 rounded-xl border border-red-100 shadow-xs">
-                <div className="font-bold text-sm text-slate-900">{em.title_ar}</div>
-                <div className="text-2xl font-black text-red-600 my-1 tracking-wider">{em.phone_number}</div>
-                <div className="text-[11px] text-slate-500">{em.description_ar}</div>
+      {/* 5. المختصون المناوبون المتاحون الآن (Specialists On Duty) */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-black text-slate-900">المختصون المتاحون للاستشارة</h3>
+          <span className="text-[11px] font-bold text-emerald-600 flex items-center gap-1">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+            مناوبة فورية
+          </span>
+        </div>
+
+        <div className="space-y-2.5">
+          {/* Doctor Card */}
+          <div className="p-3.5 bg-white rounded-2xl border border-slate-200/80 shadow-xs flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="w-11 h-11 rounded-full bg-blue-100 text-[#1565C0] flex items-center justify-center font-bold text-xs shrink-0">
+                ف.ز
               </div>
-            ))}
+              <div>
+                <h4 className="font-bold text-xs sm:text-sm text-slate-900">د. فاطمة الزهراء بن عيسى</h4>
+                <p className="text-[11px] text-slate-500">أخصائية نفسية وسلوكية • خبرة 12 سنة</p>
+              </div>
+            </div>
+            <button
+              onClick={() => onNavigateTo('appointments')}
+              className="px-3 py-1.5 bg-blue-50 hover:bg-[#1565C0] text-[#1565C0] hover:text-white font-bold text-xs rounded-xl transition-all cursor-pointer shrink-0"
+            >
+              حجز موعد
+            </button>
+          </div>
+
+          {/* Lawyer Card */}
+          <div className="p-3.5 bg-white rounded-2xl border border-slate-200/80 shadow-xs flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="w-11 h-11 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center font-bold text-xs shrink-0">
+                م.ع
+              </div>
+              <div>
+                <h4 className="font-bold text-xs sm:text-sm text-slate-900">أ. محمد العربي</h4>
+                <p className="text-[11px] text-slate-500">محامٍ معتمد لدى المجلس • حماية وتكييف قانوني</p>
+              </div>
+            </div>
+            <button
+              onClick={() => onNavigateTo('appointments')}
+              className="px-3 py-1.5 bg-amber-50 hover:bg-amber-600 text-amber-800 hover:text-white font-bold text-xs rounded-xl transition-all cursor-pointer shrink-0"
+            >
+              طلب استشارة
+            </button>
           </div>
         </div>
-      </section>
+      </div>
+
+      {/* 6. Emergency Direct Helpline Card */}
+      <div className="p-4 rounded-3xl bg-red-50/80 border border-red-200/80 flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-2xl bg-red-600 text-white flex items-center justify-center shrink-0">
+            <PhoneCall className="w-5 h-5" />
+          </div>
+          <div>
+            <span className="text-[10px] font-bold uppercase text-red-600 block">طوارئ النجدة والسموم</span>
+            <span className="text-sm font-black text-slate-900">الخط الأخضر 1099 (مجاني وسري)</span>
+          </div>
+        </div>
+        <button
+          onClick={() => onNavigateTo('emergency')}
+          className="px-3 py-1.5 bg-white text-red-600 border border-red-200 hover:bg-red-50 font-bold text-xs rounded-xl shadow-xs transition-colors shrink-0"
+        >
+          عرض الأرقام
+        </button>
+      </div>
+
     </div>
   );
 };

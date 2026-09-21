@@ -2,6 +2,13 @@ import React, { useState } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { Navbar } from './components/Navbar';
 import { LandingPage } from './components/LandingPage';
+import { ServicesView } from './components/ServicesView';
+import { NewCaseWizard } from './components/NewCaseWizard';
+import { CaseDetailsView } from './components/CaseDetailsView';
+import { NotificationsView } from './components/NotificationsView';
+import { ProfileView } from './components/ProfileView';
+import { SmartSearchView } from './components/SmartSearchView';
+import { AboutPlatformView } from './components/AboutPlatformView';
 import { FamilyPortal } from './components/FamilyPortal';
 import { PsychologistPortal } from './components/PsychologistPortal';
 import { LawyerPortal } from './components/LawyerPortal';
@@ -12,7 +19,9 @@ import { MessagesView } from './components/MessagesView';
 import { EmergencyDirectory } from './components/EmergencyDirectory';
 import { AuthModal } from './components/AuthModal';
 import { AITriageModal } from './components/AITriageModal';
-import { Shield, HeartHandshake, PhoneCall } from 'lucide-react';
+import { BottomNavigator } from './components/BottomNavigator';
+import { PlatformLogo } from './components/PlatformLogo';
+import { Shield } from 'lucide-react';
 
 const AppContent: React.FC = () => {
   const { user } = useAuth();
@@ -24,6 +33,7 @@ const AppContent: React.FC = () => {
 
   // Cross-component states
   const [activeConvId, setActiveConvId] = useState<number | null>(null);
+  const [selectedCaseCode, setSelectedCaseCode] = useState<string>('#SC-2025-0012');
   const [prefillCaseData, setPrefillCaseData] = useState<{
     description: string;
     addiction_type_id: number;
@@ -38,11 +48,7 @@ const AppContent: React.FC = () => {
 
   const handleStartCaseWithData = (data: { description: string; addiction_type_id: number; priority: string }) => {
     setPrefillCaseData(data);
-    if (!user) {
-      handleOpenAuth('register', 'family');
-    } else {
-      setCurrentView('portal');
-    }
+    setCurrentView('new-case');
   };
 
   const handleOpenChat = (convId: number) => {
@@ -54,21 +60,26 @@ const AppContent: React.FC = () => {
     setCurrentView('appointments');
   };
 
-  // Render Portal View by User Role
+  const handleSelectCase = (code: string) => {
+    setSelectedCaseCode(code);
+    setCurrentView('case-detail');
+  };
+
+  // Render Role-specific Portal
   const renderPortal = () => {
     if (!user) {
       return (
-        <div className="max-w-xl mx-auto my-16 p-8 bg-white rounded-2xl border border-slate-200 text-center space-y-4 shadow-sm">
-          <div className="w-12 h-12 rounded-full bg-blue-50 text-[#1565C0] mx-auto flex items-center justify-center">
-            <Shield className="w-6 h-6" />
+        <div className="max-w-md mx-auto my-12 p-6 bg-white rounded-3xl border border-slate-200 text-center space-y-4 shadow-sm" dir="rtl">
+          <div className="w-14 h-14 rounded-full bg-blue-50 text-[#1565C0] mx-auto flex items-center justify-center">
+            <Shield className="w-7 h-7" />
           </div>
-          <h2 className="text-xl font-bold text-slate-900">تسجيل الدخول مطلوب</h2>
-          <p className="text-xs sm:text-sm text-slate-500">
-            للوصول إلى ملفاتك ومتابعاتك الآمنة، يرجى تسجيل الدخول أو استخدام أحد الحسابات التجريبية المعتمدة.
+          <h2 className="text-lg font-black text-slate-900">تسجيل الدخول مطلوب</h2>
+          <p className="text-xs text-slate-500 leading-relaxed">
+            للوصول إلى ملفاتك ومتابعاتك الآمنة، يرجى تسجيل الدخول أو اختيار أحد الأدوار التجريبية.
           </p>
           <button
             onClick={() => handleOpenAuth('login')}
-            className="px-6 py-2.5 bg-[#1565C0] text-white rounded-xl text-xs sm:text-sm font-bold shadow-xs hover:bg-blue-700 transition-colors"
+            className="w-full py-3 bg-[#1565C0] hover:bg-blue-700 text-white rounded-2xl text-xs sm:text-sm font-bold shadow-md transition-colors cursor-pointer"
           >
             تسجيل الدخول الآن
           </button>
@@ -110,8 +121,8 @@ const AppContent: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] flex flex-col font-sans text-slate-900" dir="rtl">
-      {/* Global Navigation Header */}
+    <div className="min-h-screen bg-[#F8FAFC] flex flex-col font-sans text-slate-900 selection:bg-blue-100 selection:text-[#1565C0]" dir="rtl">
+      {/* Global Navigation Header with transparent logo */}
       <Navbar
         onOpenAuth={handleOpenAuth}
         onOpenAiTriage={() => setIsAiOpen(true)}
@@ -120,23 +131,98 @@ const AppContent: React.FC = () => {
       />
 
       {/* Main Content Area */}
-      <main className="flex-1">
+      <main className="flex-1 pb-24">
         {currentView === 'landing' && (
           <LandingPage
             onOpenAuth={handleOpenAuth}
             onOpenAiTriage={() => setIsAiOpen(true)}
             onNavigateToPortal={() => setCurrentView('portal')}
+            onNavigateTo={setCurrentView}
+            onNewCase={() => setCurrentView('new-case')}
+          />
+        )}
+
+        {currentView === 'services' && (
+          <ServicesView
+            onBack={() => setCurrentView('landing')}
+            onSelectService={(serviceId) => {
+              setCurrentView('new-case');
+            }}
+          />
+        )}
+
+        {currentView === 'new-case' && (
+          <NewCaseWizard
+            onBack={() => setCurrentView('landing')}
+            onComplete={(caseCode) => {
+              setSelectedCaseCode(caseCode);
+              setCurrentView('case-detail');
+            }}
+          />
+        )}
+
+        {currentView === 'case-detail' && (
+          <CaseDetailsView
+            caseCode={selectedCaseCode}
+            onBack={() => setCurrentView('portal')}
+            onOpenChat={handleOpenChat}
+            onBookAppointment={handleOpenBookAppointment}
+          />
+        )}
+
+        {currentView === 'notifications' && (
+          <NotificationsView
+            onBack={() => setCurrentView('landing')}
+            onNavigateTo={setCurrentView}
+          />
+        )}
+
+        {currentView === 'profile' && (
+          <ProfileView
+            onBack={() => setCurrentView('landing')}
+            onNavigateTo={setCurrentView}
+            onOpenAuth={handleOpenAuth}
+          />
+        )}
+
+        {currentView === 'search' && (
+          <SmartSearchView
+            onBack={() => setCurrentView('landing')}
+            onSelectCase={handleSelectCase}
+          />
+        )}
+
+        {currentView === 'about' && (
+          <AboutPlatformView
+            onBack={() => setCurrentView('landing')}
+            onOpenEmergency={() => setCurrentView('emergency')}
+            onOpenAiTriage={() => setIsAiOpen(true)}
           />
         )}
 
         {currentView === 'portal' && renderPortal()}
 
-        {currentView === 'appointments' && <AppointmentsView />}
+        {currentView === 'appointments' && (
+          <AppointmentsView onBack={() => setCurrentView('landing')} />
+        )}
 
-        {currentView === 'messages' && <MessagesView initialConversationId={activeConvId} />}
+        {currentView === 'messages' && (
+          <MessagesView 
+            initialConversationId={activeConvId} 
+            onBack={() => setCurrentView('landing')} 
+          />
+        )}
 
         {currentView === 'emergency' && <EmergencyDirectory />}
       </main>
+
+      {/* Floating Bottom Navigator matching UI reference mockup */}
+      <BottomNavigator
+        currentView={currentView}
+        onNavigate={setCurrentView}
+        onOpenAiTriage={() => setIsAiOpen(true)}
+        onNewCase={() => setCurrentView('new-case')}
+      />
 
       {/* Modals */}
       <AuthModal
@@ -151,52 +237,16 @@ const AppContent: React.FC = () => {
         onClose={() => setIsAiOpen(false)}
         onStartCaseWithData={handleStartCaseWithData}
       />
-
-      {/* Official Footer */}
-      <footer className="bg-white border-t border-slate-200 py-10 text-xs text-slate-500">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-[#1565C0] to-[#2E7D32] flex items-center justify-center text-white font-bold">
-                <Shield className="w-5 h-5" />
-              </div>
-              <div>
-                <span className="font-extrabold text-slate-900 text-sm">منصة الفرصة الثانية (SCP)</span>
-                <span className="text-slate-400 block text-[11px]">Second Chance Platform — نظام التعافي والتأهيل المتكامل</span>
-              </div>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-6 text-[11px] font-medium">
-              <button onClick={() => setCurrentView('emergency')} className="text-red-600 hover:underline">
-                أرقام الطوارئ الساخنة
-              </button>
-              <button onClick={() => setIsAiOpen(true)} className="text-emerald-700 hover:underline">
-                المساعد الذكي للتوجيه السري
-              </button>
-              <span>الخط الأخضر: 1099</span>
-              <span>الدرك: 1055</span>
-              <span>الشرطة: 1548</span>
-              <span>الحماية: 14</span>
-            </div>
-          </div>
-
-          <div className="border-t border-slate-100 pt-6 flex flex-wrap items-center justify-between gap-4 text-[11px]">
-            <p>© {new Date().getFullYear()} Second Chance Platform (SCP). جميع الحقوق محفوظة. تخضع جميع التعاملات للسرية المهنية الطبية وحماية البيانات.</p>
-            <div className="flex items-center gap-2 text-slate-400">
-              <HeartHandshake className="w-4 h-4 text-[#2E7D32]" />
-              <span>معاً من أجل حياة جديدة ومستقبل آمن</span>
-            </div>
-          </div>
-        </div>
-      </footer>
     </div>
   );
 };
 
-export default function App() {
+export function App() {
   return (
     <AuthProvider>
       <AppContent />
     </AuthProvider>
   );
 }
+
+export default App;

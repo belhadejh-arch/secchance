@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { RoleSlug, NotificationItem } from '../types';
 import { api } from '../services/api';
+import { PlatformLogo } from './PlatformLogo';
 import { 
   Shield, 
   HeartHandshake, 
@@ -79,38 +80,21 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenAuth, onOpenAiTriage, curr
   };
 
   return (
-    <header className="sticky top-0 z-40 bg-white border-b border-slate-200 shadow-xs">
-      {/* Emergency Top Banner */}
-      <div className="bg-[#1565C0] text-white px-4 py-1.5 text-xs sm:text-sm font-medium">
-        <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
-            <span className="flex h-2 w-2 rounded-full bg-emerald-400 animate-pulse"></span>
-            <span>الخط الوطني المباشر للإرشاد وعلاج الإدمان (سرية تامة ومجاني):</span>
-            <a href="tel:1099" className="font-bold underline text-amber-300 hover:text-white flex items-center gap-1">
-              <PhoneCall className="w-3.5 h-3.5 inline" /> 1099
-            </a>
-          </div>
-          <div className="hidden md:flex items-center gap-4 text-xs text-blue-100">
-            <span>الدرك الوطني: 1055</span>
-            <span>الشرطة: 1548</span>
-            <span>الحماية المدنية: 14</span>
-          </div>
-        </div>
-      </div>
-
+    <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200 shadow-xs">
       {/* Main Nav */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           {/* Logo & Platform Name */}
-          <div className="flex items-center gap-3 cursor-pointer" onClick={() => onNavigate('landing')}>
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-[#1565C0] to-[#2E7D32] flex items-center justify-center text-white shadow-sm">
-              <Shield className="w-6 h-6" />
-            </div>
+          <div className="flex items-center gap-2.5 cursor-pointer" onClick={() => onNavigate('landing')}>
+            <PlatformLogo size={38} />
             <div>
-              <div className="font-extrabold text-lg text-slate-900 leading-tight">
-                الفرصة الثانية <span className="text-xs font-semibold text-[#1565C0] font-sans">SCP</span>
+              <div className="font-black text-lg text-slate-900 leading-tight flex items-center gap-2">
+                <span>الفرصة الثانية</span>
+                <span className="text-[11px] font-extrabold text-[#1565C0] bg-blue-50 border border-blue-100 px-2 py-0.5 rounded-full font-sans">
+                  SCP
+                </span>
               </div>
-              <p className="text-[11px] text-slate-500 font-medium">منظومة التعافي، الدعم النفسي والحماية القانونية</p>
+              <p className="text-[11px] text-slate-500 font-medium hidden sm:block">منظومة التعافي، الدعم النفسي والحماية القانونية</p>
             </div>
           </div>
 
@@ -118,7 +102,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenAuth, onOpenAiTriage, curr
           <nav className="hidden lg:flex items-center gap-1 text-sm font-medium text-slate-600">
             <button
               onClick={() => onNavigate('landing')}
-              className={`px-3 py-2 rounded-lg transition-colors ${currentView === 'landing' ? 'text-[#1565C0] bg-blue-50 font-semibold' : 'hover:bg-slate-50'}`}
+              className={`px-3.5 py-2 rounded-xl transition-all ${currentView === 'landing' ? 'text-[#1565C0] bg-blue-50 font-bold' : 'hover:bg-slate-100/60'}`}
             >
               الرئيسية
             </button>
@@ -126,21 +110,21 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenAuth, onOpenAiTriage, curr
               <>
                 <button
                   onClick={() => onNavigate('portal')}
-                  className={`px-3 py-2 rounded-lg transition-colors flex items-center gap-1.5 ${currentView === 'portal' ? 'text-[#1565C0] bg-blue-50 font-semibold' : 'hover:bg-slate-50'}`}
+                  className={`px-3.5 py-2 rounded-xl transition-all flex items-center gap-1.5 ${currentView === 'portal' ? 'text-[#1565C0] bg-blue-50 font-bold' : 'hover:bg-slate-100/60'}`}
                 >
                   <LayoutDashboard className="w-4 h-4" />
-                  لوحة المتابعة
+                  {user.role_slug === 'admin' ? 'لوحة تحكم الأدمن' : 'لوحة المتابعة'}
                 </button>
                 <button
                   onClick={() => onNavigate('appointments')}
-                  className={`px-3 py-2 rounded-lg transition-colors flex items-center gap-1.5 ${currentView === 'appointments' ? 'text-[#1565C0] bg-blue-50 font-semibold' : 'hover:bg-slate-50'}`}
+                  className={`px-3.5 py-2 rounded-xl transition-all flex items-center gap-1.5 ${currentView === 'appointments' ? 'text-[#1565C0] bg-blue-50 font-bold' : 'hover:bg-slate-100/60'}`}
                 >
                   <Calendar className="w-4 h-4" />
                   المواعيد
                 </button>
                 <button
                   onClick={() => onNavigate('messages')}
-                  className={`px-3 py-2 rounded-lg transition-colors flex items-center gap-1.5 ${currentView === 'messages' ? 'text-[#1565C0] bg-blue-50 font-semibold' : 'hover:bg-slate-50'}`}
+                  className={`px-3.5 py-2 rounded-xl transition-all flex items-center gap-1.5 ${currentView === 'messages' ? 'text-[#1565C0] bg-blue-50 font-bold' : 'hover:bg-slate-100/60'}`}
                 >
                   <MessageSquare className="w-4 h-4" />
                   المحادثات الآمنة
@@ -149,14 +133,14 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenAuth, onOpenAiTriage, curr
             )}
             <button
               onClick={onOpenAiTriage}
-              className="px-3 py-2 rounded-lg text-emerald-700 bg-emerald-50 hover:bg-emerald-100 flex items-center gap-1.5 transition-colors font-medium"
+              className="px-3.5 py-2 rounded-xl text-emerald-700 bg-emerald-50 hover:bg-emerald-100/80 flex items-center gap-1.5 transition-all font-semibold"
             >
               <Sparkles className="w-4 h-4 text-emerald-600" />
               التوجيه الذكي
             </button>
             <button
               onClick={() => onNavigate('emergency')}
-              className="px-3 py-2 rounded-lg text-red-600 hover:bg-red-50 flex items-center gap-1 transition-colors"
+              className="px-3.5 py-2 rounded-xl text-red-600 hover:bg-red-50 flex items-center gap-1.5 transition-all font-semibold"
             >
               دليل الطوارئ
             </button>
@@ -164,60 +148,24 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenAuth, onOpenAiTriage, curr
 
           {/* Right Action Items */}
           <div className="flex items-center gap-2 sm:gap-3">
-            {/* Quick Demo Role Switcher */}
-            <div className="relative">
-              <button
-                onClick={() => setShowRoleMenu(!showRoleMenu)}
-                title="مبدل الأدوار التجريبي السريع"
-                className="flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1.5 rounded-lg border border-slate-200 hover:border-slate-300 bg-slate-50 text-slate-700 transition-all cursor-pointer"
-              >
-                <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-                <span>دور التجربة:</span>
-                <span className="font-bold text-[#1565C0]">{user ? ROLES_INFO[user.role_slug]?.title : 'زائر'}</span>
-                <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
-              </button>
-
-              {showRoleMenu && (
-                <div className="absolute left-0 sm:right-auto mt-2 w-64 bg-white rounded-xl shadow-xl border border-slate-200 py-2 z-50 animate-in fade-in zoom-in-95 duration-100 text-right">
-                  <div className="px-3 py-1.5 border-b border-slate-100 text-xs font-bold text-slate-500">
-                    تبديل الحساب التجريبي المعتمد (1-Click Switch):
-                  </div>
-                  {(Object.keys(ROLES_INFO) as RoleSlug[]).map((r) => (
-                    <button
-                      key={r}
-                      onClick={() => handleSwitchRole(r)}
-                      className={`w-full px-3 py-2 text-xs flex items-center justify-between hover:bg-slate-50 transition-colors ${user?.role_slug === r ? 'bg-blue-50/70 font-bold text-[#1565C0]' : 'text-slate-700'}`}
-                    >
-                      <span className="flex items-center gap-2">
-                        <span className={`px-2 py-0.5 rounded text-[10px] font-semibold border ${ROLES_INFO[r].color}`}>
-                          {ROLES_INFO[r].title}
-                        </span>
-                      </span>
-                      {user?.role_slug === r && <CheckCircle2 className="w-4 h-4 text-[#1565C0]" />}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-
             {/* Notifications Dropdown (If Logged In) */}
             {user && (
               <div className="relative">
                 <button
                   onClick={() => setShowNotifications(!showNotifications)}
-                  className="p-2 text-slate-600 hover:text-slate-900 rounded-lg hover:bg-slate-100 relative transition-colors cursor-pointer"
+                  className="p-2.5 text-slate-600 hover:text-slate-900 rounded-xl hover:bg-slate-100 relative transition-colors cursor-pointer"
                   title="الإشعارات"
                 >
                   <Bell className="w-5 h-5" />
                   {unreadCount > 0 && (
-                    <span className="absolute top-1.5 right-1.5 bg-red-600 text-white text-[10px] font-bold h-4 w-4 rounded-full flex items-center justify-center">
+                    <span className="absolute top-1.5 right-1.5 bg-red-600 text-white text-[10px] font-bold h-4 w-4 rounded-full flex items-center justify-center ring-2 ring-white">
                       {unreadCount}
                     </span>
                   )}
                 </button>
 
                 {showNotifications && (
-                  <div className="absolute left-0 mt-2 w-80 sm:w-96 bg-white rounded-xl shadow-xl border border-slate-200 py-2 z-50 text-right">
+                  <div className="absolute left-0 mt-2 w-80 sm:w-96 bg-white rounded-2xl shadow-xl border border-slate-200 py-3 z-50 text-right">
                     <div className="px-4 py-2 border-b border-slate-100 flex items-center justify-between">
                       <span className="font-bold text-sm text-slate-900">الإشعارات ({unreadCount} غير مقروء)</span>
                       {unreadCount > 0 && (
@@ -228,16 +176,16 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenAuth, onOpenAiTriage, curr
                     </div>
                     <div className="max-h-80 overflow-y-auto divide-y divide-slate-100">
                       {notifications.length === 0 ? (
-                        <div className="p-4 text-center text-xs text-slate-400">لا توجد إشعارات حالياً</div>
+                        <div className="p-6 text-center text-xs text-slate-400">لا توجد إشعارات جديدة حالياً</div>
                       ) : (
                         notifications.map((n) => (
                           <div
                             key={n.id}
-                            className={`p-3 text-xs transition-colors ${n.is_read ? 'bg-white opacity-75' : 'bg-blue-50/50 font-medium'}`}
+                            className={`p-3.5 text-xs transition-colors ${n.is_read ? 'bg-white opacity-75' : 'bg-blue-50/50 font-medium'}`}
                           >
                             <div className="font-semibold text-slate-900 mb-0.5">{n.title}</div>
                             <p className="text-slate-600 text-[11px] leading-relaxed">{n.message}</p>
-                            <span className="text-[10px] text-slate-400 mt-1 block">
+                            <span className="text-[10px] text-slate-400 mt-1 block font-sans">
                               {new Date(n.created_at).toLocaleString('ar-DZ', { dateStyle: 'short', timeStyle: 'short' })}
                             </span>
                           </div>
@@ -249,35 +197,67 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenAuth, onOpenAiTriage, curr
               </div>
             )}
 
-            {/* Auth Buttons or User Profile */}
+            {/* User Profile / Quick Switcher */}
             {user ? (
-              <div className="flex items-center gap-2">
+              <div className="relative">
                 <button
-                  onClick={() => onNavigate('portal')}
-                  className="hidden sm:flex items-center gap-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors"
+                  onClick={() => setShowRoleMenu(!showRoleMenu)}
+                  className="flex items-center gap-2 bg-slate-50 hover:bg-slate-100 text-slate-800 px-3 py-1.5 rounded-xl border border-slate-200 transition-all cursor-pointer"
                 >
-                  <User className="w-3.5 h-3.5 text-[#1565C0]" />
-                  <span>{user.first_name}</span>
+                  <div className="w-7 h-7 rounded-lg bg-blue-600 text-white flex items-center justify-center font-bold text-xs">
+                    {user.first_name?.[0] || 'م'}
+                  </div>
+                  <div className="text-right hidden sm:block">
+                    <div className="text-xs font-bold text-slate-900">{user.first_name} {user.last_name}</div>
+                    <div className="text-[10px] text-slate-500 font-semibold">{ROLES_INFO[user.role_slug]?.title}</div>
+                  </div>
+                  <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
                 </button>
-                <button
-                  onClick={logout}
-                  className="p-2 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"
-                  title="تسجيل الخروج"
-                >
-                  <LogOut className="w-4 h-4" />
-                </button>
+
+                {showRoleMenu && (
+                  <div className="absolute left-0 mt-2 w-64 bg-white rounded-2xl shadow-xl border border-slate-200 py-2 z-50 text-right animate-in fade-in zoom-in-95">
+                    <div className="px-4 py-2 border-b border-slate-100 text-xs font-bold text-slate-400">
+                      تبديل الحساب / الصلاحية:
+                    </div>
+                    <div className="max-h-60 overflow-y-auto py-1">
+                      {(Object.keys(ROLES_INFO) as RoleSlug[]).map((r) => (
+                        <button
+                          key={r}
+                          onClick={() => handleSwitchRole(r)}
+                          className={`w-full px-4 py-2 text-xs flex items-center justify-between hover:bg-slate-50 transition-colors ${user.role_slug === r ? 'bg-blue-50 font-bold text-[#1565C0]' : 'text-slate-700'}`}
+                        >
+                          <span className="flex items-center gap-2">
+                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold border ${ROLES_INFO[r].color}`}>
+                              {ROLES_INFO[r].title}
+                            </span>
+                          </span>
+                          {user.role_slug === r && <CheckCircle2 className="w-4 h-4 text-[#1565C0]" />}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="border-t border-slate-100 pt-1 mt-1">
+                      <button
+                        onClick={logout}
+                        className="w-full px-4 py-2 text-xs text-red-600 hover:bg-red-50 font-bold flex items-center gap-2 transition-colors"
+                      >
+                        <LogOut className="w-3.5 h-3.5" />
+                        <span>تسجيل الخروج</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             ) : (
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => onOpenAuth('login')}
-                  className="text-xs sm:text-sm font-semibold text-slate-700 hover:text-[#1565C0] px-3 py-1.5 rounded-lg hover:bg-slate-100 transition-colors"
+                  className="text-xs sm:text-sm font-bold text-slate-700 hover:text-[#1565C0] px-4 py-2 rounded-xl hover:bg-slate-100 transition-colors"
                 >
                   تسجيل الدخول
                 </button>
                 <button
                   onClick={() => onOpenAuth('register')}
-                  className="text-xs sm:text-sm font-semibold bg-[#1565C0] text-white hover:bg-blue-700 px-3.5 py-1.5 rounded-lg shadow-xs transition-colors"
+                  className="text-xs sm:text-sm font-bold bg-[#1565C0] text-white hover:bg-blue-700 px-4 py-2 rounded-xl shadow-xs transition-colors"
                 >
                   طلب مساعدة / تسجيل
                 </button>
