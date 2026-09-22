@@ -227,7 +227,7 @@ export const AdminPortal: React.FC = () => {
               </div>
 
               {/* Navigation Items */}
-              <nav className="space-y-1.5 text-xs font-semibold">
+              <nav className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-1 gap-1.5 text-xs font-semibold">
                 <button
                   onClick={() => setActiveTab('kpis')}
                   className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition-all text-right ${

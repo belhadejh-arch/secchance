@@ -164,8 +164,8 @@ export const BottomNavigator: React.FC<BottomNavigatorProps> = ({
         </div>
       )}
 
-      {/* Main Bottom Bar (100% Matching Reference Mobile Design from Image 1) */}
-      <div className="fixed bottom-0 inset-x-0 z-40 flex justify-center bg-white/95 backdrop-blur-md border-t border-slate-200/90 shadow-[0_-4px_20px_rgba(0,0,0,0.05)] px-2 sm:px-6">
+      {/* Main Bottom Bar (100% Matching Reference Mobile Design from Image 1 - Visible on Mobile and Tablets, hidden on Desktop Lg) */}
+      <div className="lg:hidden fixed bottom-0 inset-x-0 z-40 flex justify-center bg-white/95 backdrop-blur-md border-t border-slate-200/90 shadow-[0_-4px_20px_rgba(0,0,0,0.05)] px-2 sm:px-6">
         <div className="w-full max-w-md sm:max-w-lg flex items-center justify-between py-1.5 px-1 relative" dir="rtl">
           
           {/* Tab 1: الرئيسية (Home) */}

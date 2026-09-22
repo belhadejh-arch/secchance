@@ -91,33 +91,39 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenAuth, onOpenAiTriage, curr
             </div>
           </div>
 
-          {/* Center Links */}
+          {/* Center Links (Desktop) */}
           <nav className="hidden lg:flex items-center gap-1 text-sm font-medium text-slate-600">
             <button
               onClick={() => onNavigate('landing')}
-              className={`px-3.5 py-2 rounded-xl transition-all ${currentView === 'landing' ? 'text-[#1565C0] bg-blue-50 font-bold' : 'hover:bg-slate-100/60'}`}
+              className={`px-3 py-2 rounded-xl transition-all cursor-pointer ${currentView === 'landing' ? 'text-[#1565C0] bg-blue-50 font-bold' : 'hover:bg-slate-100/60'}`}
             >
               الرئيسية
+            </button>
+            <button
+              onClick={() => onNavigate('services')}
+              className={`px-3 py-2 rounded-xl transition-all cursor-pointer ${currentView === 'services' ? 'text-[#1565C0] bg-blue-50 font-bold' : 'hover:bg-slate-100/60'}`}
+            >
+              الخدمات والتوعية
             </button>
             {user && (
               <>
                 <button
                   onClick={() => onNavigate('portal')}
-                  className={`px-3.5 py-2 rounded-xl transition-all flex items-center gap-1.5 ${currentView === 'portal' ? 'text-[#1565C0] bg-blue-50 font-bold' : 'hover:bg-slate-100/60'}`}
+                  className={`px-3 py-2 rounded-xl transition-all flex items-center gap-1.5 cursor-pointer ${currentView === 'portal' ? 'text-[#1565C0] bg-blue-50 font-bold' : 'hover:bg-slate-100/60'}`}
                 >
                   <LayoutDashboard className="w-4 h-4" />
                   {user.role_slug === 'admin' ? 'لوحة تحكم الأدمن' : 'لوحة المتابعة'}
                 </button>
                 <button
                   onClick={() => onNavigate('appointments')}
-                  className={`px-3.5 py-2 rounded-xl transition-all flex items-center gap-1.5 ${currentView === 'appointments' ? 'text-[#1565C0] bg-blue-50 font-bold' : 'hover:bg-slate-100/60'}`}
+                  className={`px-3 py-2 rounded-xl transition-all flex items-center gap-1.5 cursor-pointer ${currentView === 'appointments' ? 'text-[#1565C0] bg-blue-50 font-bold' : 'hover:bg-slate-100/60'}`}
                 >
                   <Calendar className="w-4 h-4" />
                   المواعيد
                 </button>
                 <button
                   onClick={() => onNavigate('messages')}
-                  className={`px-3.5 py-2 rounded-xl transition-all flex items-center gap-1.5 ${currentView === 'messages' ? 'text-[#1565C0] bg-blue-50 font-bold' : 'hover:bg-slate-100/60'}`}
+                  className={`px-3 py-2 rounded-xl transition-all flex items-center gap-1.5 cursor-pointer ${currentView === 'messages' ? 'text-[#1565C0] bg-blue-50 font-bold' : 'hover:bg-slate-100/60'}`}
                 >
                   <MessageSquare className="w-4 h-4" />
                   المحادثات الآمنة
@@ -125,15 +131,21 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenAuth, onOpenAiTriage, curr
               </>
             )}
             <button
+              onClick={() => onNavigate('about')}
+              className={`px-3 py-2 rounded-xl transition-all cursor-pointer ${currentView === 'about' ? 'text-[#1565C0] bg-blue-50 font-bold' : 'hover:bg-slate-100/60'}`}
+            >
+              عن المنصة
+            </button>
+            <button
               onClick={onOpenAiTriage}
-              className="px-3.5 py-2 rounded-xl text-emerald-700 bg-emerald-50 hover:bg-emerald-100/80 flex items-center gap-1.5 transition-all font-semibold"
+              className="px-3 py-2 rounded-xl text-emerald-700 bg-emerald-50 hover:bg-emerald-100/80 flex items-center gap-1.5 transition-all font-semibold cursor-pointer"
             >
               <Sparkles className="w-4 h-4 text-emerald-600" />
               التوجيه الذكي
             </button>
             <button
               onClick={() => onNavigate('emergency')}
-              className="px-3.5 py-2 rounded-xl text-red-600 hover:bg-red-50 flex items-center gap-1.5 transition-all font-semibold"
+              className="px-3 py-2 rounded-xl text-red-600 hover:bg-red-50 flex items-center gap-1.5 transition-all font-semibold cursor-pointer"
             >
               دليل الطوارئ
             </button>
@@ -244,6 +256,12 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenAuth, onOpenAiTriage, curr
           >
             الرئيسية
           </button>
+          <button
+            onClick={() => { onNavigate('services'); setMobileMenuOpen(false); }}
+            className="w-full text-right py-2 text-sm font-medium text-slate-800"
+          >
+            الخدمات والتوعية ومراكز العلاج
+          </button>
           {user && (
             <>
               <button
@@ -266,6 +284,12 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenAuth, onOpenAiTriage, curr
               </button>
             </>
           )}
+          <button
+            onClick={() => { onNavigate('about'); setMobileMenuOpen(false); }}
+            className="w-full text-right py-2 text-sm font-medium text-slate-800"
+          >
+            عن المنصة وميثاق السرية
+          </button>
           <button
             onClick={() => { onOpenAiTriage(); setMobileMenuOpen(false); }}
             className="w-full text-right py-2 text-sm font-semibold text-emerald-700"

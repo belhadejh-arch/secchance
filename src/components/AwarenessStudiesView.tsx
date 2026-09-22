@@ -114,7 +114,7 @@ export const AwarenessStudiesView: React.FC = () => {
           <p className="font-bold">لا توجد دراسات منشورة مطابقة لمعايير البحث الحالية.</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredStudies.map((study) => (
             <div
               key={study.id}

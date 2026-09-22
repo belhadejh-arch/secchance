@@ -120,48 +120,50 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
   });
 
   return (
-    <div className="max-w-xl mx-auto px-4 py-4 space-y-5 pb-24" dir="rtl">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5 sm:py-6 space-y-6 pb-24 lg:pb-12 font-sans" dir="rtl">
       {/* Header */}
-      <div className="flex items-center justify-between pt-1">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1 border-b border-slate-200/60 pb-3">
         <div className="flex items-center gap-2">
           {onBack && (
             <button
               onClick={onBack}
-              className="p-1.5 rounded-xl text-slate-500 hover:text-slate-900 hover:bg-slate-100"
+              className="p-2 rounded-xl text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors cursor-pointer"
             >
               <ArrowLeft className="w-4 h-4 transform rotate-180" />
             </button>
           )}
           <div>
-            <h1 className="text-xl font-black text-slate-900">خدمات المنصة</h1>
-            <p className="text-xs text-slate-500 mt-0.5">رعاية متكاملة: نفسية، قانونية، طبية وتأهيلية</p>
+            <h1 className="text-xl sm:text-2xl font-black text-slate-900">دليل الخدمات والتوعية ومراكز العلاج</h1>
+            <p className="text-xs sm:text-sm text-slate-500 mt-0.5">رعاية متكاملة: نفسية، قانونية، طبية وتأهيلية عبر 58 ولاية جزائرية</p>
           </div>
         </div>
         {onNewCase && (
           <button
             onClick={() => onNewCase()}
-            className="px-3.5 py-1.5 bg-[#1565C0] text-white text-xs font-bold rounded-xl shadow-xs hover:bg-blue-700 transition-colors flex items-center gap-1.5 cursor-pointer"
+            className="px-4 py-2 bg-[#1565C0] text-white text-xs sm:text-sm font-bold rounded-xl shadow-xs hover:bg-blue-700 transition-colors flex items-center gap-1.5 cursor-pointer self-start sm:self-auto"
           >
-            <span>طلب مساعدة</span>
+            <span>طلب مساعدة فورية</span>
             <ArrowLeft className="w-3.5 h-3.5" />
           </button>
         )}
       </div>
 
-      {/* Search Input */}
-      <div className="relative">
-        <input
-          type="text"
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          placeholder="ابحث عن خدمة، مركز، أو استشارة..."
-          className="w-full pl-4 pr-10 py-3 bg-white border border-slate-200 rounded-2xl text-xs sm:text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#1565C0]/20 focus:border-[#1565C0] shadow-xs"
-        />
-        <Search className="w-4 h-4 text-slate-400 absolute right-3.5 top-3.5" />
+      {/* Search Input & Filter Row */}
+      <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
+        <div className="relative flex-1">
+          <input
+            type="text"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder="ابحث عن خدمة، مركز علاج بالولاية، استشارة، أو دراسة علمية..."
+            className="w-full pl-4 pr-10 py-3 bg-white border border-slate-200 rounded-2xl text-xs sm:text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#1565C0]/20 focus:border-[#1565C0] shadow-xs"
+          />
+          <Search className="w-4 h-4 text-slate-400 absolute right-3.5 top-3.5" />
+        </div>
       </div>
 
       {/* Category Pills */}
-      <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar text-xs">
+      <div className="flex items-center gap-2 overflow-x-auto pb-1 text-xs">
         <button
           onClick={() => setActiveCategory('all')}
           className={`px-3 py-1.5 rounded-xl font-bold whitespace-nowrap transition-all ${
@@ -267,37 +269,39 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
           </div>
 
           {/* Treatment Centers List */}
-          <div className="space-y-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {filteredTreatmentCenters.map((center) => (
               <div
                 key={center.id}
-                className="bg-white rounded-2xl border border-slate-200/90 p-4 shadow-xs hover:border-[#2E7D32]/50 transition-all space-y-3"
+                className="bg-white rounded-2xl border border-slate-200/90 p-4 sm:p-5 shadow-xs hover:border-[#2E7D32]/50 hover:shadow-md transition-all flex flex-col justify-between space-y-3"
               >
-                <div className="flex items-start justify-between gap-2">
-                  <div className="space-y-1">
-                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg text-xs font-black bg-blue-50 text-[#1565C0] border border-blue-100">
-                      <span>📍</span>
-                      <span>{center.wilayaCode} – {center.wilayaName}</span>
+                <div className="space-y-2.5">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="space-y-1">
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg text-xs font-black bg-blue-50 text-[#1565C0] border border-blue-100">
+                        <span>📍</span>
+                        <span>{center.wilayaCode} – {center.wilayaName}</span>
+                      </span>
+                      <h3 className="font-bold text-sm sm:text-base text-slate-900 leading-snug pt-1">
+                        {center.name}
+                      </h3>
+                    </div>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 shrink-0">
+                      معتمد
                     </span>
-                    <h3 className="font-bold text-sm text-slate-900 leading-snug pt-1">
-                      {center.name}
-                    </h3>
                   </div>
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 shrink-0">
-                    معتمد
-                  </span>
-                </div>
 
-                {center.description && (
-                  <p className="text-xs text-slate-600 bg-slate-50 p-2.5 rounded-xl border border-slate-100">
-                    {center.description}
-                  </p>
-                )}
+                  {center.description && (
+                    <p className="text-xs text-slate-600 bg-slate-50 p-2.5 rounded-xl border border-slate-100 leading-relaxed">
+                      {center.description}
+                    </p>
+                  )}
+                </div>
 
                 <div className="pt-2 border-t border-slate-100">
                   {center.phones && center.phones.length > 0 ? (
-                    <div className="flex items-center justify-between flex-wrap gap-2">
-                      <span className="text-xs font-bold text-slate-500">الاتصال المباشر:</span>
+                    <div className="space-y-1.5">
+                      <span className="text-[11px] font-bold text-slate-500 block">الاتصال الهاتفي المباشر:</span>
                       <div className="flex flex-wrap gap-2">
                         {center.phones.map((phoneNum, idx) => (
                           <a
@@ -327,35 +331,37 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
         <AwarenessStudiesView />
       ) : (
         /* Regular Services List Cards (Matching Screen 4) */
-        <div className="space-y-3">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredServices.map((service) => {
             const Icon = service.icon;
             return (
               <div
                 key={service.id}
-                className="bg-white rounded-2xl border border-slate-200/90 p-4 shadow-xs hover:shadow-md transition-all space-y-3 group"
+                className="bg-white rounded-2xl border border-slate-200/90 p-4 sm:p-5 shadow-xs hover:shadow-md hover:border-blue-200 transition-all flex flex-col justify-between space-y-4 group"
               >
-                <div className="flex items-start gap-3.5">
-                  <div className={`w-12 h-12 rounded-2xl ${service.bgColor} flex items-center justify-center shrink-0 shadow-xs ring-1 ring-black/5`}>
-                    <Icon className={`w-6 h-6 ${service.iconColor}`} />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between gap-2 mb-1">
-                      <h3 className="font-bold text-slate-900 text-sm sm:text-base group-hover:text-[#1565C0] transition-colors">
-                        {service.title}
-                      </h3>
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
-                        {service.badge}
-                      </span>
+                <div className="space-y-3">
+                  <div className="flex items-start gap-3.5">
+                    <div className={`w-12 h-12 rounded-2xl ${service.bgColor} flex items-center justify-center shrink-0 shadow-xs ring-1 ring-black/5`}>
+                      <Icon className={`w-6 h-6 ${service.iconColor}`} />
                     </div>
-                    <p className="text-xs text-slate-500 leading-relaxed line-clamp-2">
-                      {service.desc}
-                    </p>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-2 mb-1">
+                        <h3 className="font-bold text-slate-900 text-sm sm:text-base group-hover:text-[#1565C0] transition-colors">
+                          {service.title}
+                        </h3>
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 shrink-0">
+                          {service.badge}
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-500 leading-relaxed">
+                        {service.desc}
+                      </p>
+                    </div>
                   </div>
                 </div>
 
                 {/* Bottom Meta & Action */}
-                <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs">
+                <div className="pt-2.5 border-t border-slate-100 flex items-center justify-between text-xs">
                   <span className="text-[11px] font-medium text-slate-400 flex items-center gap-1">
                     <Clock className="w-3.5 h-3.5 text-emerald-600" />
                     {service.stats}

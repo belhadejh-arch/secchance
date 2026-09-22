@@ -131,7 +131,7 @@ const AppContent: React.FC = () => {
       />
 
       {/* Main Content Area */}
-      <main className="flex-1 pb-24">
+      <main className="flex-1 pb-24 lg:pb-0">
         {currentView === 'landing' && (
           <LandingPage
             onOpenAuth={handleOpenAuth}
@@ -216,6 +216,101 @@ const AppContent: React.FC = () => {
         {currentView === 'emergency' && (
           <EmergencyDirectory onBack={() => setCurrentView('landing')} />
         )}
+
+        {/* Dedicated Desktop Footer (Visible on Lg Screens) */}
+        <footer className="hidden lg:block bg-slate-900 text-slate-300 border-t border-slate-800 mt-16 py-12" dir="rtl">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+              
+              {/* Col 1: Platform Overview */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <div className="font-black text-lg text-white">الفرصة الثانية 🇩🇿</div>
+                  <span className="text-[10px] bg-blue-600 text-white font-bold px-2 py-0.5 rounded-full font-mono">SCP</span>
+                </div>
+                <p className="text-xs text-slate-400 leading-relaxed">
+                  منظومة وطنية متكاملة للمرافقة والتكفل بحالات الإدمان، الدعم النفسي المتخصص، والحماية والتكييف القانوني الآمن في الجزائر.
+                </p>
+                <div className="text-xs text-emerald-400 font-bold flex items-center gap-1.5 pt-1">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                  <span>سرية تامة وتشفير كامل للبيانات</span>
+                </div>
+              </div>
+
+              {/* Col 2: Fast Services */}
+              <div className="space-y-3 text-xs">
+                <h4 className="font-black text-sm text-white border-b border-slate-800 pb-2">الخدمات والرعاية</h4>
+                <ul className="space-y-2 text-slate-400 font-medium">
+                  <li>
+                    <button onClick={() => setCurrentView('services')} className="hover:text-white transition-colors cursor-pointer">
+                      • دليل مراكز علاج الإدمان (53 مركزاً بالجزائر)
+                    </button>
+                  </li>
+                  <li>
+                    <button onClick={() => setCurrentView('services')} className="hover:text-white transition-colors cursor-pointer">
+                      • مكتبة الأبحاث والدراسات العلمية
+                    </button>
+                  </li>
+                  <li>
+                    <button onClick={() => setCurrentView('appointments')} className="hover:text-white transition-colors cursor-pointer">
+                      • استشارات الدعم النفسي والسلوكي
+                    </button>
+                  </li>
+                  <li>
+                    <button onClick={() => setCurrentView('appointments')} className="hover:text-white transition-colors cursor-pointer">
+                      • التكييف والمساعدة القانونية
+                    </button>
+                  </li>
+                </ul>
+              </div>
+
+              {/* Col 3: Safe Guidance */}
+              <div className="space-y-3 text-xs">
+                <h4 className="font-black text-sm text-white border-b border-slate-800 pb-2">التوجيه والأمان</h4>
+                <ul className="space-y-2 text-slate-400 font-medium">
+                  <li>
+                    <button onClick={() => setIsAiOpen(true)} className="hover:text-emerald-400 transition-colors cursor-pointer">
+                      • المساعد الذكي للتوجيه السري
+                    </button>
+                  </li>
+                  <li>
+                    <button onClick={() => setCurrentView('about')} className="hover:text-white transition-colors cursor-pointer">
+                      • ميثاق السرية وحماية الهوية
+                    </button>
+                  </li>
+                  <li>
+                    <button onClick={() => setCurrentView('emergency')} className="hover:text-red-400 transition-colors cursor-pointer">
+                      • أرقام النجدة والسموم الوطنية
+                    </button>
+                  </li>
+                </ul>
+              </div>
+
+              {/* Col 4: National Hotlines */}
+              <div className="space-y-3 text-xs">
+                <h4 className="font-black text-sm text-white border-b border-slate-800 pb-2">الخطوط الوطنية للطوارئ</h4>
+                <div className="bg-slate-800/80 p-3.5 rounded-2xl border border-slate-700 space-y-2">
+                  <div className="text-[11px] text-slate-400">الرقم الأخضر لطوارئ الإدمان:</div>
+                  <div className="text-xl font-black text-red-400 font-mono">1099</div>
+                  <div className="text-[10px] text-slate-400">متاح 24 ساعة يومياً لكل ولايات الوطن</div>
+                </div>
+              </div>
+
+            </div>
+
+            {/* Bottom Disclaimer */}
+            <div className="pt-6 border-t border-slate-800/80 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-500">
+              <div>
+                © {new Date().getFullYear()} منصة الفرصة الثانية. جميع الحقوق محفوظة للجمهورية الجزائرية الديمقراطية الشعبية.
+              </div>
+              <div className="flex items-center gap-4 text-[11px]">
+                <span>حماية البيانات والسر المهني مكفول</span>
+                <span>•</span>
+                <span>تغطية 58 ولاية</span>
+              </div>
+            </div>
+          </div>
+        </footer>
       </main>
 
       {/* Floating Bottom Navigator matching UI reference mockup */}

@@ -131,7 +131,8 @@ export interface Appointment {
   start_time: string;
   end_time: string;
   type: 'psychological' | 'legal' | 'treatment' | 'referral';
-  status: 'PENDING' | 'CONFIRMED' | 'COMPLETED' | 'CANCELLED' | 'NO_SHOW' | 'RESCHEDULED';
+  title?: string;
+  status: 'PENDING' | 'CONFIRMED' | 'COMPLETED' | 'CANCELLED' | 'NO_SHOW' | 'RESCHEDULED' | 'pending' | 'confirmed' | 'completed' | 'cancelled';
   notes?: string;
   cancellation_reason?: string;
   specialist_first_name?: string;
