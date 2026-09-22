@@ -38,7 +38,7 @@ export const AppointmentsView: React.FC<AppointmentsViewProps> = ({ onBack }) =>
   const [specialists, setSpecialists] = useState<any[]>([]);
   const [caseId, setCaseId] = useState<number | ''>('');
   const [specialistId, setSpecialistId] = useState<number | ''>('');
-  const [date, setDate] = useState('2025-04-20');
+  const [date, setDate] = useState('2026-01-01');
   const [startTime, setStartTime] = useState('10:00');
   const [endTime, setEndTime] = useState('11:00');
   const [type, setType] = useState<'psychological' | 'legal'>('psychological');
@@ -56,13 +56,13 @@ export const AppointmentsView: React.FC<AppointmentsViewProps> = ({ onBack }) =>
           {
             id: 101,
             case_file_id: 1,
-            number_case: 'SC-2025-0012',
+            number_case: 'SC-2026-0012',
             specialist_first_name: 'فاطمة الزهراء',
             specialist_last_name: 'بن عيسى',
             specialist_role: 'psychologist',
             type: 'psychological',
             title: 'جلسة نفسية',
-            appointment_date: '2025-04-20',
+            appointment_date: '2026-04-20',
             start_time: '10:00',
             end_time: '11:00',
             status: 'confirmed',
@@ -71,13 +71,13 @@ export const AppointmentsView: React.FC<AppointmentsViewProps> = ({ onBack }) =>
           {
             id: 102,
             case_file_id: 1,
-            number_case: 'SC-2025-0012',
+            number_case: 'SC-2026-0012',
             specialist_first_name: 'محمد',
             specialist_last_name: 'العربي',
             specialist_role: 'lawyer',
             type: 'legal',
             title: 'استشارة قانونية',
-            appointment_date: '2025-04-21',
+            appointment_date: '2026-04-21',
             start_time: '14:00',
             end_time: '15:00',
             status: 'confirmed',
@@ -86,13 +86,13 @@ export const AppointmentsView: React.FC<AppointmentsViewProps> = ({ onBack }) =>
           {
             id: 103,
             case_file_id: 2,
-            number_case: 'SC-2025-0015',
+            number_case: 'SC-2027-0015',
             specialist_first_name: 'مركز الأمل',
             specialist_last_name: 'للعلاج',
             specialist_role: 'treatment_center',
             type: 'treatment',
             title: 'متابعة علاجية',
-            appointment_date: '2025-04-22',
+            appointment_date: '2027-01-22',
             start_time: '16:00',
             end_time: '17:00',
             status: 'pending',
@@ -187,7 +187,7 @@ export const AppointmentsView: React.FC<AppointmentsViewProps> = ({ onBack }) =>
           <button className="p-1 text-slate-400 hover:text-slate-700">
             <ChevronRight className="w-4 h-4" />
           </button>
-          <span className="font-black text-xs sm:text-sm text-slate-900">أبريل 2025</span>
+          <span className="font-black text-xs sm:text-sm text-slate-900">المواعيد 2026 / 2027</span>
           <button className="p-1 text-slate-400 hover:text-slate-700">
             <ChevronLeft className="w-4 h-4" />
           </button>
@@ -317,6 +317,8 @@ export const AppointmentsView: React.FC<AppointmentsViewProps> = ({ onBack }) =>
                 <input
                   type="date"
                   value={date}
+                  min="2026-01-01"
+                  max="2027-12-31"
                   onChange={(e) => setDate(e.target.value)}
                   className="w-full px-3 py-2 border border-slate-200 rounded-xl outline-none"
                 />

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { 
   X, 
   ArrowRight, 
@@ -17,6 +17,8 @@ import {
 } from 'lucide-react';
 import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import { wilayas } from '../data/wilayas';
+import { Wilaya } from '../types';
 
 interface NewCaseWizardProps {
   isOpen?: boolean;
@@ -57,11 +59,18 @@ export const NewCaseWizard: React.FC<NewCaseWizardProps> = ({
   const [patientName, setPatientName] = useState<string>('');
   const [patientAge, setPatientAge] = useState<number | ''>('');
   const [wilaya, setWilaya] = useState<string>('الجزائر العاصمة');
+  const [availableWilayas, setAvailableWilayas] = useState<Wilaya[]>([]);
   const [duration, setDuration] = useState<string>('أقل من سنة');
   const [description, setDescription] = useState<string>(initialData?.description || '');
   const [priority, setPriority] = useState<string>(initialData?.priority || 'high');
   const [hasMedicalReport, setHasMedicalReport] = useState<boolean>(false);
   const [fileName, setFileName] = useState<string>('');
+
+  useEffect(() => {
+    api.getWilayas()
+      .then((res) => setAvailableWilayas(res.data || []))
+      .catch(() => {});
+  }, []);
 
   if (!isOpen) return null;
 
@@ -83,7 +92,7 @@ export const NewCaseWizard: React.FC<NewCaseWizardProps> = ({
       const res = await api.createCase({
         patient_pseudonym: patientName || 'مستفيد غير معلن',
         patient_age: Number(patientAge) || 24,
-        wilaya_id: 1, // Alger
+        wilaya_id: availableWilayas.find((item) => item.name_ar === wilaya)?.id || 1,
         addiction_type_id: addictionTypeId,
         priority: priority as any,
         description: `المدة: ${duration} | المشكلة: ${problemType} | التفاصيل: ${description}`
@@ -215,12 +224,11 @@ export const NewCaseWizard: React.FC<NewCaseWizardProps> = ({
                   onChange={(e) => setWilaya(e.target.value)}
                   className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-[#1565C0]/20 focus:border-[#1565C0] outline-none text-xs sm:text-sm"
                 >
-                  <option value="الجزائر العاصمة">16 - الجزائر العاصمة</option>
-                  <option value="وهران">31 - وهران</option>
-                  <option value="قسنطينة">25 - قسنطينة</option>
-                  <option value="عنابة">23 - عنابة</option>
-                  <option value="سطيف">19 - سطيف</option>
-                  <option value="البليدة">09 - البليدة</option>
+                  {(availableWilayas.length > 0 ? availableWilayas : wilayas).map((item) => (
+                    <option key={item.code} value={item.name_ar}>
+                      {item.code} - {item.name_ar}
+                    </option>
+                  ))}
                 </select>
               </div>
             </div>

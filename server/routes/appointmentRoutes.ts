@@ -75,6 +75,9 @@ router.post('/', authenticateToken, (req: AuthenticatedRequest, res: Response) =
   if (!case_file_id) errors.case_file_id = 'يرجى تحديد ملف الحالة';
   if (!specialist_id) errors.specialist_id = 'يرجى تحديد المختص المعني';
   if (!appointment_date) errors.appointment_date = 'يرجى تحديد تاريخ الموعد';
+  if (appointment_date && !/^202[67]-\d{2}-\d{2}$/.test(appointment_date)) {
+    errors.appointment_date = 'يجب أن يكون تاريخ الموعد خلال 2026 أو 2027';
+  }
   if (!start_time || !end_time) errors.time = 'يرجى تحديد وقت بداية ونهاية الموعد';
   if (start_time && end_time && start_time >= end_time) errors.time = 'وقت نهاية الموعد يجب أن يكون بعد وقت البداية';
 
@@ -140,6 +143,15 @@ router.put('/:id', authenticateToken, (req: AuthenticatedRequest, res: Response)
   const app = queryOne<any>('SELECT * FROM appointments WHERE id = ?', [appointmentId]);
   if (!app) {
     res.status(404).json({ success: false, message: 'الموعد غير موجود' });
+    return;
+  }
+
+  if (appointment_date && !/^202[67]-\d{2}-\d{2}$/.test(appointment_date)) {
+    res.status(422).json({
+      success: false,
+      message: 'تاريخ الموعد غير صالح',
+      errors: { appointment_date: 'يجب أن يكون تاريخ الموعد خلال 2026 أو 2027' }
+    });
     return;
   }
 

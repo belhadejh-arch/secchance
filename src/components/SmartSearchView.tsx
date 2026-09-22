@@ -11,6 +11,7 @@ import {
   ShieldCheck,
   UserCheck
 } from 'lucide-react';
+import { wilayas } from '../data/wilayas';
 
 interface SmartSearchViewProps {
   onBack: () => void;
@@ -124,10 +125,11 @@ export const SmartSearchView: React.FC<SmartSearchViewProps> = ({ onBack, onSele
           className="px-2.5 py-2 bg-white border border-slate-200 rounded-xl font-medium text-slate-700 outline-none text-[11px]"
         >
           <option value="all">الولاية: الكل</option>
-          <option value="الجزائر">الجزائر العاصمة</option>
-          <option value="وهران">وهران</option>
-          <option value="قسنطينة">قسنطينة</option>
-          <option value="عنابة">عنابة</option>
+          {wilayas.map((item) => (
+            <option key={item.code} value={item.name_ar}>
+              {item.code} - {item.name_ar}
+            </option>
+          ))}
         </select>
 
         <select
