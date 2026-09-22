@@ -6,3 +6,8 @@
     background-color: #fefefa;
   }
 }
+
+html, body, #root {
+  background-color: #fefefa !important;
+}
+

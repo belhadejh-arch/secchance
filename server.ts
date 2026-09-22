@@ -16,7 +16,7 @@ import publicRoutes from './server/routes/publicRoutes';
 async function startServer() {
   // Initialize Database Schema & Seeders
   await getDb();
-  console.log('✅ PostgreSQL database initialized and seeded successfully.');
+  console.log('✅ Database initialized and seeded successfully.');
 
   const app = express();
   const PORT = Number(process.env.PORT || 3000);

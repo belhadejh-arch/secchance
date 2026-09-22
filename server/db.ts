@@ -1,21 +1,15 @@
-import { QueryResultRow } from 'pg';
+import type { QueryResultRow } from 'pg';
 import { spawnSync } from 'child_process';
 import bcrypt from 'bcryptjs';
+import type { Database } from 'sql.js';
 
 /**
- * PostgreSQL is the source of truth for all application data.
- *
- * The public helpers intentionally keep the old synchronous call shape used by
- * the imported route files. They bridge the existing API to pg while allowing
- * the rest of the application to be migrated incrementally. All reads and
- * writes still execute against PostgreSQL; nothing is persisted to the local
- * filesystem.
+ * PostgreSQL is the source of truth for all application data in production (e.g. Render).
+ * In development / preview when DATABASE_URL is not configured, an in-memory SQLite database
+ * is used seamlessly so the platform functions without crashing.
  */
 const databaseUrl = process.env.DATABASE_URL;
-if (!databaseUrl) {
-  throw new Error('DATABASE_URL is required to start the application.');
-}
-
+let sqliteDb: Database | null = null;
 let initialized = false;
 
 const databaseWorker = `
@@ -42,6 +36,36 @@ const databaseWorker = `
 `;
 
 function executeDatabase<T extends QueryResultRow = any>(sql: string, params: any[] = []): { rows: T[]; rowCount: number } {
+  if (!databaseUrl) {
+    if (!sqliteDb) throw new Error('Database not initialized');
+    let converted = sql
+      .replace(/\bSERIAL\s+PRIMARY\s+KEY\b/gi, 'INTEGER PRIMARY KEY AUTOINCREMENT')
+      .replace(/\bTIMESTAMP\b/gi, 'DATETIME')
+      .replace(/\$\d+/g, '?');
+
+    const trimmed = converted.trim().replace(/;+\s*$/, '');
+    const isSelect = /^\s*SELECT\b/i.test(trimmed);
+
+    if (isSelect) {
+      const stmt = sqliteDb.prepare(trimmed);
+      if (params.length > 0) stmt.bind(params);
+      const rows: T[] = [];
+      while (stmt.step()) rows.push(stmt.getAsObject() as T);
+      stmt.free();
+      return { rows, rowCount: rows.length };
+    } else {
+      const cleanSql = trimmed.replace(/\s+RETURNING\s+id\s*$/i, '');
+      if (params.length === 0) {
+        sqliteDb.run(cleanSql);
+      } else {
+        sqliteDb.run(cleanSql, params);
+      }
+      const lastIdRes = sqliteDb.exec('SELECT last_insert_rowid() as id');
+      const lastInsertRowId = Number(lastIdRes[0]?.values[0]?.[0] || 0);
+      return { rows: [{ id: lastInsertRowId } as any], rowCount: 1 };
+    }
+  }
+
   const result = spawnSync(process.execPath, ['-e', databaseWorker], {
     input: JSON.stringify({ sql, params }),
     encoding: 'utf8',
@@ -121,7 +145,15 @@ export function saveDb(): void {
 export async function getDb(): Promise<DatabaseAdapter> {
   if (initialized) return dbAdapter;
 
-  executeDatabase('SELECT 1');
+  if (databaseUrl) {
+    executeDatabase('SELECT 1');
+  } else {
+    console.warn('⚠️ DATABASE_URL not provided. Using in-memory database for preview container.');
+    const initSqlJs = (await import('sql.js')).default;
+    const SQL = await initSqlJs();
+    sqliteDb = new SQL.Database();
+  }
+
   initSchema(dbAdapter);
   initialized = true;
   seedReferenceData(dbAdapter);
