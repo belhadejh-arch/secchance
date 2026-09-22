@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../services/api';
-import { EmergencyResource, TreatmentCenter, Association, Wilaya } from '../types';
+import { EmergencyResource, TreatmentCenter, Association, Wilaya, ALGERIA_WILAYAS } from '../types';
 import { PhoneCall, Building2, Users, MapPin, ShieldAlert, HeartHandshake } from 'lucide-react';
 
 export const EmergencyDirectory: React.FC = () => {
   const [emergencies, setEmergencies] = useState<EmergencyResource[]>([]);
   const [centers, setCenters] = useState<TreatmentCenter[]>([]);
   const [associations, setAssociations] = useState<Association[]>([]);
-  const [wilayas, setWilayas] = useState<Wilaya[]>([]);
+  const [wilayas, setWilayas] = useState<Wilaya[]>(ALGERIA_WILAYAS);
   const [selectedWilaya, setSelectedWilaya] = useState<string>('all');
 
   useEffect(() => {

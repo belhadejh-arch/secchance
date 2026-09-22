@@ -121,7 +121,7 @@ const AppContent: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] flex flex-col font-sans text-slate-900 selection:bg-blue-100 selection:text-[#1565C0]" dir="rtl">
+    <div className="min-h-screen bg-[#fefefa] flex flex-col font-sans text-slate-900 selection:bg-blue-100 selection:text-[#1565C0]" dir="rtl">
       {/* Global Navigation Header with transparent logo */}
       <Navbar
         onOpenAuth={handleOpenAuth}

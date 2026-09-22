@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../services/api';
-import { Wilaya, RoleSlug } from '../types';
+import { Wilaya, RoleSlug, ALGERIA_WILAYAS } from '../types';
 import { X, Shield, Lock, Mail, Phone, User, CheckCircle, AlertCircle } from 'lucide-react';
 
 interface AuthModalProps {
@@ -19,7 +19,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 }) => {
   const { login, register } = useAuth();
   const [tab, setTab] = useState<'login' | 'register'>(defaultTab);
-  const [wilayas, setWilayas] = useState<Wilaya[]>([]);
+  const [wilayas, setWilayas] = useState<Wilaya[]>(ALGERIA_WILAYAS);
 
   // Form states
   const [email, setEmail] = useState('');

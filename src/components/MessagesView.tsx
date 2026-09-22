@@ -232,7 +232,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ initialConversationI
           </div>
 
           {/* Messages Body */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-[#F8FAFC]">
+          <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-[#fefefa]">
             {messages.map((m) => {
               const isMe = m.sender_id === (user?.id || 1);
               return (
