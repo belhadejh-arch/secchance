@@ -123,4 +123,14 @@ export const api = {
 
   // AI Triage
   aiTriage: (userInput: string) => apiRequest('/ai/triage', { method: 'POST', body: JSON.stringify({ user_input: userInput }) }),
+
+  // Awareness & Scientific Studies
+  getAwarenessArticles: (params?: Record<string, string>) => {
+    const q = params ? '?' + new URLSearchParams(params).toString() : '';
+    return apiRequest(`/awareness${q}`);
+  },
+  getAwarenessArticle: (id: number) => apiRequest(`/awareness/${id}`),
+  createAwarenessArticle: (data: any) => apiRequest('/awareness', { method: 'POST', body: JSON.stringify(data) }),
+  updateAwarenessArticle: (id: number, data: any) => apiRequest(`/awareness/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  deleteAwarenessArticle: (id: number) => apiRequest(`/awareness/${id}`, { method: 'DELETE' }),
 };

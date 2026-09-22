@@ -12,11 +12,12 @@ import reportRoutes from './server/routes/reportRoutes';
 import adminRoutes from './server/routes/adminRoutes';
 import aiRoutes from './server/routes/aiRoutes';
 import publicRoutes from './server/routes/publicRoutes';
+import awarenessRoutes from './server/routes/awarenessRoutes';
 
 async function startServer() {
   // Initialize Database Schema & Seeders
   await getDb();
-  console.log('✅ Database initialized and seeded successfully.');
+  console.log('✅ PostgreSQL database initialized and seeded successfully.');
 
   const app = express();
   const PORT = Number(process.env.PORT || 3000);
@@ -69,6 +70,7 @@ async function startServer() {
   app.use('/api/v1/admin', adminRoutes);
   app.use('/api/v1/ai', aiRoutes);
   app.use('/api/v1/public', publicRoutes);
+  app.use('/api/v1/awareness', awarenessRoutes);
 
   // Vite Middleware for SPA Frontend
   if (process.env.NODE_ENV !== 'production') {

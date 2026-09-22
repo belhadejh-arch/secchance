@@ -23,13 +23,15 @@ import {
   Clock,
   LogOut,
   BedDouble,
-  UserPlus
+  UserPlus,
+  GraduationCap
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { AdminAwarenessManager } from './AdminAwarenessManager';
 
 export const AdminPortal: React.FC = () => {
   const { user, logout } = useAuth();
-  const [activeTab, setActiveTab] = useState<'kpis' | 'cases' | 'users' | 'audit' | 'settings'>('kpis');
+  const [activeTab, setActiveTab] = useState<'kpis' | 'cases' | 'users' | 'awareness' | 'audit' | 'settings'>('kpis');
   const [kpis, setKpis] = useState<any>(null);
   const [cases, setCases] = useState<any[]>([]);
   const [usersList, setUsersList] = useState<any[]>([]);
@@ -269,6 +271,23 @@ export const AdminPortal: React.FC = () => {
                   </span>
                   <span className="bg-white/20 px-2 py-0.5 rounded-full text-[10px] font-mono">
                     {usersList.length}
+                  </span>
+                </button>
+
+                <button
+                  onClick={() => setActiveTab('awareness')}
+                  className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl transition-all text-right ${
+                    activeTab === 'awareness'
+                      ? 'bg-blue-600 text-white shadow-sm font-bold'
+                      : 'text-slate-300 hover:text-white hover:bg-white/10'
+                  }`}
+                >
+                  <span className="flex items-center gap-3">
+                    <GraduationCap className="w-4 h-4 text-cyan-300" />
+                    <span>خانة التوعية والأبحاث</span>
+                  </span>
+                  <span className="bg-purple-400/20 text-purple-200 px-2 py-0.5 rounded-full text-[10px] font-bold">
+                    نشر ودراسات
                   </span>
                 </button>
 
@@ -778,7 +797,12 @@ export const AdminPortal: React.FC = () => {
               </div>
             )}
 
-            {/* TAB 5: SYSTEM SETTINGS */}
+            {/* TAB 5: AWARENESS & SCIENTIFIC STUDIES */}
+            {activeTab === 'awareness' && (
+              <AdminAwarenessManager />
+            )}
+
+            {/* TAB 6: SYSTEM SETTINGS */}
             {activeTab === 'settings' && (
               <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs p-6 space-y-4 max-w-2xl">
                 <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
@@ -865,6 +889,23 @@ export const AdminPortal: React.FC = () => {
                 className="w-full py-2.5 bg-[#1565C0] hover:bg-blue-700 text-white text-xs font-bold rounded-xl shadow-xs transition-colors cursor-pointer"
               >
                 تخصيص حالة جديدة
+              </button>
+            </div>
+
+            {/* Quick Action: Publish Study & Awareness */}
+            <div className="bg-gradient-to-br from-purple-50 to-blue-50 rounded-2xl p-4 border border-purple-200/80 shadow-xs space-y-2.5">
+              <div className="flex items-center gap-2 text-purple-900 font-bold text-xs">
+                <GraduationCap className="w-4 h-4 text-purple-700" />
+                <span>خانة التوعية والأبحاث</span>
+              </div>
+              <p className="text-[11px] text-slate-600 leading-relaxed">
+                رفع ونشر دراسات علمية وأوراق بحثية محكّمة حول المخدرات والمؤثرات العقلية.
+              </p>
+              <button
+                onClick={() => setActiveTab('awareness')}
+                className="w-full py-2 bg-purple-700 hover:bg-purple-800 text-white text-xs font-bold rounded-xl shadow-xs transition-colors cursor-pointer"
+              >
+                إدارة ورفع الدراسات
               </button>
             </div>
 

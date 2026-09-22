@@ -14,9 +14,11 @@ import {
   Clock,
   Filter,
   AlertTriangle,
-  Info
+  Info,
+  GraduationCap
 } from 'lucide-react';
 import { ALGERIA_TREATMENT_CENTERS, TREATMENT_CENTERS_NOTICE, TreatmentCenterData } from '../data/treatmentCenters';
+import { AwarenessStudiesView } from './AwarenessStudiesView';
 
 interface ServicesViewProps {
   onBack?: () => void;
@@ -211,6 +213,17 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
         >
           الجمعيات
         </button>
+        <button
+          onClick={() => setActiveCategory('awareness')}
+          className={`px-3 py-1.5 rounded-xl font-bold whitespace-nowrap transition-all flex items-center gap-1.5 ${
+            activeCategory === 'awareness'
+              ? 'bg-purple-700 text-white shadow-xs'
+              : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+          }`}
+        >
+          <GraduationCap className="w-3.5 h-3.5" />
+          <span>التوعية والأبحاث العلمية</span>
+        </button>
       </div>
 
       {/* When activeCategory === 'treatment': Show Full Treatment Centers Section */}
@@ -309,6 +322,9 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
             ))}
           </div>
         </div>
+      ) : activeCategory === 'awareness' ? (
+        /* Awareness & Scientific Studies Public View */
+        <AwarenessStudiesView />
       ) : (
         /* Regular Services List Cards (Matching Screen 4) */
         <div className="space-y-3">
@@ -349,6 +365,8 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
                     onClick={() => {
                       if (service.id === 'treatment') {
                         setActiveCategory('treatment');
+                      } else if (service.id === 'awareness') {
+                        setActiveCategory('awareness');
                       } else if (onOpenBooking) {
                         onOpenBooking(service.title);
                       } else if (onSelectService) {

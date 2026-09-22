@@ -323,3 +323,26 @@ export interface PlatformKpi {
   users_by_role: { role_slug: string; count: number }[];
   appointments_summary: { status: string; count: number }[];
 }
+
+export interface AwarenessArticle {
+  id: number;
+  title: string;
+  category: string;
+  topic?: string;
+  author?: string;
+  summary: string;
+  content?: string;
+  file_url?: string;
+  file_name?: string;
+  file_size?: string;
+  tags?: string;
+  status: 'published' | 'draft';
+  is_featured: number | boolean;
+  created_by?: number;
+  views_count?: number;
+  created_at?: string;
+  updated_at?: string;
+  has_file?: number;
+  publisher_first_name?: string;
+  publisher_last_name?: string;
+}

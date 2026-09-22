@@ -432,6 +432,25 @@ function initSchema(db: DatabaseAdapter) {
       key TEXT PRIMARY KEY,
       value TEXT NOT NULL
     );
+    CREATE TABLE IF NOT EXISTS awareness_articles (
+      id SERIAL PRIMARY KEY,
+      title TEXT NOT NULL,
+      category TEXT NOT NULL,
+      topic TEXT,
+      author TEXT,
+      summary TEXT NOT NULL,
+      content TEXT,
+      file_url TEXT,
+      file_name TEXT,
+      file_size TEXT,
+      tags TEXT,
+      status TEXT DEFAULT 'published',
+      is_featured INTEGER DEFAULT 0,
+      created_by INTEGER,
+      views_count INTEGER DEFAULT 0,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
   `);
 }
 
@@ -595,6 +614,85 @@ function seedReferenceData(db: DatabaseAdapter) {
           WHERE NOT EXISTS (SELECT 1 FROM centers WHERE name = ?)
         `, [currentAdmin.id, name, wilaya.id, address, phone, 'علاج وتأهيل الإدمان، التكفل الطبي والنفسي، الاستشفاء وإزالة السموم', name]);
       }
+    });
+
+    const initialArticles = [
+      {
+        title: 'دراسة سريرية وميدانية: تفشي إساءة استخدام الأدوية ذات التأثير النفسي (البريغابالين ومزيج المهدئات) وبروتوكول الفطام الطبي',
+        category: 'دراسة علمية محكّمة',
+        topic: 'المؤثرات العقلية والمهدئات',
+        author: 'اللجنة العلمية الوطنية لطب الإدمان والسموم',
+        summary: 'دراسة استقصائية معمقة حول الآليات العصبية للإدمان على مشتقات البريغابالين، مخاطر الخلط مع الكحول والمهدئات الأخرى، ومسارات العلاج الطبي الآمن بالأدوية البديلة والدعم السلوكي المعرفي.',
+        content: `مقدمة الدراسة وأهدافها:
+هدفت هذه الدراسة إلى تقييم التغيرات الفيزيولوجية والسلوكية لدى عينة من 450 حالة خضعت لبرامج الفطام في المراكز الوسيطة لعلاج الإدمان (CISA).
+
+أبرز النتائج السريرية:
+1. ارتباط إساءة الاستخدام بالجرعات التصاعدية غير الموصوفة طبياً والتي تتجاوز الحدود العلاجية بـ 4 إلى 8 أضعاف.
+2. تطور أعراض انسحابية حادة (قلق شديد، رعاش، أرق، ونوبات اختلاجية محتملة) عند التوقف المفاجئ دون إشراف طبي.
+3. تفوق بروتوكول التخفيض التدريجي الدوائي المدعوم بالعلاج النفسي السلوكي في رفع نسبة التعافي المستدام إلى 73% خلال 6 أشهر.
+
+التوصيات:
+- تشديد الرقابة على سلاسل توزيع المؤثرات العقلية.
+- اعتماد مسارات علاج بديلة في المراكز الجوارية دون تجريم المتعاطي المتقدم طوعاً للعلاج وفق المادة 06 مكرر من القانون الوطني لمكافحة المخدرات.`,
+        file_name: 'Etude_Clinique_Psychotropes_Algerie_2025.pdf',
+        file_size: '3.8 ميغابايت',
+        file_url: 'data:application/pdf;base64,JVBERi0xLjQKJcTl8uXrCjEgMCBvYmoKPDwKL1R5cGUgL0NhdGFsb2cKL1BhZ2VzIDIgMCBSCj4+CmVuZG9iagoyIDAgb2JqCjw8Ci9UeXBlIC9QYWdlcwovS2lkcyBbMyAwIFJdCi9Db3VudCAxCi9NZWRpYUJveCBbMCAwIDU5NSA4NDJdCj4+CmVuZG9iagozIDAgb2JqCjw8Ci9UeXBlIC9QYWdlCi9QYXJlbnQgMiAwIFIKL1Jlc291cmNlcyA8PAovRm9udCA8PAovRjEgPDwKL1R5cGUgL0ZvbnQKL1N1YnR5cGUgL1R5cGUxCi9CYXNlRm9udCAvSGVsdmV0aWNhCj4+Cj4+Cj4+Ci9Db250ZW50cyA0IDAgUgo+PgpldmRvYmoK',
+        tags: 'المؤثرات العقلية, بريغابالين, إزالة السموم, طب الإدمان, دراسة سريرية',
+        is_featured: 1,
+        views_count: 245
+      },
+      {
+        title: 'الخصائص الدوائية والمخاطر السمية للمخدرات التخليقية الحديثة (الكريستال ميث / الشبو والكانابينويد المصنّع)',
+        category: 'علم السموم والأبحاث المخبرية',
+        topic: 'المخدرات التخليقية',
+        author: 'المعهد الوطني للسموم بالتعاون مع المخبر المركزي للأدلة الجنائية',
+        summary: 'ورقة بحثية علمية توثق التركيبات الكيميائية الدقيقة للمنشطات التخليقية ومعدل الضرر الدماغي المباشر وتأثيرها على استنزاف هرمون الدوبامين وحدوث الذهان التسممي الحاد.',
+        content: `خلفية البحث:
+تعد المركبات التخليقية من أخطر ما يواجه المصالح الاستعجالية والطبية لما تسببه من سمية قلبية وعصبية سريعة الظهور.
+
+التحليل الدوائي والمخبري:
+- المواد المصنعة تؤدي إلى زيادة فورية في إفراز النواقل العصبية (الدوبامين بنسبة تتجاوز 1000%) مما يحدث شعوراً زائفاً بالنشوة يتبعه انهيار كيميائي عصبي حاد.
+- ظهور أعراض الذهان البارانوي، الهلاوس السمعية والبصرية، والسلوك العدواني في مراحل مبكرة مقارنة بالمخدرات التقليدية.
+
+بروتوكول الاستجابة الطبية العاجلة:
+- تهدئة المريض في بيئة هادئة منخفضة المحفزات.
+- إجراء فحص التخطيط القلبي ومراقبة درجة الحرارة والضغط الشرياني.
+- إشراك الطبيب النفسي فور استقرار الحالة الحيوية لتفادي نوبات الاكتئاب الحاد والميول الانتحارية.`,
+        file_name: 'Synthese_Toxicologique_Drogues_Synthese.pdf',
+        file_size: '4.2 ميغابايت',
+        file_url: 'data:application/pdf;base64,JVBERi0xLjQKJcTl8uXrCjEgMCBvYmoKPDwKL1R5cGUgL0NhdGFsb2cKL1BhZ2VzIDIgMCBSCj4+CmVuZG9iago=',
+        tags: 'كريستال ميث, الشبو, المخدرات التخليقية, سموم, ذهان تسممي, استعجالات',
+        is_featured: 1,
+        views_count: 312
+      },
+      {
+        title: 'دليل الكشف المبكر والتدخل الأسري: المؤشرات السلوكية والفيزيولوجية للتعاطي وسبل الحوار البنّاء',
+        category: 'دليل إرشادي ووقائي',
+        topic: 'الإرشاد والتوعية الأسرية',
+        author: 'وحدة الإرشاد الأسري والتأهيل المجتمعي – منصة الفرصة الثانية',
+        summary: 'دليل عملي وتطبيقي موجه للآباء والمربين يشرح كيفية التفريق بين اضطرابات المراهقة الطبيعية وبدايات التعاطي، وخطوات احتواء المريض وتشجيعه على العلاج دون عنف أو وصم.',
+        content: `محاور الدليل:
+1. العلامات السلوكية المنذرة (تغير مفاجئ في الأصدقاء، تراجع دراسي حاد، تقلبات مزاجية عنيفة، طلب متكرر للأموال دون مبرر).
+2. العلامات الفيزيولوجية (احمرار العينين، اتساع أو تضيق حدقة العين، اضطرابات الشهية والنوم، شحوب الوجه ورعشة اليدين).
+3. خطوات إدارة جلسة الحوار الأولى:
+   - اختيار توقيت هادئ يخلو من التوتر أو تعاطي المادة في اللحظة ذاتها.
+   - التركيز على مشاعر الحب والخوف على صحته ومستقبله بدلاً من الاتهام والعقاب.
+   - الاتفاق على موعد استشارة سرية مع أخصائي نفسي أو طبيب إدمان معتمد.`,
+        file_name: 'Guide_Prevention_Familiale_Addiction.pdf',
+        file_size: '2.5 ميغابايت',
+        file_url: 'data:application/pdf;base64,JVBERi0xLjQKJcTl8uXrCjEgMCBvYmoKPDwKL1R5cGUgL0NhdGFsb2cKL1BhZ2VzIDIgMCBSCj4+CmVuZG9iago=',
+        tags: 'دليل الأسرة, الوقاية, كشف مبكر, حوار أسري, علاج الإدمان',
+        is_featured: 0,
+        views_count: 189
+      }
+    ];
+
+    initialArticles.forEach(art => {
+      db.run(`
+        INSERT INTO awareness_articles (title, category, topic, author, summary, content, file_name, file_size, file_url, tags, status, is_featured, created_by, views_count)
+        SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'published', ?, ?, ?
+        WHERE NOT EXISTS (SELECT 1 FROM awareness_articles WHERE title = ?)
+      `, [art.title, art.category, art.topic, art.author, art.summary, art.content, art.file_name, art.file_size, art.file_url, art.tags, art.is_featured, currentAdmin.id, art.views_count, art.title]);
     });
   }
 }
