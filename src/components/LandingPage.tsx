@@ -150,7 +150,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
           </button>
 
           <button
-            onClick={() => onNavigateTo('services')}
+            onClick={() => onNavigateTo('emergency')}
             className="flex flex-col items-center gap-1.5 p-2 rounded-2xl hover:bg-white transition-all group cursor-pointer"
           >
             <div className="w-13 h-13 rounded-2xl bg-emerald-100/70 group-hover:bg-[#2E7D32] text-[#2E7D32] group-hover:text-white flex items-center justify-center transition-all shadow-xs">

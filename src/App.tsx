@@ -213,7 +213,9 @@ const AppContent: React.FC = () => {
           />
         )}
 
-        {currentView === 'emergency' && <EmergencyDirectory />}
+        {currentView === 'emergency' && (
+          <EmergencyDirectory onBack={() => setCurrentView('landing')} />
+        )}
       </main>
 
       {/* Floating Bottom Navigator matching UI reference mockup */}
