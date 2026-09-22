@@ -301,7 +301,7 @@ const AppContent: React.FC = () => {
             {/* Bottom Disclaimer */}
             <div className="pt-6 border-t border-slate-800/80 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-500">
               <div>
-                © {new Date().getFullYear()} منصة الفرصة الثانية. جميع الحقوق محفوظة للجمهورية الجزائرية الديمقراطية الشعبية.
+                © {new Date().getFullYear()} منصة الفرصة الثانية. جميع الحقوق محفوظة.
               </div>
               <div className="flex items-center gap-4 text-[11px]">
                 <span>حماية البيانات والسر المهني مكفول</span>

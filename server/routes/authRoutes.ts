@@ -278,17 +278,59 @@ router.get('/me', authenticateToken, (req: AuthenticatedRequest, res: Response) 
 // Update Profile
 router.put('/profile', authenticateToken, (req: AuthenticatedRequest, res: Response) => {
   const userId = req.user!.id;
-  const { first_name, last_name, phone, wilaya_id, bio, specialty, availability_schedule } = req.body;
+  const { first_name, last_name, email, phone, wilaya_id, bio, specialty, availability_schedule } = req.body;
+
+  // If email is provided, validate format and uniqueness
+  if (email !== undefined && email !== null) {
+    const cleanEmail = String(email).trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
+      res.status(422).json({
+        success: false,
+        message: 'يرجى إدخال عنوان بريد إلكتروني صالح',
+        errors: { email: 'Invalid email address' }
+      });
+      return;
+    }
+    const existing = queryOne('SELECT id FROM users WHERE email = ? AND id != ?', [cleanEmail, userId]);
+    if (existing) {
+      res.status(409).json({
+        success: false,
+        message: 'البريد الإلكتروني المدخل مسجل بالفعل لحساب آخر',
+        errors: { email: 'Email already in use' }
+      });
+      return;
+    }
+  }
+
+  // If phone is provided, validate minimum length
+  if (phone !== undefined && phone !== null && String(phone).trim().length > 0) {
+    if (String(phone).trim().length < 8) {
+      res.status(422).json({
+        success: false,
+        message: 'رقم الهاتف يجب ألا يقل عن 8 أرقام',
+        errors: { phone: 'Invalid phone number' }
+      });
+      return;
+    }
+  }
 
   execute(`
     UPDATE users
     SET first_name = COALESCE(?, first_name),
         last_name = COALESCE(?, last_name),
+        email = COALESCE(?, email),
         phone = COALESCE(?, phone),
         wilaya_id = COALESCE(?, wilaya_id),
         updated_at = CURRENT_TIMESTAMP
     WHERE id = ?
-  `, [first_name, last_name, phone, wilaya_id, userId]);
+  `, [
+    first_name ? String(first_name).trim() : null,
+    last_name ? String(last_name).trim() : null,
+    email ? String(email).trim().toLowerCase() : null,
+    phone ? String(phone).trim() : null,
+    wilaya_id !== undefined && wilaya_id !== null && wilaya_id !== '' ? Number(wilaya_id) : null,
+    userId
+  ]);
 
   if (req.user!.role_slug === 'psychologist' || req.user!.role_slug === 'lawyer') {
     execute(`
@@ -300,11 +342,23 @@ router.put('/profile', authenticateToken, (req: AuthenticatedRequest, res: Respo
     `, [bio, specialty, availability_schedule, userId]);
   }
 
-  createAuditLog(userId, 'UPDATE_PROFILE', 'users', userId, 'تحديث الملف الشخصي للمستخدم', req.ip);
+  createAuditLog(userId, 'UPDATE_PROFILE', 'users', userId, 'تحديث البيانات الشخصية (البريد، الهاتف، الاسم)', req.ip);
+
+  // Retrieve updated user
+  const updatedUser = queryOne<any>(`
+    SELECT u.id, u.first_name, u.last_name, u.email, u.phone, u.role_slug, u.wilaya_id, u.commune_id, u.status, u.created_at,
+           w.name_ar as wilaya_name
+    FROM users u
+    LEFT JOIN wilayas w ON u.wilaya_id = w.id
+    WHERE u.id = ?
+  `, [userId]);
 
   res.json({
     success: true,
-    message: 'تم تحديث البيانات بنجاح'
+    message: 'تم تحديث البيانات بنجاح',
+    data: {
+      user: updatedUser
+    }
   });
 });
 
@@ -313,23 +367,33 @@ router.put('/password', authenticateToken, (req: AuthenticatedRequest, res: Resp
   const userId = req.user!.id;
   const { current_password, new_password } = req.body;
 
-  if (!new_password || new_password.length < 6) {
+  if (!new_password || String(new_password).length < 6) {
     res.status(422).json({
       success: false,
-      message: 'كلمة المرور الجديدة يجب أن تكون 6 أحرف على الأقل',
+      message: 'كلمة المرور الجديدة يجب أن تكون 6 أحرف أو أرقام على الأقل',
       errors: { new_password: 'Password too short' }
     });
     return;
   }
 
   const user = queryOne<{ password: string }>('SELECT password FROM users WHERE id = ?', [userId]);
-  if (!user || !comparePassword(current_password, user.password)) {
-    res.status(400).json({
+  if (!user) {
+    res.status(404).json({
       success: false,
-      message: 'كلمة المرور الحالية غير صحيحة',
-      errors: { current_password: 'Incorrect password' }
+      message: 'المستخدم غير موجود'
     });
     return;
+  }
+
+  if (current_password) {
+    if (!comparePassword(current_password, user.password)) {
+      res.status(400).json({
+        success: false,
+        message: 'كلمة المرور الحالية غير صحيحة، يرجى التأكد وإعادة المحاولة',
+        errors: { current_password: 'Incorrect password' }
+      });
+      return;
+    }
   }
 
   const newHash = hashPassword(new_password);
@@ -339,7 +403,7 @@ router.put('/password', authenticateToken, (req: AuthenticatedRequest, res: Resp
 
   res.json({
     success: true,
-    message: 'تم تغيير كلمة المرور بنجاح'
+    message: 'تم تغيير كلمة المرور وتأمين حسابك بنجاح'
   });
 });
 

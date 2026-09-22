@@ -10,6 +10,7 @@ interface AuthContextType {
   register: (data: any) => Promise<string>;
   logout: () => void;
   refreshMe: () => Promise<void>;
+  updateUser: (userData: Partial<User>) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -24,6 +25,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       const res = await api.getMe();
       if (res.data?.user) {
         setUser(res.data.user);
+        localStorage.setItem('scp_user', JSON.stringify(res.data.user));
       }
     } catch (err) {
       localStorage.removeItem('scp_token');
@@ -33,6 +35,15 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const updateUser = (userData: Partial<User>) => {
+    setUser(prev => {
+      if (!prev) return null;
+      const merged = { ...prev, ...userData };
+      localStorage.setItem('scp_user', JSON.stringify(merged));
+      return merged;
+    });
   };
 
   useEffect(() => {
@@ -94,7 +105,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   return (
-    <AuthContext.Provider value={{ user, token, isLoading, login, register, logout, refreshMe }}>
+    <AuthContext.Provider value={{ user, token, isLoading, login, register, logout, refreshMe, updateUser }}>
       {children}
     </AuthContext.Provider>
   );
