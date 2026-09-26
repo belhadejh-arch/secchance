@@ -62,6 +62,43 @@ export const api = {
   getAssociations: () => apiRequest('/public/associations'),
   getPublicStats: () => apiRequest('/public/stats'),
 
+  // Services, care requests and hosted checkout
+  getServices: () => apiRequest('/services'),
+  getProviders: (serviceId?: number) => apiRequest(`/providers${serviceId ? `?service_id=${serviceId}` : ''}`),
+  getProviderStaff: (providerId: number) => apiRequest(`/providers/${providerId}/staff`),
+  addProviderStaff: (providerId: number, staff_user_id: number) =>
+    apiRequest(`/providers/${providerId}/staff`, { method: 'POST', body: JSON.stringify({ staff_user_id }) }),
+  removeProviderStaff: (providerId: number, staffId: number) =>
+    apiRequest(`/providers/${providerId}/staff/${staffId}`, { method: 'DELETE' }),
+  getMyServices: () => apiRequest('/services/mine'),
+  createService: (data: { title: string; description: string; amount_dzd: number; category: string; is_active: boolean }) =>
+    apiRequest('/services', { method: 'POST', body: JSON.stringify(data) }),
+  updateService: (id: number, data: { title: string; description: string; amount_dzd: number; category: string; is_active: boolean }) =>
+    apiRequest(`/services/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  getRequests: () => apiRequest('/requests'),
+  createRequest: (data: { service_id: number; provider_id: number; addiction_type_id: number; description: string; priority: string }) =>
+    apiRequest('/requests', { method: 'POST', body: JSON.stringify(data) }),
+  getRequest: (id: number) => apiRequest(`/requests/${id}`),
+  decideRequest: (id: number, decision: 'accept' | 'reject', reason?: string) =>
+    apiRequest(`/requests/${id}/decision`, { method: 'PUT', body: JSON.stringify({ decision, reason }) }),
+  cancelRequest: (id: number, reason?: string) =>
+    apiRequest(`/requests/${id}/cancel`, { method: 'POST', body: JSON.stringify(reason?.trim() ? { reason: reason.trim() } : {}) }),
+  setRequestPriority: (id: number, priority: string) =>
+    apiRequest(`/requests/${id}/priority`, { method: 'PUT', body: JSON.stringify({ priority }) }),
+  scheduleRequest: (id: number, appointment_date: string, start_time: string, end_time: string) =>
+    apiRequest(`/requests/${id}/appointment`, { method: 'POST', body: JSON.stringify({ appointment_date, start_time, end_time }) }),
+  setRequestStatus: (id: number, status: 'IN_PROGRESS' | 'COMPLETED') =>
+    apiRequest(`/requests/${id}/status`, { method: 'PUT', body: JSON.stringify({ status }) }),
+  assignRequestStaff: (id: number, staff_user_id: number) =>
+    apiRequest(`/requests/${id}/assign-staff`, { method: 'POST', body: JSON.stringify({ staff_user_id }) }),
+  createRequestReport: (id: number, data: { assessment: string; professional_notes: string; recommendations: string; treatment_plan: string; next_appointment: string; client_summary: string; final_evaluation: string }) =>
+    apiRequest(`/requests/${id}/report`, { method: 'POST', body: JSON.stringify(data) }),
+  getRequestStats: () => apiRequest('/requests/stats'),
+  getPayments: () => apiRequest('/payments'),
+  createCheckout: (request_id: number, payment_method: 'cib' | 'edahabia') =>
+    apiRequest('/payments/checkout', { method: 'POST', body: JSON.stringify({ request_id, payment_method }) }),
+  getPayment: (id: number) => apiRequest(`/payments/${id}`),
+
   // Auth
   login: (credentials: any) => apiRequest('/auth/login', { method: 'POST', body: JSON.stringify(credentials) }),
   register: (data: any) => apiRequest('/auth/register', { method: 'POST', body: JSON.stringify(data) }),

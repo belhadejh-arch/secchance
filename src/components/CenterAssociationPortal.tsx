@@ -214,7 +214,7 @@ export const CenterAssociationPortal: React.FC<CenterAssociationPortalProps> = (
                     {caseDetails.center_followups.map((cf: any) => (
                       <div key={cf.id} className="p-4 bg-slate-50 border border-slate-200 rounded-xl text-xs space-y-2">
                         <div className="flex justify-between font-bold text-slate-800">
-                          <span>مركز: {cf.center_name || 'مركز الأمل'}</span>
+                          <span>مركز: {cf.center_name || '—'}</span>
                           <span>الحالة: {cf.detox_status}</span>
                         </div>
                         <p className="text-slate-600 leading-relaxed font-medium">{cf.weekly_report}</p>

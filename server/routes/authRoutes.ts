@@ -4,6 +4,7 @@ import { hashPassword, comparePassword, generateAccessToken, generateRefreshToke
 import { authenticateToken, AuthenticatedRequest, createAuditLog } from '../middleware';
 
 const router = Router();
+const selfRegistrationRoles = ['patient', 'family', 'psychologist', 'lawyer', 'treatment_center', 'association'];
 
 // Register
 router.post('/register', (req, res: Response) => {
@@ -31,6 +32,7 @@ router.post('/register', (req, res: Response) => {
   if (!phone || phone.trim().length < 9) errors.phone = 'رقم الهاتف مطلوب ويجب أن يكون صالحاً';
   if (!password || password.length < 6) errors.password = 'كلمة المرور يجب ألا تقل عن 6 أحرف';
   if (!role_slug) errors.role_slug = 'نوع الحساب مطلوب';
+  else if (!selfRegistrationRoles.includes(role_slug)) errors.role_slug = 'هذا النوع من الحسابات غير متاح للتسجيل الذاتي';
 
   if (Object.keys(errors).length > 0) {
     res.status(422).json({
@@ -54,7 +56,11 @@ router.post('/register', (req, res: Response) => {
 
   // Get role_id
   const role = queryOne<{ id: number; name: string }>('SELECT id, name FROM roles WHERE slug = ?', [role_slug]);
-  const roleId = role ? role.id : 6; // default family if not found
+  if (!role) {
+    res.status(422).json({ success: false, message: 'نوع الحساب غير صالح', errors: { role_slug: 'Unknown role' } });
+    return;
+  }
+  const roleId = role.id;
 
   // Specialists and entities start as 'pending_approval' or 'active' based on policy
   const status = ['psychologist', 'lawyer', 'treatment_center', 'association'].includes(role_slug)
@@ -100,8 +106,8 @@ router.post('/register', (req, res: Response) => {
     wilaya_id: wilaya_id || 1
   };
 
-  const accessToken = generateAccessToken(tokenUser);
-  const refreshToken = generateRefreshToken(tokenUser);
+  const accessToken = status === 'active' ? generateAccessToken(tokenUser) : null;
+  const refreshToken = status === 'active' ? generateRefreshToken(tokenUser) : null;
 
   res.status(201).json({
     success: true,
@@ -111,8 +117,7 @@ router.post('/register', (req, res: Response) => {
     data: {
       user: tokenUser,
       status,
-      token: accessToken,
-      refreshToken
+      ...(accessToken ? { token: accessToken, refreshToken } : {})
     }
   });
 });
@@ -146,11 +151,13 @@ router.post('/login', (req, res: Response) => {
     return;
   }
 
-  if (user.status === 'suspended') {
+  if (user.status !== 'active' || Number(user.is_verified) !== 1) {
     res.status(403).json({
       success: false,
-      message: 'تم تجميد هذا الحساب لمخالفة سياسات المنصة. يرجى مراجعة إدارة المنصة.',
-      errors: { account: 'Account suspended' }
+      message: user.status === 'pending_approval'
+        ? 'الحساب بانتظار اعتماد الإدارة ولا يمكن تسجيل الدخول بعد.'
+        : 'هذا الحساب غير نشط. يرجى مراجعة إدارة المنصة.',
+      errors: { account: user.status === 'pending_approval' ? 'Account pending approval' : 'Account inactive' }
     });
     return;
   }
@@ -211,6 +218,10 @@ router.post('/refresh', (req, res: Response) => {
   const user = queryOne<any>('SELECT * FROM users WHERE id = ?', [payload.id]);
   if (!user) {
     res.status(404).json({ success: false, message: 'User not found' });
+    return;
+  }
+  if (user.status !== 'active' || Number(user.is_verified) !== 1) {
+    res.status(403).json({ success: false, message: 'الحساب غير نشط أو بانتظار الاعتماد', errors: { account: 'Account inactive or pending approval' } });
     return;
   }
 

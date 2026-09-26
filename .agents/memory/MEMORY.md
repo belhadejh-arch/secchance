@@ -1,1 +1,2 @@
 - [PostgreSQL import runtime](postgres-import-runtime.md) — synchronous imported routes cannot block on pg Promises; migrate to async handlers before replacing the worker bridge.
+- [Preview proxy shell checks](preview-proxy-shell-checks.md) — a development-domain curl can return 426 even while the local app and preview are healthy.

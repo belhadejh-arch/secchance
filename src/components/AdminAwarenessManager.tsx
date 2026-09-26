@@ -818,12 +818,12 @@ export const AdminAwarenessManager: React.FC<AdminAwarenessManagerProps> = ({ on
                 </h2>
                 <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500">
                   {selectedArticle.author && (
-                    <span className="font-semibold text-slate-700">✍️ {selectedArticle.author}</span>
+                    <span className="font-semibold text-slate-700">إعداد: {selectedArticle.author}</span>
                   )}
                   {selectedArticle.created_at && (
-                    <span>📅 {new Date(selectedArticle.created_at).toLocaleDateString('ar-DZ')}</span>
+                    <span>{new Date(selectedArticle.created_at).toLocaleDateString('ar-DZ')}</span>
                   )}
-                  <span>👁️ {selectedArticle.views_count || 0} قراءة</span>
+                  <span>{selectedArticle.views_count || 0} قراءة</span>
                 </div>
               </div>
 

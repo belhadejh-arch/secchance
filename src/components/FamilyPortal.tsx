@@ -207,12 +207,12 @@ export const FamilyPortal: React.FC<FamilyPortalProps> = ({ onOpenChat, onOpenBo
                   <div className="space-y-1 pt-1">
                     <div className="flex justify-between text-[10px] font-semibold text-slate-500">
                       <span>نسبة التعافي الحالية</span>
-                      <span>{c.latest_progress || 0}%</span>
+                      <span>{typeof c.latest_progress === 'number' ? `${c.latest_progress}%` : '—'}</span>
                     </div>
                     <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
                       <div
                         className="bg-[#2E7D32] h-1.5 rounded-full transition-all duration-500"
-                        style={{ width: `${c.latest_progress || 0}%` }}
+                        style={{ width: `${typeof c.latest_progress === 'number' ? c.latest_progress : 0}%` }}
                       ></div>
                     </div>
                   </div>
@@ -437,7 +437,7 @@ export const FamilyPortal: React.FC<FamilyPortalProps> = ({ onOpenChat, onOpenBo
                   <div className="grid grid-cols-2 gap-3 pt-1">
                     <label className={`p-3 rounded-xl border cursor-pointer text-xs font-bold transition-all ${priority === 'Critical' ? 'bg-red-50 border-red-500 text-red-800 ring-2 ring-red-400' : 'border-slate-200'}`}>
                       <input type="radio" name="prio" checked={priority === 'Critical'} onChange={() => setPriority('Critical')} className="sr-only" />
-                      <div>🚨 حرج جداً (خطر داهم)</div>
+                      <div>حرج جداً (خطر داهم)</div>
                       <div className="text-[10px] text-slate-500 font-normal">استجابة خلال ساعتين</div>
                     </label>
 

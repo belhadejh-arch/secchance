@@ -7,8 +7,6 @@ import {
   ShieldCheck, 
   AlertTriangle, 
   Sparkles,
-  UploadCloud,
-  FileText,
   Clock,
   MapPin,
   User,
@@ -62,9 +60,7 @@ export const NewCaseWizard: React.FC<NewCaseWizardProps> = ({
   const [availableWilayas, setAvailableWilayas] = useState<Wilaya[]>([]);
   const [duration, setDuration] = useState<string>('أقل من سنة');
   const [description, setDescription] = useState<string>(initialData?.description || '');
-  const [priority, setPriority] = useState<string>(initialData?.priority || 'high');
-  const [hasMedicalReport, setHasMedicalReport] = useState<boolean>(false);
-  const [fileName, setFileName] = useState<string>('');
+  const [priority, setPriority] = useState<string>(initialData?.priority || 'High');
 
   useEffect(() => {
     api.getWilayas()
@@ -75,12 +71,12 @@ export const NewCaseWizard: React.FC<NewCaseWizardProps> = ({
   if (!isOpen) return null;
 
   const problemOptions = [
-    { id: 'drugs', title: 'مخدرات', desc: 'مواد مخدرة كيميائية أو نباتية', icon: '🌿' },
-    { id: 'alcohol', title: 'كحول', desc: 'إدمان المشروبات الكحولية', icon: '🍷' },
-    { id: 'psychotropics', title: 'مؤثرات عقلية', desc: 'أدوية مهدئة ومؤثرات مصنفة', icon: '🧠' },
-    { id: 'digital', title: 'إدمان رقمي', desc: 'إدمان الألعاب الإلكترونية والشاشات', icon: '📱' },
-    { id: 'gambling', title: 'قمار ورهانات', desc: 'قمار مالي وإلكتروني', icon: '🎲' },
-    { id: 'other', title: 'أخرى', desc: 'سلوكيات إدمانية متنوعة', icon: '⋯' },
+    { id: 'drugs', title: 'مخدرات', desc: 'مواد مخدرة كيميائية أو نباتية' },
+    { id: 'alcohol', title: 'كحول', desc: 'إدمان المشروبات الكحولية' },
+    { id: 'psychotropics', title: 'مؤثرات عقلية', desc: 'أدوية مهدئة ومؤثرات مصنفة' },
+    { id: 'digital', title: 'إدمان رقمي', desc: 'إدمان الألعاب الإلكترونية والشاشات' },
+    { id: 'gambling', title: 'قمار ورهانات', desc: 'قمار مالي وإلكتروني' },
+    { id: 'other', title: 'أخرى', desc: 'سلوكيات إدمانية متنوعة' },
   ];
 
   const handleSubmit = async () => {
@@ -90,20 +86,19 @@ export const NewCaseWizard: React.FC<NewCaseWizardProps> = ({
       // Build case data
       const addictionTypeId = problemType === 'drugs' ? 1 : problemType === 'alcohol' ? 2 : problemType === 'psychotropics' ? 3 : 4;
       const res = await api.createCase({
-        patient_pseudonym: patientName || 'مستفيد غير معلن',
-        patient_age: Number(patientAge) || 24,
+        patient_pseudonym: patientName || undefined,
+        patient_age: patientAge === '' ? undefined : Number(patientAge),
         wilaya_id: availableWilayas.find((item) => item.name_ar === wilaya)?.id || 1,
         addiction_type_id: addictionTypeId,
         priority: priority as any,
         description: `المدة: ${duration} | المشكلة: ${problemType} | التفاصيل: ${description}`
       });
 
-      const caseCode = res.data?.case_code || '#SC-2025-0012';
+      const caseCode = res.data?.case_code || res.data?.number_case;
+      if (!caseCode) throw new Error('تم إرسال الطلب لكن لم يُرجع الخادم رقم الملف.');
       handleFinish(caseCode);
     } catch (err: any) {
-      // Fallback generation for mock test mode
-      const mockCode = `#SC-2025-${Math.floor(1000 + Math.random() * 9000)}`;
-      handleFinish(mockCode);
+      setError(err?.message || 'تعذر إرسال الطلب. يرجى المحاولة مرة أخرى.');
     } finally {
       setSubmitting(false);
     }
@@ -169,7 +164,7 @@ export const NewCaseWizard: React.FC<NewCaseWizardProps> = ({
                   }`}
                 >
                   <div className="flex items-center gap-3">
-                    <span className="text-xl">{opt.icon}</span>
+                    <span className="w-9 h-9 rounded-xl bg-blue-50 text-[#1565C0] grid place-items-center font-black">{opt.title.slice(0, 1)}</span>
                     <div>
                       <span className="font-bold text-xs sm:text-sm text-slate-900 block">{opt.title}</span>
                       <span className="text-[11px] text-slate-500">{opt.desc}</span>
@@ -268,40 +263,9 @@ export const NewCaseWizard: React.FC<NewCaseWizardProps> = ({
               <p className="text-xs text-slate-500">يمكنك إرفاق تحاليل طبية سابقة أو محاضر للمساعدة في التقييم الدقيق:</p>
             </div>
 
-            <div className="border-2 border-dashed border-slate-200 hover:border-[#1565C0] rounded-2xl p-6 text-center bg-slate-50/50 cursor-pointer transition-colors space-y-2">
-              <UploadCloud className="w-8 h-8 text-[#1565C0] mx-auto" />
-              <p className="text-xs font-bold text-slate-700">اضغط لرفع تقرير أو صورة التحليل</p>
-              <p className="text-[11px] text-slate-400">PDF, PNG, JPG (بحد أقصى 10MB)</p>
-              <input
-                type="file"
-                className="hidden"
-                id="file-upload"
-                onChange={(e) => {
-                  if (e.target.files?.[0]) {
-                    setFileName(e.target.files[0].name);
-                    setHasMedicalReport(true);
-                  }
-                }}
-              />
-              <label
-                htmlFor="file-upload"
-                className="inline-block mt-2 px-3 py-1 bg-white border border-slate-200 text-[#1565C0] rounded-lg text-xs font-bold cursor-pointer hover:bg-slate-50"
-              >
-                اختيار ملف من الجهاز
-              </label>
+            <div className="border border-slate-200 rounded-2xl p-4 bg-slate-50 text-xs leading-relaxed text-slate-600">
+              رفع المستندات غير متاح حالياً. لن يتم تسجيل أو إظهار أي ملف ما لم تتم إضافته فعلياً عبر خدمة آمنة.
             </div>
-
-            {fileName && (
-              <div className="flex items-center justify-between p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-800">
-                <div className="flex items-center gap-2">
-                  <FileText className="w-4 h-4" />
-                  <span className="font-bold">{fileName}</span>
-                </div>
-                <button onClick={() => { setFileName(''); setHasMedicalReport(false); }} className="text-red-500 hover:underline text-[11px]">
-                  حذف
-                </button>
-              </div>
-            )}
 
             <div className="p-3 bg-blue-50/60 rounded-xl border border-blue-100 flex items-start gap-2.5 text-xs text-blue-900">
               <ShieldCheck className="w-4 h-4 text-[#1565C0] shrink-0 mt-0.5" />
@@ -327,7 +291,7 @@ export const NewCaseWizard: React.FC<NewCaseWizardProps> = ({
               </div>
               <div className="flex justify-between border-b border-slate-200/60 pb-1.5">
                 <span className="text-slate-500">المستفيد:</span>
-                <span className="font-bold text-slate-900">{patientName || 'مستفيد غير معلن'} ({patientAge || '22'} سنة)</span>
+                <span className="font-bold text-slate-900">{patientName || 'غير محدد'} ({patientAge === '' ? 'العمر غير محدد' : `${patientAge} سنة`})</span>
               </div>
               <div className="flex justify-between border-b border-slate-200/60 pb-1.5">
                 <span className="text-slate-500">الولاية:</span>
@@ -335,7 +299,7 @@ export const NewCaseWizard: React.FC<NewCaseWizardProps> = ({
               </div>
               <div className="flex justify-between border-b border-slate-200/60 pb-1.5">
                 <span className="text-slate-500">درجة الأولوية:</span>
-                <span className="font-bold text-red-600 bg-red-50 px-2 py-0.5 rounded-md">عالية (تدخل خلال 4 ساعات)</span>
+                <span className="font-bold text-red-600 bg-red-50 px-2 py-0.5 rounded-md">{priority === 'Critical' ? 'عاجلة جداً' : priority === 'High' ? 'عاجلة' : priority === 'Medium' ? 'متوسطة' : 'عادية'}</span>
               </div>
             </div>
 

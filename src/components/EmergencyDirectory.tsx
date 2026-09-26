@@ -1,273 +1,208 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { api } from '../services/api';
-import { EmergencyResource, Association, Wilaya, ALGERIA_WILAYAS } from '../types';
-import { 
-  PhoneCall, 
-  Building2, 
-  MapPin, 
-  ShieldAlert, 
-  HeartHandshake, 
-  AlertTriangle, 
-  Search,
-  ArrowRight,
-  ExternalLink,
-  Info
+import type { Association, EmergencyResource, TreatmentCenter, Wilaya } from '../types';
+import { ALGERIA_WILAYAS } from '../types';
+import {
+  PhoneCall, Building2, MapPin, ShieldAlert, HeartHandshake,
+  Search, ArrowRight, Info, RefreshCw, AlertCircle
 } from 'lucide-react';
-import { ALGERIA_TREATMENT_CENTERS, TREATMENT_CENTERS_NOTICE, TreatmentCenterData } from '../data/treatmentCenters';
 
 interface EmergencyDirectoryProps {
   onBack?: () => void;
 }
 
+const responseArray = <T,>(response: any, key: string): T[] => {
+  if (Array.isArray(response?.data)) return response.data;
+  if (Array.isArray(response?.data?.[key])) return response.data[key];
+  return [];
+};
+
 export const EmergencyDirectory: React.FC<EmergencyDirectoryProps> = ({ onBack }) => {
   const [emergencies, setEmergencies] = useState<EmergencyResource[]>([]);
+  const [centers, setCenters] = useState<TreatmentCenter[]>([]);
   const [associations, setAssociations] = useState<Association[]>([]);
   const [wilayas, setWilayas] = useState<Wilaya[]>(ALGERIA_WILAYAS);
-  const [selectedWilaya, setSelectedWilaya] = useState<string>('all');
-  const [searchQuery, setSearchQuery] = useState<string>('');
-
-  useEffect(() => {
-    api.getEmergencyResources().then(res => res.data && setEmergencies(res.data)).catch(() => {});
-    api.getAssociations().then(res => res.data && setAssociations(res.data)).catch(() => {});
-    api.getWilayas().then(res => res.data && setWilayas(res.data)).catch(() => {});
-  }, []);
-
-  // Filter 20 treatment centers based on wilaya selection and text search
-  const filteredTreatmentCenters = ALGERIA_TREATMENT_CENTERS.filter((c: TreatmentCenterData) => {
-    const matchesWilaya =
-      selectedWilaya === 'all' ||
-      c.wilayaName.includes(selectedWilaya) ||
-      selectedWilaya.includes(c.wilayaName) ||
-      c.wilayaCode === selectedWilaya;
-
-    const matchesSearch =
-      !searchQuery.trim() ||
-      c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      c.wilayaName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      c.wilayaCode.includes(searchQuery) ||
-      (c.phone && c.phone.includes(searchQuery));
-
-    return matchesWilaya && matchesSearch;
+  const [selectedWilaya, setSelectedWilaya] = useState('all');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [errors, setErrors] = useState<{ emergencies: string; centers: string; associations: string }>({
+    emergencies: '', centers: '', associations: ''
   });
 
-  const filteredAssocs = selectedWilaya === 'all'
-    ? associations
-    : associations.filter(a => a.wilaya_name?.includes(selectedWilaya));
+  const loadDirectory = useCallback(async () => {
+    setLoading(true);
+    setErrors({ emergencies: '', centers: '', associations: '' });
+    const [emergencyResult, centerResult, associationResult, wilayaResult] = await Promise.all([
+      api.getEmergencyResources().then(response => ({ ok: true as const, data: responseArray<EmergencyResource>(response, 'resources') })).catch((error: any) => ({ ok: false as const, error })),
+      api.getCenters().then(response => ({ ok: true as const, data: responseArray<TreatmentCenter>(response, 'centers') })).catch((error: any) => ({ ok: false as const, error })),
+      api.getAssociations().then(response => ({ ok: true as const, data: responseArray<Association>(response, 'associations') })).catch((error: any) => ({ ok: false as const, error })),
+      api.getWilayas().then(response => ({ ok: true as const, data: responseArray<Wilaya>(response, 'wilayas') })).catch(() => ({ ok: false as const }))
+    ]);
+
+    if (emergencyResult.ok) setEmergencies(emergencyResult.data);
+    else {
+      setEmergencies([]);
+      setErrors(current => ({ ...current, emergencies: emergencyResult.error?.message || 'تعذر تحميل موارد الطوارئ.' }));
+    }
+    if (centerResult.ok) setCenters(centerResult.data);
+    else {
+      setCenters([]);
+      setErrors(current => ({ ...current, centers: centerResult.error?.message || 'تعذر تحميل المراكز من الدليل.' }));
+    }
+    if (associationResult.ok) setAssociations(associationResult.data);
+    else {
+      setAssociations([]);
+      setErrors(current => ({ ...current, associations: associationResult.error?.message || 'تعذر تحميل الجمعيات.' }));
+    }
+    if (wilayaResult.ok && wilayaResult.data.length) setWilayas(wilayaResult.data);
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { void loadDirectory(); }, [loadDirectory]);
+
+  const filteredCenters = useMemo(() => centers.filter(center => {
+    const matchesWilaya = selectedWilaya === 'all' || String(center.wilaya_id) === selectedWilaya;
+    const search = searchQuery.trim().toLocaleLowerCase();
+    const target = `${center.name || ''} ${center.wilaya_name || ''} ${center.address || ''} ${center.phone || ''} ${center.services || ''}`.toLocaleLowerCase();
+    return matchesWilaya && (!search || target.includes(search));
+  }), [centers, searchQuery, selectedWilaya]);
+
+  const filteredAssociations = useMemo(() => associations.filter(association => {
+    const matchesWilaya = selectedWilaya === 'all' || String(association.wilaya_id) === selectedWilaya;
+    const search = searchQuery.trim().toLocaleLowerCase();
+    const target = `${association.name || ''} ${association.wilaya_name || ''} ${association.address || ''} ${association.phone || ''} ${association.services || ''}`.toLocaleLowerCase();
+    return matchesWilaya && (!search || target.includes(search));
+  }), [associations, searchQuery, selectedWilaya]);
+
+  const retryButton = <button onClick={() => void loadDirectory()} className="inline-flex items-center gap-1 text-xs font-bold text-[#1565C0]"><RefreshCw size={14} /> إعادة المحاولة</button>;
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-8" dir="rtl">
-      {/* Navigation Header if onBack provided */}
+    <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-8 pb-24" dir="rtl">
       {onBack && (
         <div className="flex items-center gap-3">
-          <button
-            onClick={onBack}
-            className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white border border-slate-200 text-xs font-bold text-slate-700 hover:bg-slate-50 transition-colors shadow-xs cursor-pointer"
-          >
-            <ArrowRight className="w-4 h-4" />
-            <span>العودة للرئيسية</span>
+          <button onClick={onBack} className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white border border-slate-200 text-xs font-bold text-slate-700 hover:bg-slate-50 shadow-xs">
+            <ArrowRight className="w-4 h-4" /><span>العودة للرئيسية</span>
           </button>
         </div>
       )}
 
-      {/* Top Banner - Emergency Lines */}
-      <div className="bg-red-50 border border-red-200 rounded-3xl p-6 sm:p-8 space-y-4">
-        <div className="flex items-center gap-3 text-red-700 font-extrabold text-xl">
-          <ShieldAlert className="w-7 h-7 animate-pulse" />
-          <span>الدليل الوطني للطوارئ والاستجابة السريعة</span>
+      <section className="bg-red-50 border border-red-200 rounded-3xl p-6 sm:p-8 space-y-4">
+        <div className="flex items-center gap-3 text-red-800 font-extrabold text-xl">
+          <ShieldAlert className="w-7 h-7" /><span>دليل الطوارئ والموارد المتاحة</span>
         </div>
         <p className="text-xs sm:text-sm text-red-950 leading-relaxed max-w-3xl">
-          هذه الخطوط مجانية وتعمل 24 ساعة يومياً. في حال وجود خطر جسدي حاد، تسمم دوائي، أو اضطراب نفسي يهدد سلامة الشخص أو محيطه، اتصل بالأرقام أدناه مباشرة.
+          تعرض هذه الصفحة موارد الطوارئ الواردة من دليل المنصة. راجع بيانات كل مورد للتأكد من ملاءمتها لحالتك، واتصل بخدمات الطوارئ المحلية عند وجود خطر مباشر.
         </p>
+        {loading ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-2">
+            <div className="h-28 rounded-2xl bg-white/70 animate-pulse" /><div className="h-28 rounded-2xl bg-white/70 animate-pulse" />
+          </div>
+        ) : errors.emergencies ? (
+          <div className="rounded-2xl border border-red-200 bg-white/70 p-4 text-xs text-red-800 flex items-center justify-between gap-3">
+            <span className="flex items-center gap-2"><AlertCircle size={16} />{errors.emergencies}</span>{retryButton}
+          </div>
+        ) : emergencies.length ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-2">
+            {emergencies.map(resource => (
+              <article key={resource.id} className="bg-white p-5 rounded-2xl border border-red-100 shadow-xs">
+                <div className="text-xs font-bold text-slate-600">{resource.title_ar}</div>
+                {resource.phone_number ? (
+                  <a href={`tel:${resource.phone_number}`} className="text-2xl font-black text-red-700 my-1 font-mono tracking-wider flex items-center justify-between">
+                    <span dir="ltr">{resource.phone_number}</span><PhoneCall className="w-5 h-5 text-red-400" />
+                  </a>
+                ) : <div className="my-2 text-xs text-slate-500">رقم الاتصال غير متاح</div>}
+                {resource.description_ar && <div className="text-[11px] text-slate-500">{resource.description_ar}</div>}
+                {Boolean(resource.is_24_7) && <span className="mt-2 inline-block rounded-full bg-emerald-50 text-emerald-800 px-2 py-1 text-[9px] font-bold">متاح على مدار الساعة بحسب بيانات الدليل</span>}
+              </article>
+            ))}
+          </div>
+        ) : (
+          <div className="rounded-2xl border border-dashed border-red-200 bg-white/70 p-6 text-center text-xs text-red-800">
+            لا توجد موارد طوارئ مسجلة حالياً في الدليل.
+          </div>
+        )}
+      </section>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-2">
-          {emergencies.map((em) => (
-            <a
-              key={em.id}
-              href={`tel:${em.phone_number}`}
-              className="bg-white p-5 rounded-2xl border border-red-100 shadow-xs hover:border-red-300 hover:shadow-md transition-all group block"
-            >
-              <div className="text-xs font-bold text-slate-600 group-hover:text-red-600 transition-colors">
-                {em.title_ar}
-              </div>
-              <div className="text-3xl font-black text-red-600 my-1 font-mono tracking-wider flex items-center justify-between">
-                <span>{em.phone_number}</span>
-                <PhoneCall className="w-5 h-5 text-red-400 group-hover:text-red-600" />
-              </div>
-              <div className="text-[11px] text-slate-500">{em.description_ar}</div>
-            </a>
-          ))}
-        </div>
-      </div>
-
-      {/* Filter and Search Bar */}
-      <div className="bg-white p-5 rounded-3xl border border-slate-200/90 shadow-xs space-y-4">
+      <section className="bg-white p-5 rounded-3xl border border-slate-200/90 shadow-xs space-y-4">
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
           <div className="flex items-center gap-2 text-slate-900 font-extrabold text-base">
-            <MapPin className="w-5 h-5 text-[#1565C0]" />
-            <span>البحث وتصفية المراكز حسب الولاية</span>
+            <MapPin className="w-5 h-5 text-[#1565C0]" /><span>البحث حسب الولاية أو الخدمة</span>
           </div>
-
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-            {/* Search Box */}
             <div className="relative min-w-[220px]">
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="ابحث بالاسم أو الولاية..."
-                className="w-full pl-3 pr-9 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#1565C0]/20 focus:border-[#1565C0]"
-              />
+              <input type="search" value={searchQuery} onChange={event => setSearchQuery(event.target.value)} placeholder="ابحث بالاسم أو العنوان أو الخدمة..." className="w-full pl-3 pr-9 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#1565C0]/20 focus:border-[#1565C0]" />
               <Search className="w-4 h-4 text-slate-400 absolute right-3 top-2.5" />
             </div>
-
-            {/* Wilaya Dropdown */}
-            <select
-              value={selectedWilaya}
-              onChange={(e) => setSelectedWilaya(e.target.value)}
-              className="p-2 bg-slate-50 text-xs font-bold border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#1565C0]/20 focus:border-[#1565C0] outline-none cursor-pointer"
-            >
-              <option value="all">جميع الولايات الوطنية</option>
-              {wilayas.map((w) => (
-                <option key={w.id} value={w.name_ar}>
-                  {w.code} – {w.name_ar}
-                </option>
-              ))}
+            <select value={selectedWilaya} onChange={event => setSelectedWilaya(event.target.value)} className="p-2 bg-slate-50 text-xs font-bold border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#1565C0]/20 focus:border-[#1565C0] outline-none">
+              <option value="all">جميع الولايات</option>
+              {wilayas.map(wilaya => <option key={wilaya.id} value={String(wilaya.id)}>{wilaya.code} – {wilaya.name_ar}</option>)}
             </select>
           </div>
         </div>
-      </div>
+      </section>
 
-      {/* 🚨 مراكز علاج الإدمان في الجزائر 🇩🇿 (Requested Section) */}
-      <div className="space-y-4" id="treatment-centers-section">
+      <section className="space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-          <div className="flex items-center gap-2.5 text-slate-900 font-black text-xl">
-            <span className="text-2xl">🚨</span>
-            <h2>مراكز علاج الإدمان في الجزائر 🇩🇿</h2>
-          </div>
-          <span className="text-xs font-bold px-3 py-1 bg-emerald-50 text-[#2E7D32] border border-emerald-200 rounded-full w-fit">
-            {filteredTreatmentCenters.length} مركزاً معتمداً
-          </span>
+          <div className="flex items-center gap-2.5 text-slate-900 font-black text-xl"><Building2 /><h2>مراكز العلاج المسجلة</h2></div>
+          {!loading && !errors.centers && <span className="text-xs font-bold px-3 py-1 bg-slate-100 text-slate-700 rounded-full w-fit">{filteredCenters.length} مركز</span>}
         </div>
-
-        {/* ⚠️ ملاحظة مهمة (User's Exact Notice) */}
-        <div className="bg-amber-50/90 border border-amber-300 rounded-2xl p-4 sm:p-5 flex items-start gap-3 text-amber-950 shadow-xs">
-          <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
-          <div className="text-xs sm:text-sm font-semibold leading-relaxed">
-            <span className="font-extrabold text-amber-800">⚠️ ملاحظة مهمة:</span> بعض أرقام ومواقع المراكز المتداولة على الإنترنت قديمة، لذلك اتصل بالمركز قبل ما تتنقل للتأكد من العنوان ورقم الاستقبال والخدمات المتوفرة.
-          </div>
-        </div>
-
-        {/* Centers Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredTreatmentCenters.length === 0 ? (
-            <div className="col-span-full text-center py-12 bg-white rounded-3xl border border-dashed border-slate-300 text-slate-500 text-xs">
-              لا توجد مراكز مطابقة لبحثك في الولاية المحددة. جرب اختيار "جميع الولايات الوطنية".
-            </div>
-          ) : (
-            filteredTreatmentCenters.map((center) => (
-              <div
-                key={center.id}
-                className="bg-white p-5 rounded-2xl border border-slate-200/90 shadow-xs hover:shadow-md hover:border-[#2E7D32]/40 transition-all flex flex-col justify-between space-y-3"
-              >
+        {errors.centers && <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 flex items-center justify-between gap-3 text-xs text-amber-900"><span className="flex items-center gap-2"><AlertCircle size={16} />{errors.centers}</span>{retryButton}</div>}
+        {loading ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"><div className="h-40 rounded-2xl bg-slate-100 animate-pulse" /><div className="h-40 rounded-2xl bg-slate-100 animate-pulse" /></div>
+        ) : !errors.centers && filteredCenters.length ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {filteredCenters.map(center => (
+              <article key={center.id} className="bg-white p-5 rounded-2xl border border-slate-200/90 shadow-xs flex flex-col justify-between gap-3">
                 <div className="space-y-2">
-                  {/* Wilaya Tag */}
-                  <div className="flex items-center justify-between">
-                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-black bg-blue-50 text-[#1565C0] border border-blue-100">
-                      <span>📍</span>
-                      <span>{center.wilayaCode} – {center.wilayaName}</span>
-                    </span>
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
-                      معتمد
-                    </span>
-                  </div>
-
-                  {/* Center Name */}
-                  <h3 className="font-bold text-sm text-slate-900 leading-snug pt-1">
-                    {center.name}
-                  </h3>
-
-                  {/* Optional Description / Service Notes */}
-                  {center.description && (
-                    <p className="text-xs text-slate-600 leading-relaxed bg-slate-50 p-2.5 rounded-xl border border-slate-100">
-                      {center.description}
-                    </p>
-                  )}
-                </div>
-
-                {/* Phone Call Section */}
-                <div className="pt-3 border-t border-slate-100 space-y-2">
-                  {center.phones && center.phones.length > 0 ? (
-                    <div className="space-y-1.5">
-                      <div className="text-[11px] font-bold text-slate-500 flex items-center gap-1">
-                        <span>📞 الاتصال المباشر:</span>
-                      </div>
-                      <div className="flex flex-wrap gap-2">
-                        {center.phones.map((phoneNum, idx) => (
-                          <a
-                            key={idx}
-                            href={`tel:${phoneNum.replace(/\s+/g, '')}`}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 hover:bg-[#2E7D32] text-[#2E7D32] hover:text-white rounded-xl text-xs font-mono font-bold transition-all border border-emerald-200/80 shadow-2xs group"
-                          >
-                            <PhoneCall className="w-3.5 h-3.5 text-[#2E7D32] group-hover:text-white" />
-                            <span dir="ltr">{phoneNum}</span>
-                          </a>
-                        ))}
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="text-[11px] text-slate-500 flex items-center gap-1.5 bg-slate-50 p-2 rounded-xl">
-                      <Info className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                      <span>للاستفسار: يرجى مراجعة مصلحة EPSP الولائية أو التنقل المباشر للمركز</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-            ))
-          )}
-        </div>
-      </div>
-
-      {/* Accredited Associations Section */}
-      <div className="space-y-4 pt-4 border-t border-slate-200">
-        <div className="flex items-center gap-2 text-slate-900 font-extrabold text-lg">
-          <HeartHandshake className="w-5 h-5 text-teal-700" />
-          <span>جمعيات المرافقة الأسرية والدعم وإعادة الإدماج</span>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredAssocs.length === 0 ? (
-            <div className="col-span-full text-center py-6 text-xs text-slate-400 bg-white rounded-2xl border border-slate-200">
-              لا توجد جمعيات مسجلة في الولاية المحددة
-            </div>
-          ) : (
-            filteredAssocs.map((a) => (
-              <div key={a.id} className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-3">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <h3 className="font-bold text-sm text-slate-900">{a.name}</h3>
-                    <div className="text-xs text-teal-700 font-semibold mt-0.5">{a.wilaya_name}</div>
-                  </div>
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-teal-100 text-teal-800">
-                    شريك مجتمعي
+                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold bg-blue-50 text-[#1565C0] border border-blue-100">
+                    {center.wilaya_name || wilayas.find(wilaya => wilaya.id === center.wilaya_id)?.name_ar || 'الولاية غير محددة'}
                   </span>
+                  <h3 className="font-bold text-sm text-slate-900 leading-snug">{center.name}</h3>
+                  {center.address && <p className="m-0 text-xs text-slate-600 leading-relaxed">{center.address}</p>}
+                  {center.services && <p className="m-0 text-xs text-slate-500 leading-relaxed"><strong>الخدمات المسجلة:</strong> {center.services}</p>}
                 </div>
+                {center.phone ? (
+                  <div className="pt-3 border-t border-slate-100">
+                    <a href={`tel:${center.phone}`} className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 text-[#2E7D32] rounded-xl text-xs font-mono font-bold border border-emerald-200/80">
+                      <PhoneCall className="w-3.5 h-3.5" /><span dir="ltr">{center.phone}</span>
+                    </a>
+                  </div>
+                ) : <div className="pt-3 border-t border-slate-100 text-[11px] text-slate-500 flex gap-1.5"><Info size={14} />رقم الاتصال غير مدرج.</div>}
+              </article>
+            ))}
+          </div>
+        ) : !errors.centers ? (
+          <div className="text-center py-10 bg-white rounded-3xl border border-dashed border-slate-300 text-slate-500 text-xs">
+            {centers.length ? 'لا توجد مراكز مطابقة للبحث والولاية المحددين.' : 'لا توجد مراكز علاج مدرجة حالياً في الدليل.'}
+          </div>
+        ) : null}
+      </section>
 
-                <div className="text-xs text-slate-600">
-                  <span className="font-bold">خدمات المرافقة:</span> {a.services}
-                </div>
-
-                <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs font-bold">
-                  <span className="text-slate-500">للتواصل المباشر:</span>
-                  <a href={`tel:${a.phone}`} className="text-[#1565C0] font-sans font-black hover:underline flex items-center gap-1">
-                    <PhoneCall className="w-3.5 h-3.5" />
-                    <span dir="ltr">{a.phone}</span>
-                  </a>
-                </div>
-              </div>
-            ))
-          )}
+      <section className="space-y-4 pt-4 border-t border-slate-200">
+        <div className="flex items-center gap-2 text-slate-900 font-extrabold text-lg">
+          <HeartHandshake className="w-5 h-5 text-teal-700" /><span>الجمعيات المسجلة</span>
         </div>
-      </div>
-    </div>
+        {errors.associations && <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 flex items-center justify-between gap-3 text-xs text-amber-900"><span>{errors.associations}</span>{retryButton}</div>}
+        {loading ? <div className="h-28 rounded-2xl bg-slate-100 animate-pulse" /> : !errors.associations && filteredAssociations.length ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {filteredAssociations.map(association => (
+              <article key={association.id} className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-3">
+                <div>
+                  <h3 className="font-bold text-sm text-slate-900">{association.name}</h3>
+                  <div className="text-xs text-teal-700 font-semibold mt-0.5">{association.wilaya_name || 'الولاية غير محددة'}</div>
+                </div>
+                {association.services && <div className="text-xs text-slate-600"><span className="font-bold">الخدمات المسجلة:</span> {association.services}</div>}
+                {association.address && <div className="text-xs text-slate-500">{association.address}</div>}
+                {association.phone && <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs font-bold"><span className="text-slate-500">للتواصل:</span><a href={`tel:${association.phone}`} className="text-[#1565C0] font-black hover:underline flex items-center gap-1"><PhoneCall className="w-3.5 h-3.5" /><span dir="ltr">{association.phone}</span></a></div>}
+              </article>
+            ))}
+          </div>
+        ) : !errors.associations ? (
+          <div className="text-center py-7 text-xs text-slate-500 bg-white rounded-2xl border border-slate-200">
+            {associations.length ? 'لا توجد جمعيات مطابقة للولاية المحددة.' : 'لا توجد جمعيات مدرجة حالياً.'}
+          </div>
+        ) : null}
+      </section>
+    </main>
   );
 };

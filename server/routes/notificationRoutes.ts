@@ -1,5 +1,5 @@
 import { Router, Response } from 'express';
-import { query, execute } from '../db';
+import { query, queryOne, execute } from '../db';
 import { authenticateToken, AuthenticatedRequest } from '../middleware';
 
 const router = Router();
@@ -7,12 +7,24 @@ const router = Router();
 // Get Notifications
 router.get('/', authenticateToken, (req: AuthenticatedRequest, res: Response) => {
   const user = req.user!;
-  const notifications = query(`
+  const storedNotifications = query(`
     SELECT * FROM notifications
     WHERE user_id = ?
     ORDER BY id DESC
     LIMIT 50
   `, [user.id]);
+  const rejectionReasonSetting = queryOne<{ value: string }>(
+    'SELECT value FROM system_settings WHERE key = ?',
+    ['show_rejection_reason_to_client'],
+  );
+  const maskRejectionReason = ['patient', 'family'].includes(user.role_slug) &&
+    !['true', '1'].includes(String(rejectionReasonSetting?.value || '').toLowerCase());
+  const notifications = maskRejectionReason
+    ? storedNotifications.map((notification: any) =>
+      notification.title === 'تم رفض طلبك' || String(notification.message).startsWith('سبب الرفض:')
+        ? { ...notification, message: 'تعذر قبول طلبك. يرجى التواصل مع مقدم الخدمة لمزيد من المعلومات.' }
+        : notification)
+    : storedNotifications;
 
   const unreadCount = query<{ count: number }>(`
     SELECT COUNT(*) as count FROM notifications

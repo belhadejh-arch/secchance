@@ -215,10 +215,29 @@ router.get('/settings', authenticateToken, requireRole('admin'), (req: Authentic
 // Update System Settings
 router.put('/settings', authenticateToken, requireRole('admin'), (req: AuthenticatedRequest, res: Response) => {
   const adminId = req.user!.id;
-  const updates: Record<string, string> = req.body;
+  if (!req.body || typeof req.body !== 'object' || Array.isArray(req.body)) {
+    res.status(400).json({ success: false, message: 'Settings must be provided as an object' });
+    return;
+  }
+  const updates: Array<[string, string]> = [];
+  for (const [key, value] of Object.entries(req.body as Record<string, unknown>)) {
+    if (key === 'show_rejection_reason_to_client') {
+      if (value !== true && value !== false && value !== 'true' && value !== 'false') {
+        res.status(422).json({ success: false, message: 'show_rejection_reason_to_client must be a boolean' });
+        return;
+      }
+      updates.push([key, String(value)]);
+    } else {
+      if (value === null || typeof value === 'object') {
+        res.status(422).json({ success: false, message: `Setting ${key} must be a scalar value` });
+        return;
+      }
+      updates.push([key, String(value)]);
+    }
+  }
 
-  Object.entries(updates).forEach(([k, v]) => {
-    execute('INSERT OR REPLACE INTO system_settings (key, value) VALUES (?, ?)', [k, String(v)]);
+  updates.forEach(([key, value]) => {
+    execute('INSERT OR REPLACE INTO system_settings (key, value) VALUES (?, ?)', [key, value]);
   });
 
   createAuditLog(adminId, 'UPDATE_SETTINGS', 'system_settings', 0, 'تعديل إعدادات النظام العامة', req.ip);

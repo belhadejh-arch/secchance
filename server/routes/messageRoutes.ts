@@ -4,6 +4,24 @@ import { authenticateToken, AuthenticatedRequest, createAuditLog, createNotifica
 
 const router = Router();
 
+function conversationAccess(conversationId: number, user: NonNullable<AuthenticatedRequest['user']>): { allowed: boolean; caseFileId: number | null; serviceRequest: any | null } {
+  const conversation = queryOne<any>('SELECT case_file_id FROM conversations WHERE id = ?', [conversationId]);
+  if (!conversation) return { allowed: false, caseFileId: null, serviceRequest: null };
+  const serviceRequest = queryOne<any>('SELECT requester_id, provider_id, assigned_staff_id FROM service_requests WHERE case_file_id = ?', [conversation.case_file_id]);
+  if (user.role_slug === 'admin') return { allowed: true, caseFileId: conversation.case_file_id, serviceRequest };
+  if (serviceRequest) {
+    const caseFile = queryOne<any>('SELECT created_by, patient_id FROM case_files WHERE id = ?', [conversation.case_file_id]);
+    const isClient = serviceRequest.requester_id === user.id || caseFile?.created_by === user.id || caseFile?.patient_id === user.id;
+    const isProvider = serviceRequest.provider_id === user.id;
+    const isCurrentStaff = Number(serviceRequest.assigned_staff_id) === user.id &&
+      !!queryOne('SELECT id FROM provider_staff WHERE provider_id = ? AND staff_user_id = ? AND is_active = 1',
+        [serviceRequest.provider_id, user.id]);
+    return { allowed: isClient || isProvider || isCurrentStaff, caseFileId: conversation.case_file_id, serviceRequest };
+  }
+  const participant = queryOne('SELECT id FROM conversation_participants WHERE conversation_id = ? AND user_id = ?', [conversationId, user.id]);
+  return { allowed: !!participant, caseFileId: conversation.case_file_id, serviceRequest: null };
+}
+
 // Get conversations for current user
 router.get('/', authenticateToken, (req: AuthenticatedRequest, res: Response) => {
   const user = req.user!;
@@ -20,9 +38,22 @@ router.get('/', authenticateToken, (req: AuthenticatedRequest, res: Response) =>
     FROM conversations c
     JOIN conversation_participants cp ON c.id = cp.conversation_id
     JOIN case_files cf ON c.case_file_id = cf.id
-    WHERE cp.user_id = ?
+     WHERE cp.user_id = ? AND (
+       NOT EXISTS (SELECT 1 FROM service_requests sr WHERE sr.case_file_id = cf.id)
+       OR EXISTS (
+         SELECT 1 FROM service_requests sr
+         WHERE sr.case_file_id = cf.id AND (
+           sr.requester_id = ? OR sr.provider_id = ? OR (
+             sr.assigned_staff_id = ? AND EXISTS (
+               SELECT 1 FROM provider_staff ps WHERE ps.provider_id = sr.provider_id
+                 AND ps.staff_user_id = ? AND ps.is_active = 1
+             )
+           )
+         )
+       )
+     )
     ORDER BY COALESCE(last_message_time, c.created_at) DESC
-  `, [user.id, user.id, user.id]);
+  `, [user.id, user.id, user.id, user.id, user.id, user.id, user.id]);
 
   res.json({
     success: true,
@@ -37,8 +68,8 @@ router.get('/:id/messages', authenticateToken, (req: AuthenticatedRequest, res: 
   const convId = Number(req.params.id);
 
   // Policy check: user must be participant or admin
-  const isParticipant = queryOne('SELECT id FROM conversation_participants WHERE conversation_id = ? AND user_id = ?', [convId, user.id]);
-  if (!isParticipant && user.role_slug !== 'admin') {
+  const access = conversationAccess(convId, user);
+  if (!access.allowed) {
     res.status(403).json({ success: false, message: 'غير مصرح لك بالوصول إلى هذه المحادثة' });
     return;
   }
@@ -83,9 +114,13 @@ router.post('/:id/messages', authenticateToken, (req: AuthenticatedRequest, res:
   }
 
   // Check participation
+  const access = conversationAccess(convId, user);
+  if (!access.allowed) {
+    res.status(403).json({ success: false, message: 'غير مصرح لك بإرسال رسالة في هذه المحادثة' });
+    return;
+  }
   const isParticipant = queryOne('SELECT id FROM conversation_participants WHERE conversation_id = ? AND user_id = ?', [convId, user.id]);
   if (!isParticipant && user.role_slug !== 'admin') {
-    // Auto-join if user has rights
     execute('INSERT INTO conversation_participants (conversation_id, user_id) VALUES (?, ?)', [convId, user.id]);
   }
 
@@ -97,7 +132,20 @@ router.post('/:id/messages', authenticateToken, (req: AuthenticatedRequest, res:
   const msgId = lastInsertRowId;
 
   // Notify other participants
-  const participants = query<{ user_id: number }>('SELECT user_id FROM conversation_participants WHERE conversation_id = ? AND user_id != ?', [convId, user.id]);
+  const participants = access.serviceRequest
+    ? query<{ user_id: number }>(`
+        SELECT cp.user_id FROM conversation_participants cp
+        LEFT JOIN case_files cf ON cf.id = ?
+        WHERE cp.conversation_id = ? AND cp.user_id != ? AND (
+          cp.user_id = ? OR cp.user_id = ? OR cf.created_by = cp.user_id OR cf.patient_id = cp.user_id OR (
+            cp.user_id = ? AND EXISTS (SELECT 1 FROM provider_staff ps WHERE ps.provider_id = ?
+              AND ps.staff_user_id = cp.user_id AND ps.is_active = 1)
+          )
+        )
+      `, [access.caseFileId, convId, user.id, access.serviceRequest.requester_id,
+        access.serviceRequest.provider_id, access.serviceRequest.assigned_staff_id,
+        access.serviceRequest.provider_id])
+    : query<{ user_id: number }>('SELECT user_id FROM conversation_participants WHERE conversation_id = ? AND user_id != ?', [convId, user.id]);
   participants.forEach(p => {
     createNotification(
       p.user_id,

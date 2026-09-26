@@ -38,7 +38,12 @@ export const AdminPortal: React.FC = () => {
   const [auditLogs, setAuditLogs] = useState<any[]>([]);
   const [specialists, setSpecialists] = useState<any[]>([]);
   const [centers, setCenters] = useState<any[]>([]);
-  const [settings, setSettings] = useState<any>({});
+  const [settings, setSettings] = useState<any>({ show_rejection_reason_to_client: false });
+  const [settingsLoading, setSettingsLoading] = useState(true);
+  const [settingsLoaded, setSettingsLoaded] = useState(false);
+  const [settingsSaving, setSettingsSaving] = useState(false);
+  const [settingsError, setSettingsError] = useState('');
+  const [settingsSuccess, setSettingsSuccess] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [filterPriority, setFilterPriority] = useState<string>('all');
   const [newAccount, setNewAccount] = useState({
@@ -97,11 +102,22 @@ export const AdminPortal: React.FC = () => {
   };
 
   const fetchSettings = async () => {
+    setSettingsLoading(true);
+    setSettingsLoaded(false);
+    setSettingsError('');
     try {
       const res = await api.getSystemSettings();
-      setSettings(res.data || {});
-    } catch (err) {
-      console.error(err);
+      const data = res.data || {};
+      const showReason = data.show_rejection_reason_to_client;
+      setSettings({
+        ...data,
+        show_rejection_reason_to_client: showReason === true || showReason === 1 || showReason === '1' || showReason === 'true'
+      });
+      setSettingsLoaded(true);
+    } catch (err: any) {
+      setSettingsError(err?.message || 'تعذر تحميل إعدادات المنصة.');
+    } finally {
+      setSettingsLoading(false);
     }
   };
 
@@ -182,11 +198,16 @@ export const AdminPortal: React.FC = () => {
 
   const handleSaveSettings = async (e: React.FormEvent) => {
     e.preventDefault();
+    setSettingsSaving(true);
+    setSettingsError('');
+    setSettingsSuccess('');
     try {
       await api.updateSystemSettings(settings);
-      alert('تم حفظ إعدادات المنصة بنجاح.');
+      setSettingsSuccess('تم حفظ إعدادات المنصة بنجاح.');
     } catch (err: any) {
-      alert(err.message || 'فشل حفظ الإعدادات');
+      setSettingsError(err?.message || 'فشل حفظ الإعدادات.');
+    } finally {
+      setSettingsSaving(false);
     }
   };
 
@@ -403,7 +424,7 @@ export const AdminPortal: React.FC = () => {
                     <div>
                       <div className="font-bold text-xs sm:text-sm text-white/90">ملفات الحالات الإجمالية</div>
                       <div className="text-xl sm:text-2xl font-black tracking-tight font-sans">
-                        {kpis?.cases?.total_cases || cases.length || 0} حالة
+                        {kpis?.cases?.total_cases ?? cases.length} حالة
                       </div>
                     </div>
                   </div>
@@ -421,7 +442,7 @@ export const AdminPortal: React.FC = () => {
                     <div>
                       <div className="font-bold text-xs sm:text-sm text-white/90">جلسات الدعم النفسي</div>
                       <div className="text-xl sm:text-2xl font-black tracking-tight font-sans">
-                        {kpis?.cases?.active_cases ? kpis.cases.active_cases * 4 : 48} جلسة
+                        —
                       </div>
                     </div>
                   </div>
@@ -439,7 +460,7 @@ export const AdminPortal: React.FC = () => {
                     <div>
                       <div className="font-bold text-xs sm:text-sm text-white/90">استشارات التكييف القانوني</div>
                       <div className="text-xl sm:text-2xl font-black tracking-tight font-sans">
-                        {specialists.filter(s => s.role_slug === 'lawyer').length * 15 || 28} ملف
+                        {specialists.filter(s => s.role_slug === 'lawyer').length} محامٍ
                       </div>
                     </div>
                   </div>
@@ -457,7 +478,7 @@ export const AdminPortal: React.FC = () => {
                     <div>
                       <div className="font-bold text-xs sm:text-sm text-white/90">مراكز الاستشفاء والسموم</div>
                       <div className="text-xl sm:text-2xl font-black tracking-tight font-sans">
-                        {centers.length || 18} مركزاً
+                        {centers.length} مركزاً
                       </div>
                     </div>
                   </div>
@@ -477,7 +498,7 @@ export const AdminPortal: React.FC = () => {
                         <AlertCircle className="w-3.5 h-3.5" />
                       </div>
                       <div className="text-base font-black text-slate-900 font-sans">
-                        {kpis?.cases?.critical_cases || 0} حالة
+                        {kpis?.cases?.critical_cases ?? '—'} حالة
                       </div>
                       <div className="w-full bg-red-100 rounded-full h-1 mt-2">
                         <div className="bg-red-600 h-1 rounded-full w-4/5"></div>
@@ -491,7 +512,7 @@ export const AdminPortal: React.FC = () => {
                         <Heart className="w-3.5 h-3.5" />
                       </div>
                       <div className="text-base font-black text-slate-900 font-sans">
-                        {kpis?.cases?.active_cases || 0} حالة
+                        {kpis?.cases?.active_cases ?? '—'} حالة
                       </div>
                       <div className="w-full bg-blue-100 rounded-full h-1 mt-2">
                         <div className="bg-blue-600 h-1 rounded-full w-3/5"></div>
@@ -505,7 +526,7 @@ export const AdminPortal: React.FC = () => {
                         <CheckCircle2 className="w-3.5 h-3.5" />
                       </div>
                       <div className="text-base font-black text-slate-900 font-sans">
-                        {kpis?.cases?.completed_cases || 0} حالة
+                        {kpis?.cases?.completed_cases ?? '—'} حالة
                       </div>
                       <div className="w-full bg-emerald-100 rounded-full h-1 mt-2">
                         <div className="bg-emerald-600 h-1 rounded-full w-full"></div>
@@ -519,7 +540,7 @@ export const AdminPortal: React.FC = () => {
                         <Clock className="w-3.5 h-3.5" />
                       </div>
                       <div className="text-base font-black text-slate-900 font-sans">
-                        {kpis?.cases?.unassigned_cases || 0} حالة
+                        {kpis?.cases?.unassigned_cases ?? '—'} حالة
                       </div>
                       <div className="w-full bg-purple-100 rounded-full h-1 mt-2">
                         <div className="bg-purple-600 h-1 rounded-full w-2/5"></div>
@@ -811,6 +832,53 @@ export const AdminPortal: React.FC = () => {
                 </h3>
 
                 <form onSubmit={handleSaveSettings} className="space-y-4 text-xs">
+                  {settingsLoading && (
+                    <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600" role="status">
+                      جارٍ تحميل إعدادات المنصة…
+                    </div>
+                  )}
+                  {settingsError && (
+                    <div className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs text-rose-800" role="alert">
+                      <p className="m-0">{settingsError}</p>
+                      {!settingsLoaded && (
+                        <button type="button" onClick={() => void fetchSettings()} className="mt-2 font-bold text-[#1565C0] hover:underline">
+                          إعادة تحميل الإعدادات
+                        </button>
+                      )}
+                    </div>
+                  )}
+                  {settingsSuccess && (
+                    <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-xs font-bold text-emerald-800" role="status">
+                      {settingsSuccess}
+                    </div>
+                  )}
+
+                  <fieldset disabled={!settingsLoaded || settingsSaving} className="m-0 min-w-0 space-y-4 border-0 p-0 disabled:opacity-70">
+                    <section className="rounded-2xl border border-amber-200 bg-amber-50/70 p-4 space-y-3">
+                      <div>
+                        <h4 className="m-0 text-sm font-extrabold text-slate-900">إظهار سبب رفض مقدم الخدمة للعميل</h4>
+                        <p className="mt-1 mb-0 leading-relaxed text-slate-600">
+                          عند التفعيل، يرى العميل سبب الرفض الذي كتبه مقدم الخدمة. عند الإيقاف، لا يظهر السبب للعميل.
+                        </p>
+                      </div>
+                      <label className="flex items-center justify-between gap-4 cursor-pointer">
+                        <span className="font-bold text-slate-700">
+                          {settings.show_rejection_reason_to_client ? 'مفعّل' : 'معطّل — الوضع الافتراضي'}
+                        </span>
+                        <input
+                          type="checkbox"
+                          checked={Boolean(settings.show_rejection_reason_to_client)}
+                          onChange={event => {
+                            setSettings({ ...settings, show_rejection_reason_to_client: event.target.checked });
+                            setSettingsSuccess('');
+                            setSettingsError('');
+                          }}
+                          className="h-5 w-5 accent-[#1565C0]"
+                          aria-label="إظهار سبب رفض مقدم الخدمة للعميل"
+                        />
+                      </label>
+                    </section>
+
                   <div>
                     <label className="block font-bold text-slate-700 mb-1">اسم المنصة الرسمي:</label>
                     <input
@@ -857,10 +925,12 @@ export const AdminPortal: React.FC = () => {
 
                   <button
                     type="submit"
-                    className="px-6 py-2.5 bg-[#1565C0] hover:bg-blue-700 text-white font-bold rounded-xl shadow-xs cursor-pointer"
+                    disabled={settingsSaving || !settingsLoaded}
+                    className="px-6 py-2.5 bg-[#1565C0] hover:bg-blue-700 text-white font-bold rounded-xl shadow-xs cursor-pointer disabled:cursor-not-allowed disabled:opacity-60"
                   >
-                    حفظ التعديلات
+                    {settingsSaving ? 'جارٍ الحفظ…' : 'حفظ التعديلات'}
                   </button>
+                  </fieldset>
                 </form>
               </div>
             )}
@@ -909,7 +979,7 @@ export const AdminPortal: React.FC = () => {
               </button>
             </div>
 
-            {/* Storage / Capacity Metric (Image 1 "Your storage" widget) */}
+            {/* Capacity information is withheld until the API supplies live facility capacity. */}
             <div className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs space-y-2.5">
               <div className="flex justify-between items-center">
                 <span className="font-bold text-xs text-slate-800 flex items-center gap-1.5">
@@ -917,15 +987,12 @@ export const AdminPortal: React.FC = () => {
                   <span>طاقة استيعاب الأسرة</span>
                 </span>
                 <span className="text-xs font-bold text-teal-600 bg-teal-50 px-2 py-0.5 rounded-full">
-                  متبقي 25%
+                  غير متاحة
                 </span>
               </div>
               <p className="text-[11px] text-slate-500">
-                75 من أصل 100 سرير مشغولة بمراكز إزالة السموم
+                لا توفر الواجهة الحالية بيانات إشغال مباشرة للمراكز.
               </p>
-              <div className="w-full bg-slate-100 rounded-full h-2">
-                <div className="bg-[#1565C0] h-2 rounded-full w-3/4"></div>
-              </div>
             </div>
 
             {/* Shared / On-duty Specialists (Image 1 "Your shared folders" widget with member avatars) */}

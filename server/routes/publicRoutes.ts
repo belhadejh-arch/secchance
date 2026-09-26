@@ -49,7 +49,7 @@ router.get('/stats', (req, res: Response) => {
   const completedCases = query<{ count: number }>("SELECT COUNT(*) as count FROM case_files WHERE status = 'COMPLETED'")[0]?.count || 0;
   const specialistsCount = query<{ count: number }>("SELECT COUNT(*) as count FROM specialist_profiles WHERE verification_status = 'approved'")[0]?.count || 0;
   const centersCount = query<{ count: number }>("SELECT COUNT(*) as count FROM centers WHERE verification_status = 'approved'")[0]?.count || 0;
-  const wilayasCovered = query<{ count: number }>('SELECT COUNT(DISTINCT wilaya_id) as count FROM users WHERE wilaya_id IS NOT NULL')[0]?.count || 12;
+  const wilayasCovered = query<{ count: number }>('SELECT COUNT(DISTINCT wilaya_id) as count FROM users WHERE wilaya_id IS NOT NULL')[0]?.count || 0;
 
   res.json({
     success: true,
@@ -58,8 +58,7 @@ router.get('/stats', (req, res: Response) => {
       completed_cases: completedCases,
       specialists_count: specialistsCount,
       centers_count: centersCount,
-      wilayas_covered: wilayasCovered,
-      confidentiality_guarantee: '100% مشفر وسري'
+      wilayas_covered: wilayasCovered
     }
   });
 });

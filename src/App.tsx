@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { Navbar } from './components/Navbar';
 import { LandingPage } from './components/LandingPage';
@@ -21,19 +21,39 @@ import { AuthModal } from './components/AuthModal';
 import { AITriageModal } from './components/AITriageModal';
 import { BottomNavigator } from './components/BottomNavigator';
 import { PlatformLogo } from './components/PlatformLogo';
+import { RequestsWorkspace } from './components/RequestsWorkspace';
 import { Shield } from 'lucide-react';
 
 const AppContent: React.FC = () => {
-  const { user } = useAuth();
-  const [currentView, setCurrentView] = useState<string>('landing');
+  const { user, isLoading } = useAuth();
+  const [gatewayReturn] = useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    const paymentId = params.get('payment_id') || params.get('paymentId');
+    const requestId = params.get('request_id') || params.get('requestId');
+    return paymentId || requestId ? { paymentId, requestId } : null;
+  });
+  const [currentView, setCurrentView] = useState<string>(() => gatewayReturn ? 'portal' : 'landing');
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [authTab, setAuthTab] = useState<'login' | 'register'>('login');
   const [authRole, setAuthRole] = useState<string>('family');
   const [isAiOpen, setIsAiOpen] = useState(false);
+  const [requestedServiceCategory, setRequestedServiceCategory] = useState<string | null>(null);
+  const gatewayLoginPrompted = useRef(false);
+
+  useEffect(() => {
+    if (gatewayReturn && !isLoading && !user && !gatewayLoginPrompted.current) {
+      gatewayLoginPrompted.current = true;
+      handleOpenAuth('login');
+    }
+    if (user && requestedServiceCategory) {
+      if (user.role_slug === 'family' || user.role_slug === 'patient') setCurrentView('portal');
+      else setRequestedServiceCategory(null);
+    }
+  }, [gatewayReturn, isLoading, user, requestedServiceCategory]);
 
   // Cross-component states
   const [activeConvId, setActiveConvId] = useState<number | null>(null);
-  const [selectedCaseCode, setSelectedCaseCode] = useState<string>('#SC-2025-0012');
+  const [selectedCaseCode, setSelectedCaseCode] = useState<string>('');
   const [prefillCaseData, setPrefillCaseData] = useState<{
     description: string;
     addiction_type_id: number;
@@ -44,6 +64,15 @@ const AppContent: React.FC = () => {
     setAuthTab(tab);
     setAuthRole(role);
     setIsAuthOpen(true);
+  };
+
+  const handleServiceRequest = (category: string = 'all') => {
+    setRequestedServiceCategory(category);
+    if (user?.role_slug === 'family' || user?.role_slug === 'patient') {
+      setCurrentView('portal');
+    } else if (!user) {
+      handleOpenAuth('login', 'family');
+    }
   };
 
   const handleStartCaseWithData = (data: { description: string; addiction_type_id: number; priority: string }) => {
@@ -89,33 +118,46 @@ const AppContent: React.FC = () => {
 
     switch (user.role_slug) {
       case 'admin':
-        return <AdminPortal />;
+        return <><RequestsWorkspace role="admin" /><AdminPortal /></>;
       case 'psychologist':
         return (
-          <PsychologistPortal
-            onOpenChat={handleOpenChat}
-            onOpenBookAppointment={handleOpenBookAppointment}
-          />
+          <>
+            <RequestsWorkspace role="psychologist" />
+            <PsychologistPortal
+              onOpenChat={handleOpenChat}
+              onOpenBookAppointment={handleOpenBookAppointment}
+            />
+          </>
         );
       case 'lawyer':
         return (
-          <LawyerPortal
-            onOpenChat={handleOpenChat}
-            onOpenBookAppointment={handleOpenBookAppointment}
-          />
+          <>
+            <RequestsWorkspace role="lawyer" />
+            <LawyerPortal
+              onOpenChat={handleOpenChat}
+              onOpenBookAppointment={handleOpenBookAppointment}
+            />
+          </>
         );
       case 'treatment_center':
       case 'association':
-        return <CenterAssociationPortal onOpenChat={handleOpenChat} />;
+        return <><RequestsWorkspace role={user.role_slug} /><CenterAssociationPortal onOpenChat={handleOpenChat} /></>;
       case 'family':
       case 'patient':
       default:
         return (
-          <FamilyPortal
-            onOpenChat={handleOpenChat}
-            onOpenBookAppointment={handleOpenBookAppointment}
-            prefillData={prefillCaseData}
-          />
+          <>
+            <RequestsWorkspace
+              role={user?.role_slug}
+              initialServiceCategory={requestedServiceCategory || undefined}
+              onInitialServiceHandled={() => setRequestedServiceCategory(null)}
+            />
+            <FamilyPortal
+              onOpenChat={handleOpenChat}
+              onOpenBookAppointment={handleOpenBookAppointment}
+              prefillData={prefillCaseData}
+            />
+          </>
         );
     }
   };
@@ -145,9 +187,8 @@ const AppContent: React.FC = () => {
         {currentView === 'services' && (
           <ServicesView
             onBack={() => setCurrentView('landing')}
-            onSelectService={(serviceId) => {
-              setCurrentView('new-case');
-            }}
+            onSelectService={handleServiceRequest}
+            onNewCase={() => handleServiceRequest('all')}
           />
         )}
 
@@ -225,7 +266,7 @@ const AppContent: React.FC = () => {
               {/* Col 1: Platform Overview */}
               <div className="space-y-3">
                 <div className="flex items-center gap-2">
-                  <div className="font-black text-lg text-white">الفرصة الثانية 🇩🇿</div>
+                  <div className="font-black text-lg text-white">الفرصة الثانية</div>
                   <span className="text-[10px] bg-blue-600 text-white font-bold px-2 py-0.5 rounded-full font-mono">SCP</span>
                 </div>
                 <p className="text-xs text-slate-400 leading-relaxed">
@@ -243,7 +284,7 @@ const AppContent: React.FC = () => {
                 <ul className="space-y-2 text-slate-400 font-medium">
                   <li>
                     <button onClick={() => setCurrentView('services')} className="hover:text-white transition-colors cursor-pointer">
-                      • دليل مراكز علاج الإدمان (53 مركزاً بالجزائر)
+                      • دليل مراكز علاج الإدمان
                     </button>
                   </li>
                   <li>
@@ -290,9 +331,8 @@ const AppContent: React.FC = () => {
               <div className="space-y-3 text-xs">
                 <h4 className="font-black text-sm text-white border-b border-slate-800 pb-2">الخطوط الوطنية للطوارئ</h4>
                 <div className="bg-slate-800/80 p-3.5 rounded-2xl border border-slate-700 space-y-2">
-                  <div className="text-[11px] text-slate-400">الرقم الأخضر لطوارئ الإدمان:</div>
-                  <div className="text-xl font-black text-red-400 font-mono">1099</div>
-                  <div className="text-[10px] text-slate-400">متاح 24 ساعة يومياً لكل ولايات الوطن</div>
+                   <div className="text-[11px] text-slate-400">أرقام الطوارئ وخدمات المساعدة المحلية</div>
+                   <button onClick={() => setCurrentView('emergency')} className="text-sm font-bold text-red-300 hover:text-white">عرض دليل الطوارئ</button>
                 </div>
               </div>
 
@@ -306,7 +346,7 @@ const AppContent: React.FC = () => {
               <div className="flex items-center gap-4 text-[11px]">
                 <span>حماية البيانات والسر المهني مكفول</span>
                 <span>•</span>
-                <span>تغطية 58 ولاية</span>
+                <span>تغطية وطنية</span>
               </div>
             </div>
           </div>

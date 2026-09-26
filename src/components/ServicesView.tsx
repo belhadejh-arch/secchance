@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { 
   Search, 
   HeartHandshake, 
@@ -7,17 +7,15 @@ import {
   Users, 
   Sparkles, 
   ChevronLeft, 
-  ShieldCheck, 
   ArrowLeft,
-  Calendar,
   PhoneCall,
   Clock,
-  Filter,
-  AlertTriangle,
   Info,
   GraduationCap
 } from 'lucide-react';
-import { ALGERIA_TREATMENT_CENTERS, TREATMENT_CENTERS_NOTICE, TreatmentCenterData } from '../data/treatmentCenters';
+import { api } from '../services/api';
+import type { TreatmentCenter } from '../types';
+import { ALGERIA_WILAYAS } from '../types';
 import { AwarenessStudiesView } from './AwarenessStudiesView';
 
 interface ServicesViewProps {
@@ -38,6 +36,25 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [activeCategory, setActiveCategory] = useState<string>('all');
   const [selectedCenterWilaya, setSelectedCenterWilaya] = useState<string>('all');
+  const [centers, setCenters] = useState<TreatmentCenter[]>([]);
+  const [centersLoading, setCentersLoading] = useState(true);
+  const [centersError, setCentersError] = useState('');
+
+  const loadCenters = async () => {
+    setCentersLoading(true);
+    setCentersError('');
+    try {
+      const response = await api.getCenters();
+      setCenters(Array.isArray(response.data) ? response.data : Array.isArray(response.data?.centers) ? response.data.centers : []);
+    } catch (error: any) {
+      setCenters([]);
+      setCentersError(error?.message || 'تعذر تحميل مراكز العلاج من الدليل.');
+    } finally {
+      setCentersLoading(false);
+    }
+  };
+
+  useEffect(() => { void loadCenters(); }, []);
 
   const services = [
     {
@@ -48,7 +65,7 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
       badge: 'جلسات معتمدة',
       bgColor: 'bg-blue-50',
       iconColor: 'text-[#1565C0]',
-      stats: '24 أخصائي مناوب',
+      stats: 'طلب مباشر من المنصة',
       actionText: 'حجز جلسة نفسية'
     },
     {
@@ -59,7 +76,7 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
       badge: 'سرية تامة',
       bgColor: 'bg-amber-50',
       iconColor: 'text-amber-700',
-      stats: '15 محامٍ متخصص',
+      stats: 'طلب مباشر من المنصة',
       actionText: 'طلب استشارة قانونية'
     },
     {
@@ -70,8 +87,8 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
       badge: 'إحالات سريعة',
       bgColor: 'bg-emerald-50',
       iconColor: 'text-[#2E7D32]',
-      stats: `${ALGERIA_TREATMENT_CENTERS.length} مركزاً وطنياً`,
-      actionText: `استعراض المراكز الـ ${ALGERIA_TREATMENT_CENTERS.length}`
+      stats: 'طلب مباشر من المنصة',
+      actionText: 'طلب خدمة علاجية'
     },
     {
       id: 'associations',
@@ -81,7 +98,7 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
       badge: 'تأهيل مجتمعي',
       bgColor: 'bg-teal-50',
       iconColor: 'text-teal-700',
-      stats: '34 جمعية شريكة',
+      stats: 'طلب مباشر من المنصة',
       actionText: 'التواصل مع الجمعيات'
     },
     {
@@ -92,7 +109,7 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
       badge: 'محتوى موثوق',
       bgColor: 'bg-purple-50',
       iconColor: 'text-purple-700',
-      stats: '50+ دليلاً إرشادياً',
+      stats: 'مواد توعوية',
       actionText: 'تصفح الدلائل التوعوية'
     }
   ];
@@ -103,20 +120,12 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
     return matchesSearch && s.id === activeCategory;
   });
 
-  const filteredTreatmentCenters = ALGERIA_TREATMENT_CENTERS.filter((c: TreatmentCenterData) => {
-    const matchesWilaya =
-      selectedCenterWilaya === 'all' ||
-      c.wilayaName.includes(selectedCenterWilaya) ||
-      c.wilayaCode === selectedCenterWilaya;
-
-    const matchesSearch =
-      !searchTerm.trim() ||
-      c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      c.wilayaName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      c.wilayaCode.includes(searchTerm) ||
-      (c.phone && c.phone.includes(searchTerm));
-
-    return matchesWilaya && matchesSearch;
+  const filteredTreatmentCenters = centers.filter(center => {
+    const matchesWilaya = selectedCenterWilaya === 'all' || String(center.wilaya_id) === selectedCenterWilaya;
+    const search = searchTerm.trim().toLocaleLowerCase();
+    const wilayaName = center.wilaya_name || ALGERIA_WILAYAS.find(item => item.id === center.wilaya_id)?.name_ar || '';
+    const target = `${center.name || ''} ${wilayaName} ${center.address || ''} ${center.phone || ''} ${center.services || ''}`.toLocaleLowerCase();
+    return matchesWilaya && (!search || target.includes(search));
   });
 
   return (
@@ -134,7 +143,7 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
           )}
           <div>
             <h1 className="text-xl sm:text-2xl font-black text-slate-900">دليل الخدمات والتوعية ومراكز العلاج</h1>
-            <p className="text-xs sm:text-sm text-slate-500 mt-0.5">رعاية متكاملة: نفسية، قانونية، طبية وتأهيلية عبر 58 ولاية جزائرية</p>
+            <p className="text-xs sm:text-sm text-slate-500 mt-0.5">رعاية متكاملة: نفسية، قانونية، طبية واجتماعية عبر الجزائر</p>
           </div>
         </div>
         {onNewCase && (
@@ -183,7 +192,7 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
           }`}
         >
           <Building2 className="w-3.5 h-3.5" />
-          <span>مراكز العلاج ({ALGERIA_TREATMENT_CENTERS.length})</span>
+          <span>مراكز العلاج ({centersLoading ? '…' : centersError ? '—' : centers.length})</span>
         </button>
         <button
           onClick={() => setActiveCategory('psychological')}
@@ -231,100 +240,58 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
       {/* When activeCategory === 'treatment': Show Full Treatment Centers Section */}
       {activeCategory === 'treatment' ? (
         <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span className="text-xl">🚨</span>
-              <h2 className="text-base sm:text-lg font-black text-slate-900">
-                مراكز علاج الإدمان في الجزائر 🇩🇿
-              </h2>
-            </div>
-            <span className="text-xs font-bold px-2.5 py-1 bg-emerald-50 text-[#2E7D32] border border-emerald-200 rounded-full">
-              {filteredTreatmentCenters.length} مركزاً
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="text-base sm:text-lg font-black text-slate-900">مراكز العلاج المسجلة في الدليل</h2>
+            <span className="text-xs font-bold px-2.5 py-1 bg-slate-100 text-slate-700 rounded-full">
+              {centersLoading ? 'جارٍ التحميل' : centersError ? '—' : `${filteredTreatmentCenters.length} مركز`}
             </span>
           </div>
 
-          {/* ⚠️ ملاحظة مهمة (User's Exact Notice) */}
-          <div className="bg-amber-50/90 border border-amber-300 rounded-2xl p-4 flex items-start gap-2.5 text-amber-950 shadow-xs">
-            <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
-            <div className="text-xs font-semibold leading-relaxed">
-              <strong className="text-amber-800 font-extrabold">⚠️ ملاحظة مهمة:</strong> بعض أرقام ومواقع المراكز المتداولة على الإنترنت قديمة، لذلك اتصل بالمركز قبل ما تتنقل للتأكد من العنوان ورقم الاستقبال والخدمات المتوفرة.
-            </div>
-          </div>
-
-          {/* Wilaya Filter Dropdown */}
           <div className="flex items-center justify-between gap-3 bg-white p-3 rounded-2xl border border-slate-200 shadow-xs">
             <span className="text-xs font-bold text-slate-700">تصفية حسب الولاية:</span>
-            <select
-              value={selectedCenterWilaya}
-              onChange={(e) => setSelectedCenterWilaya(e.target.value)}
-              className="p-1.5 bg-slate-50 text-xs font-bold border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#1565C0] outline-none"
-            >
-              <option value="all">جميع الولايات المتاحة</option>
-              {ALGERIA_TREATMENT_CENTERS.map((c) => (
-                <option key={c.id} value={c.wilayaName}>
-                  {c.wilayaCode} – {c.wilayaName}
-                </option>
-              ))}
+            <select value={selectedCenterWilaya} onChange={event => setSelectedCenterWilaya(event.target.value)} className="p-1.5 bg-slate-50 text-xs font-bold border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#1565C0] outline-none">
+              <option value="all">جميع الولايات</option>
+              {ALGERIA_WILAYAS.map(wilaya => <option key={wilaya.id} value={String(wilaya.id)}>{wilaya.code} – {wilaya.name_ar}</option>)}
             </select>
           </div>
 
-          {/* Treatment Centers List */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filteredTreatmentCenters.map((center) => (
-              <div
-                key={center.id}
-                className="bg-white rounded-2xl border border-slate-200/90 p-4 sm:p-5 shadow-xs hover:border-[#2E7D32]/50 hover:shadow-md transition-all flex flex-col justify-between space-y-3"
-              >
-                <div className="space-y-2.5">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="space-y-1">
-                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg text-xs font-black bg-blue-50 text-[#1565C0] border border-blue-100">
-                        <span>📍</span>
-                        <span>{center.wilayaCode} – {center.wilayaName}</span>
-                      </span>
-                      <h3 className="font-bold text-sm sm:text-base text-slate-900 leading-snug pt-1">
-                        {center.name}
-                      </h3>
+          {centersLoading ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" aria-label="جارٍ تحميل المراكز">
+              <div className="h-40 rounded-2xl bg-slate-100 animate-pulse" /><div className="h-40 rounded-2xl bg-slate-100 animate-pulse" />
+            </div>
+          ) : centersError ? (
+            <div className="rounded-2xl border border-amber-200 bg-amber-50 p-5 text-center space-y-3">
+              <p className="m-0 text-xs text-amber-900">{centersError}</p>
+              <button onClick={() => void loadCenters()} className="text-xs font-bold text-[#1565C0]">إعادة المحاولة</button>
+            </div>
+          ) : filteredTreatmentCenters.length ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {filteredTreatmentCenters.map(center => {
+                const wilayaName = center.wilaya_name || ALGERIA_WILAYAS.find(wilaya => wilaya.id === center.wilaya_id)?.name_ar || 'الولاية غير محددة';
+                return (
+                  <article key={center.id} className="bg-white rounded-2xl border border-slate-200/90 p-4 sm:p-5 shadow-xs hover:border-[#2E7D32]/50 hover:shadow-md transition-all flex flex-col justify-between gap-3">
+                    <div className="space-y-2.5">
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg text-xs font-bold bg-blue-50 text-[#1565C0] border border-blue-100">{wilayaName}</span>
+                      <h3 className="font-bold text-sm sm:text-base text-slate-900 leading-snug">{center.name}</h3>
+                      {center.address && <p className="m-0 text-xs text-slate-600 leading-relaxed">{center.address}</p>}
+                      {center.services && <p className="m-0 text-xs text-slate-500 leading-relaxed"><strong>الخدمات المسجلة:</strong> {center.services}</p>}
                     </div>
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 shrink-0">
-                      معتمد
-                    </span>
-                  </div>
-
-                  {center.description && (
-                    <p className="text-xs text-slate-600 bg-slate-50 p-2.5 rounded-xl border border-slate-100 leading-relaxed">
-                      {center.description}
-                    </p>
-                  )}
-                </div>
-
-                <div className="pt-2 border-t border-slate-100">
-                  {center.phones && center.phones.length > 0 ? (
-                    <div className="space-y-1.5">
-                      <span className="text-[11px] font-bold text-slate-500 block">الاتصال الهاتفي المباشر:</span>
-                      <div className="flex flex-wrap gap-2">
-                        {center.phones.map((phoneNum, idx) => (
-                          <a
-                            key={idx}
-                            href={`tel:${phoneNum.replace(/\s+/g, '')}`}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 hover:bg-[#2E7D32] text-[#2E7D32] hover:text-white rounded-xl text-xs font-mono font-bold transition-all border border-emerald-200 group"
-                          >
-                            <PhoneCall className="w-3.5 h-3.5 text-[#2E7D32] group-hover:text-white" />
-                            <span dir="ltr">{phoneNum}</span>
-                          </a>
-                        ))}
+                    {center.phone ? (
+                      <div className="pt-2 border-t border-slate-100">
+                        <a href={`tel:${center.phone}`} className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 text-[#2E7D32] rounded-xl text-xs font-mono font-bold border border-emerald-200">
+                          <PhoneCall className="w-3.5 h-3.5" /><span dir="ltr">{center.phone}</span>
+                        </a>
                       </div>
-                    </div>
-                  ) : (
-                    <div className="text-[11px] text-slate-500 flex items-center gap-1.5 bg-slate-50 p-2 rounded-xl">
-                      <Info className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                      <span>يرجى مراجعة مصلحة EPSP بالولاية أو التنقل المباشر للمركز</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
+                    ) : <div className="pt-2 border-t border-slate-100 text-[11px] text-slate-500 flex items-center gap-1.5"><Info className="w-3.5 h-3.5" />رقم الاتصال غير مدرج.</div>}
+                  </article>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="text-center py-10 bg-white rounded-3xl border border-dashed border-slate-300 text-slate-500 text-xs">
+              {centers.length ? 'لا توجد مراكز مطابقة للبحث والولاية المحددين.' : 'لا توجد مراكز مدرجة حالياً في الدليل.'}
+            </div>
+          )}
         </div>
       ) : activeCategory === 'awareness' ? (
         /* Awareness & Scientific Studies Public View */
@@ -369,14 +336,12 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
 
                   <button
                     onClick={() => {
-                      if (service.id === 'treatment') {
-                        setActiveCategory('treatment');
-                      } else if (service.id === 'awareness') {
+                      if (service.id === 'awareness') {
                         setActiveCategory('awareness');
-                      } else if (onOpenBooking) {
-                        onOpenBooking(service.title);
                       } else if (onSelectService) {
                         onSelectService(service.id);
+                      } else if (onOpenBooking) {
+                        onOpenBooking(service.title);
                       }
                     }}
                     className="px-3.5 py-1.5 bg-[#F0F7FF] text-[#1565C0] hover:bg-[#1565C0] hover:text-white font-bold rounded-xl transition-all flex items-center gap-1.5 cursor-pointer text-xs"

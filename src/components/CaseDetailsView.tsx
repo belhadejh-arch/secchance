@@ -1,19 +1,10 @@
-import React, { useState } from 'react';
-import { 
-  ArrowRight, 
-  ShieldAlert, 
-  UserCheck, 
-  Calendar, 
-  FileText, 
-  MessageSquare, 
-  PhoneCall, 
-  Clock, 
-  CheckCircle2, 
-  AlertCircle,
-  Share2,
-  ChevronLeft,
-  Activity
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  Activity, AlertCircle, ArrowRight, CalendarDays, CheckCircle2, Clock3,
+  FileText, MessageSquare, RefreshCw, ShieldCheck, UserRound
 } from 'lucide-react';
+import { api } from '../services/api';
+import type { Appointment, CaseDocument, CaseFile, CaseProgress } from '../types';
 
 interface CaseDetailsViewProps {
   caseCode?: string;
@@ -22,189 +13,238 @@ interface CaseDetailsViewProps {
   onBookAppointment?: () => void;
 }
 
+type DetailPayload = {
+  case?: CaseFile;
+  appointments?: Appointment[];
+  documents?: CaseDocument[];
+  case_progress?: CaseProgress[];
+  progress?: CaseProgress[] | number;
+  progress_history?: CaseProgress[];
+  conversation_id?: number;
+  [key: string]: any;
+};
+
+const CASE_STATUS: Record<string, string> = {
+  NEW: 'طلب جديد',
+  UNDER_REVIEW: 'قيد المراجعة',
+  WAITING_PROVIDER: 'بانتظار مقدم الخدمة',
+  ASSIGNED: 'تم إسناد المختص',
+  FIRST_SESSION: 'الجلسة الأولى',
+  FOLLOW_UP: 'متابعة مستمرة',
+  REFERRED: 'تمت الإحالة',
+  IN_PROGRESS: 'قيد التنفيذ',
+  AWAITING_PAYMENT: 'بانتظار الدفع',
+  CONFIRMED: 'موعد مؤكد',
+  COMPLETED: 'مكتمل',
+  ARCHIVED: 'مؤرشف',
+  REJECTED: 'مرفوض'
+};
+
+const APPOINTMENT_STATUS: Record<string, string> = {
+  PENDING: 'بانتظار التأكيد', pending: 'بانتظار التأكيد',
+  CONFIRMED: 'مؤكد', confirmed: 'مؤكد',
+  COMPLETED: 'منجز', completed: 'منجز',
+  CANCELLED: 'ملغي', cancelled: 'ملغي',
+  RESCHEDULED: 'أعيدت جدولته', NO_SHOW: 'لم يحضر'
+};
+
+const fmtDate = (value?: string) => value
+  ? new Date(value).toLocaleDateString('ar-DZ', { year: 'numeric', month: 'long', day: 'numeric' })
+  : '—';
+
+const listFrom = <T,>(value: unknown): T[] => Array.isArray(value) ? value as T[] : [];
+
 export const CaseDetailsView: React.FC<CaseDetailsViewProps> = ({
-  caseCode = '#SC-2025-0012',
+  caseCode,
   onBack,
   onOpenChat,
   onBookAppointment
 }) => {
-  const [activeTab, setActiveTab] = useState<'info' | 'appointments' | 'documents'>('info');
+  const [caseFile, setCaseFile] = useState<CaseFile | null>(null);
+  const [detail, setDetail] = useState<DetailPayload | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [activeTab, setActiveTab] = useState<'overview' | 'appointments' | 'documents' | 'progress'>('overview');
+
+  const loadCase = useCallback(async () => {
+    if (!caseCode) {
+      setError('لم يتم تحديد رقم ملف لعرض تفاصيله.');
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    setError('');
+    try {
+      const listRes = await api.getCases();
+      const cases = listFrom<CaseFile>(listRes.data);
+      const found = cases.find(item => item.number_case === caseCode);
+      if (!found) {
+        setCaseFile(null);
+        setDetail(null);
+        setError('لم يُعثر على ملف بهذا الرقم ضمن الملفات المتاحة لحسابك.');
+        return;
+      }
+      setCaseFile(found);
+      const detailRes = await api.getCaseById(found.id);
+      setDetail(detailRes.data || {});
+    } catch (err: any) {
+      setError(err?.message || 'تعذر تحميل تفاصيل الملف من الخادم.');
+    } finally {
+      setLoading(false);
+    }
+  }, [caseCode]);
+
+  useEffect(() => {
+    void loadCase();
+  }, [loadCase]);
+
+  const record = detail?.case || caseFile;
+  const appointments = listFrom<Appointment>(detail?.appointments);
+  const documents = listFrom<CaseDocument>(detail?.documents);
+  const progressEntries = listFrom<CaseProgress>(detail?.case_progress || detail?.progress_history || (Array.isArray(detail?.progress) ? detail.progress : []));
+  const progressValue = typeof record?.latest_progress === 'number'
+    ? record.latest_progress
+    : typeof detail?.progress === 'number'
+      ? detail.progress
+      : progressEntries[0]?.progress_percentage;
+  const conversationId = detail?.conversation_id;
+  const detailLoaded = detail !== null;
+  const statusText = CASE_STATUS[record?.status || ''] || record?.status || 'غير متاح';
+  const sortedAppointments = useMemo(
+    () => [...appointments].sort((a, b) => `${a.appointment_date} ${a.start_time}`.localeCompare(`${b.appointment_date} ${b.start_time}`)),
+    [appointments]
+  );
 
   return (
-    <div className="max-w-xl mx-auto px-4 py-4 space-y-4 pb-24" dir="rtl">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <button
-          onClick={onBack}
-          className="flex items-center gap-1.5 text-slate-600 hover:text-slate-900 text-xs font-bold"
-        >
-          <ArrowRight className="w-4 h-4" />
-          <span>رجوع</span>
-        </button>
-        <h1 className="text-base font-black text-slate-900">تفاصيل الحالة</h1>
-        <span className="text-[11px] font-mono font-bold text-[#1565C0] bg-blue-50 px-2 py-0.5 rounded-lg border border-blue-100">
-          {caseCode}
-        </span>
-      </div>
-
-      {/* Main Status & Case Card (Matching Screen 6) */}
-      <div className="bg-white rounded-3xl border border-slate-200/80 p-5 shadow-xs space-y-4">
-        <div className="flex items-start justify-between">
-          <div className="space-y-1">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">نوع المشكلة</span>
-            <h2 className="text-lg font-black text-slate-900">إدمان المخدرات</h2>
-          </div>
-          <span className="px-3 py-1 bg-amber-50 text-amber-700 border border-amber-200 text-xs font-bold rounded-full flex items-center gap-1">
-            <Clock className="w-3 h-3" />
-            <span>قيد المراجعة</span>
-          </span>
-        </div>
-
-        {/* Key Attributes Grid */}
-        <div className="grid grid-cols-3 gap-2 bg-slate-50 p-3 rounded-2xl text-center border border-slate-100">
-          <div>
-            <span className="text-[10px] text-slate-400 block mb-0.5">المريض / اللقب</span>
-            <span className="text-xs font-bold text-slate-800">أحمد علي</span>
-          </div>
-          <div className="border-x border-slate-200">
-            <span className="text-[10px] text-slate-400 block mb-0.5">الولاية</span>
-            <span className="text-xs font-bold text-slate-800">الجزائر العاصمة</span>
-          </div>
-          <div>
-            <span className="text-[10px] text-slate-400 block mb-0.5">الأولوية</span>
-            <span className="text-xs font-bold text-red-600">عالية جداً</span>
-          </div>
-        </div>
-
-        {/* Assigned Specialist Card (Matching Screen 6) */}
-        <div className="pt-2">
-          <span className="text-xs font-bold text-slate-500 mb-2 block">المختص المسند للمتابعة:</span>
-          <div className="flex items-center justify-between p-3.5 bg-blue-50/60 rounded-2xl border border-blue-100">
-            <div className="flex items-center gap-3">
-              <div className="w-11 h-11 rounded-full bg-[#1565C0] text-white flex items-center justify-center font-bold text-sm shadow-xs">
-                ف.ز
-              </div>
-              <div>
-                <h4 className="font-bold text-xs sm:text-sm text-slate-900">د. فاطمة الزهراء بن عيسى</h4>
-                <p className="text-[11px] text-blue-800 font-medium">أخصائية علاج نفسي وسلوكي معرفي</p>
-              </div>
-            </div>
-
-            <button
-              onClick={() => onOpenChat && onOpenChat(1)}
-              className="p-2 bg-white text-[#1565C0] hover:bg-[#1565C0] hover:text-white rounded-xl shadow-xs transition-colors cursor-pointer"
-              title="مراسلة الطبيب"
-            >
-              <MessageSquare className="w-4 h-4" />
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Tabs Row (Matching Screen 6: المعلومات | المواعيد | المستندات) */}
-      <div className="flex rounded-2xl bg-slate-100 p-1 text-xs font-bold">
-        <button
-          onClick={() => setActiveTab('info')}
-          className={`flex-1 py-2 rounded-xl transition-all ${
-            activeTab === 'info' ? 'bg-white text-[#1565C0] shadow-xs' : 'text-slate-500 hover:text-slate-900'
-          }`}
-        >
-          المعلومات
-        </button>
-        <button
-          onClick={() => setActiveTab('appointments')}
-          className={`flex-1 py-2 rounded-xl transition-all ${
-            activeTab === 'appointments' ? 'bg-white text-[#1565C0] shadow-xs' : 'text-slate-500 hover:text-slate-900'
-          }`}
-        >
-          المواعيد (2)
-        </button>
-        <button
-          onClick={() => setActiveTab('documents')}
-          className={`flex-1 py-2 rounded-xl transition-all ${
-            activeTab === 'documents' ? 'bg-white text-[#1565C0] shadow-xs' : 'text-slate-500 hover:text-slate-900'
-          }`}
-        >
-          المستندات (1)
-        </button>
-      </div>
-
-      {/* Tab Content */}
-      {activeTab === 'info' && (
-        <div className="bg-white rounded-2xl border border-slate-200 p-4 space-y-3 text-xs">
-          <h3 className="font-bold text-slate-900 text-sm">التشخيص الأولي وخطة العمل</h3>
-          <p className="text-slate-600 leading-relaxed">
-            تم تسجيل الحالة كأولوية قصوى بسبب المعاناة المستمرة من المواد الكيميائية. تم إسناد الملف للأخصائية بن عيسى لإجراء مقابلة تحفيزية أولى، وطلب رأي قانوني لتوفير الحماية وفق تدابير المادة 89 للعلاج الطوعي.
-          </p>
-
-          <div className="border-t border-slate-100 pt-3 space-y-2">
-            <div className="flex justify-between text-[11px]">
-              <span className="text-slate-400">تاريخ فتح الملف:</span>
-              <span className="font-bold text-slate-700">18 أبريل 2025</span>
-            </div>
-            <div className="flex justify-between text-[11px]">
-              <span className="text-slate-400">المركز المقترح للتحاليل:</span>
-              <span className="font-bold text-slate-700">مركز الأمل لإزالة السموم - زرالدة</span>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {activeTab === 'appointments' && (
-        <div className="space-y-2.5">
-          <div className="bg-white rounded-2xl border border-slate-200 p-3.5 flex items-center justify-between text-xs">
-            <div className="space-y-1">
-              <span className="font-bold text-slate-900 block">جلسة تقييم نفسي عن بُعد</span>
-              <span className="text-[11px] text-slate-500 flex items-center gap-1">
-                <Clock className="w-3 h-3 text-blue-600" />
-                الأحد، 20 أبريل 2025 • 10:00 - 11:00
-              </span>
-            </div>
-            <span className="px-2.5 py-1 bg-emerald-50 text-emerald-700 font-bold rounded-lg text-[10px]">
-              مؤكد
-            </span>
-          </div>
-
-          <div className="bg-white rounded-2xl border border-slate-200 p-3.5 flex items-center justify-between text-xs">
-            <div className="space-y-1">
-              <span className="font-bold text-slate-900 block">استشارة تكييف قانوني</span>
-              <span className="text-[11px] text-slate-500 flex items-center gap-1">
-                <Clock className="w-3 h-3 text-amber-600" />
-                الثلاثاء، 22 أبريل 2025 • 14:00 - 15:00
-              </span>
-            </div>
-            <span className="px-2.5 py-1 bg-blue-50 text-blue-700 font-bold rounded-lg text-[10px]">
-              بانتظار التأكيد
-            </span>
-          </div>
-        </div>
-      )}
-
-      {activeTab === 'documents' && (
-        <div className="bg-white rounded-2xl border border-slate-200 p-4 space-y-2 text-xs">
-          <div className="flex items-center justify-between p-2.5 bg-slate-50 rounded-xl border border-slate-200">
-            <div className="flex items-center gap-2">
-              <FileText className="w-4 h-4 text-[#1565C0]" />
-              <div>
-                <span className="font-bold text-slate-800 block">تقرير الفحص السريري الأولي.pdf</span>
-                <span className="text-[10px] text-slate-400">1.2 MB • تم الرفع بواسطة الطبيب</span>
-              </div>
-            </div>
-            <button className="text-[11px] text-[#1565C0] font-bold hover:underline">
-              تحميل
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Main Action Button (Matching Screen 6) */}
-      <button
-        onClick={onBookAppointment}
-        className="w-full py-3.5 bg-[#1565C0] hover:bg-blue-700 text-white font-bold rounded-2xl text-xs sm:text-sm shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer"
-      >
-        <span>حجز موعد إضافي أو تعديل المتابعة</span>
-        <ChevronLeft className="w-4 h-4" />
+    <main className="case-detail-wrap care-enter" dir="rtl">
+      <button onClick={onBack} className="case-back">
+        <ArrowRight size={17} />
+        <span>العودة إلى بوابة المتابعة</span>
       </button>
-    </div>
+
+      <header className="case-detail-header">
+        <div>
+          <span className="rw-eyebrow">الفرصة الثانية · ملف رعاية</span>
+          <h1>تفاصيل الحالة</h1>
+          <p>رقم الملف <strong dir="ltr">{caseCode || '—'}</strong></p>
+        </div>
+        <div className="case-actions">
+          {conversationId && onOpenChat && <button className="rw-secondary" onClick={() => onOpenChat(conversationId)}><MessageSquare size={16} /> المحادثة الآمنة</button>}
+          {record?.assigned_psychologist_id && onBookAppointment && <button className="rw-primary" onClick={onBookAppointment}><CalendarDays size={16} /> المواعيد</button>}
+        </div>
+      </header>
+
+      {error && (
+        <div className="rw-feedback error">
+          <AlertCircle size={17} />
+          <span>{error}</span>
+          <button onClick={() => void loadCase()} aria-label="إعادة المحاولة"><RefreshCw size={15} /></button>
+        </div>
+      )}
+
+      {loading ? (
+        <div className="case-detail-skeleton"><i /><i /><i /></div>
+      ) : record ? (
+        <>
+          <section className="case-summary care-panel">
+            <div className="case-summary-top">
+              <div>
+                <span className="case-label">نوع الحالة</span>
+                <h2>{record.addiction_type_name || 'نوع الحالة غير محدد'}</h2>
+              </div>
+              <span className={`case-status-pill ${record.status === 'COMPLETED' ? 'done' : ''}`}><Clock3 size={14} />{statusText}</span>
+            </div>
+            <div className="case-summary-facts">
+              <div><small>المستفيد</small><strong>{[record.patient_first_name, record.patient_last_name].filter(Boolean).join(' ') || 'غير محدد'}</strong></div>
+              <div><small>الأولوية</small><strong>{record.priority === 'Critical' ? 'عاجلة جداً' : record.priority === 'High' ? 'عاجلة' : record.priority === 'Medium' ? 'متوسطة' : record.priority === 'Low' ? 'عادية' : 'غير محددة'}</strong></div>
+              <div><small>تاريخ التسجيل</small><strong>{fmtDate(record.created_at)}</strong></div>
+            </div>
+            <div className="case-description">
+              <h3>وصف الحالة</h3>
+              <p>{record.description || 'لا يوجد وصف مسجل لهذا الملف.'}</p>
+            </div>
+            <div className="case-team">
+              <div><UserRound size={16} /><span>الأخصائي النفسي</span><strong>{record.psy_first_name ? `${record.psy_first_name} ${record.psy_last_name || ''}` : 'لم يُسند بعد'}</strong></div>
+              <div><UserRound size={16} /><span>المستشار القانوني</span><strong>{record.lawyer_first_name ? `${record.lawyer_first_name} ${record.lawyer_last_name || ''}` : 'لا يوجد إسناد مسجل'}</strong></div>
+              <div><ShieldCheck size={16} /><span>المركز / الجهة</span><strong>{record.center_name || 'لا يوجد إسناد مسجل'}</strong></div>
+            </div>
+            <div className="case-progress">
+              <div><span><Activity size={16} /> التقدم المسجل</span><strong>{typeof progressValue === 'number' ? `${progressValue}%` : 'لا توجد نسبة مسجلة'}</strong></div>
+              {typeof progressValue === 'number' && <div className="case-progress-track"><span style={{ width: `${Math.max(0, Math.min(100, progressValue))}%` }} /></div>}
+            </div>
+          </section>
+
+          <nav className="case-detail-tabs">
+            {([
+              ['overview', 'ملخص الملف', FileText],
+              ['appointments', `المواعيد (${detailLoaded ? appointments.length : '—'})`, CalendarDays],
+              ['documents', `المستندات (${detailLoaded ? documents.length : '—'})`, ShieldCheck],
+              ['progress', 'سجل التقدم', Activity]
+            ] as const).map(([tab, label, Icon]) => (
+              <button key={tab} className={activeTab === tab ? 'selected' : ''} onClick={() => setActiveTab(tab)}>
+                <Icon size={15} />{label}
+              </button>
+            ))}
+          </nav>
+
+          {activeTab === 'overview' && (
+            <section className="care-panel case-tab-content">
+              <h2>معلومات الملف</h2>
+              <p>تُعرض هنا البيانات التي أعادها الخادم لهذا الملف فقط. لا تُظهر هذه الشاشة معلومات غير مسجلة أو مستندات غير مرفوعة.</p>
+              <div className="case-overview-row"><span>حالة الملف</span><strong>{statusText}</strong></div>
+              <div className="case-overview-row"><span>رقم الملف</span><strong dir="ltr">{record.number_case}</strong></div>
+              {appointments[0] && <div className="case-overview-row"><span>أقرب موعد مسجل</span><strong>{fmtDate(appointments[0].appointment_date)} · {appointments[0].start_time}</strong></div>}
+            </section>
+          )}
+
+          {activeTab === 'appointments' && (
+            <section className="case-tab-content case-record-list">
+              {sortedAppointments.length ? sortedAppointments.map(item => (
+                <article className="care-panel case-record" key={item.id}>
+                  <div className="case-record-icon"><CalendarDays size={18} /></div>
+                  <div className="case-record-main">
+                    <strong>{item.title || (item.type === 'legal' ? 'استشارة قانونية' : item.type === 'treatment' ? 'موعد علاجي' : 'موعد متابعة')}</strong>
+                    <span>{fmtDate(item.appointment_date)} · {item.start_time} – {item.end_time}</span>
+                    <small>{item.specialist_first_name ? `مع ${item.specialist_first_name} ${item.specialist_last_name || ''}` : item.specialty || 'المختص غير محدد'}</small>
+                    {item.notes && <p>{item.notes}</p>}
+                  </div>
+                  <span className="case-record-status">{APPOINTMENT_STATUS[item.status] || item.status}</span>
+                </article>
+              )) : <div className="case-empty"><CalendarDays size={22} /><strong>{detailLoaded ? 'لا توجد مواعيد مسجلة لهذا الملف' : 'تعذر تحميل سجل المواعيد'}</strong><span>{detailLoaded ? 'ستظهر هنا المواعيد التي يعيدها الخادم.' : 'أعد المحاولة لتحميل السجلات المرتبطة بالملف.'}</span></div>}
+            </section>
+          )}
+
+          {activeTab === 'documents' && (
+            <section className="case-tab-content case-record-list">
+              {documents.length ? documents.map(document => (
+                <article className="care-panel case-record" key={document.id}>
+                  <div className="case-record-icon"><FileText size={18} /></div>
+                  <div className="case-record-main">
+                    <strong>{document.file_name}</strong>
+                    <span>{document.file_type || 'نوع الملف غير محدد'}{document.file_size ? ` · ${(document.file_size / (1024 * 1024)).toFixed(2)} MB` : ''}</span>
+                    <small>{document.uploader_name ? `رفع بواسطة ${document.uploader_name} · ` : ''}{fmtDate(document.created_at)}</small>
+                  </div>
+                </article>
+              )) : <div className="case-empty"><FileText size={22} /><strong>{detailLoaded ? 'لا توجد مستندات مرفوعة' : 'تعذر تحميل سجل المستندات'}</strong><span>{detailLoaded ? 'لا يظهر هنا إلا سجل المستندات الذي أرسله الخادم.' : 'أعد المحاولة لتحميل السجلات المرتبطة بالملف.'}</span></div>}
+            </section>
+          )}
+
+          {activeTab === 'progress' && (
+            <section className="case-tab-content case-record-list">
+              {progressEntries.length ? progressEntries.map((entry, index) => (
+                <article className="care-panel case-progress-entry" key={entry.id || `${entry.created_at}-${index}`}>
+                  <div className="case-progress-entry-mark"><CheckCircle2 size={17} /></div>
+                  <div><strong>{entry.progress_percentage}%</strong><span>{entry.notes || 'تحديث تقدم مسجل'}</span><small>{fmtDate(entry.created_at)}{entry.first_name ? ` · ${entry.first_name} ${entry.last_name || ''}` : ''}</small></div>
+                </article>
+              )) : typeof progressValue === 'number' ? (
+                <article className="care-panel case-progress-entry"><div className="case-progress-entry-mark"><Activity size={17} /></div><div><strong>{progressValue}%</strong><span>آخر نسبة تقدم ظاهرة في سجل الملف</span><small>{fmtDate(record.created_at)}</small></div></article>
+              ) : <div className="case-empty"><Activity size={22} /><strong>لا توجد تحديثات تقدم مسجلة</strong><span>ستظهر التحديثات بعد أن يضيفها الفريق المعالج.</span></div>}
+            </section>
+          )}
+        </>
+      ) : !error ? (
+        <div className="case-empty"><AlertCircle size={22} /><strong>لا تتوفر تفاصيل لهذا الملف</strong></div>
+      ) : null}
+    </main>
   );
 };

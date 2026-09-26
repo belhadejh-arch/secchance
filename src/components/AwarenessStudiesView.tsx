@@ -67,7 +67,7 @@ export const AwarenessStudiesView: React.FC = () => {
           <span>المكتبة العلمية والتوعوية المعتمدة</span>
         </div>
         <h2 className="text-lg sm:text-xl font-black leading-snug">
-          أحدث الأبحاث والدراسات العلمية حول المؤثرات العقلية والمخدرات 🇩🇿
+          أحدث الأبحاث والدراسات العلمية حول المؤثرات العقلية والمخدرات
         </h2>
         <p className="text-xs text-purple-100 max-w-2xl leading-relaxed">
           دراسات سريرية، تقارير سمومية، وحقائب توعوية أسرية محكّمة صادرة عن أخصائيين وهيئات وطنية متخصصة لرفع الوعي الصحي المجتمعي.
@@ -200,7 +200,7 @@ export const AwarenessStudiesView: React.FC = () => {
                   {selectedStudy.title}
                 </h3>
                 <div className="text-xs text-slate-500 flex items-center gap-2">
-                  <span>✍️ {selectedStudy.author || 'إدارة المنصة'}</span>
+                  <span>إعداد: {selectedStudy.author || 'إدارة المنصة'}</span>
                   {selectedStudy.created_at && (
                     <span>• {new Date(selectedStudy.created_at).toLocaleDateString('ar-DZ')}</span>
                   )}

@@ -1,17 +1,18 @@
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
+import { randomBytes } from 'crypto';
 
-function requiredSecret(name: string, developmentFallback: string): string {
+function requiredSecret(name: string): string {
   const value = process.env[name];
   if (value) return value;
   if (process.env.NODE_ENV === 'production') {
     throw new Error(`${name} is required in production.`);
   }
-  return developmentFallback;
+  return randomBytes(32).toString('hex');
 }
 
-const JWT_SECRET = requiredSecret('JWT_SECRET', 'scp_local_access_secret_change_before_production');
-const JWT_REFRESH_SECRET = requiredSecret('JWT_REFRESH_SECRET', 'scp_local_refresh_secret_change_before_production');
+const JWT_SECRET = requiredSecret('JWT_SECRET');
+const JWT_REFRESH_SECRET = requiredSecret('JWT_REFRESH_SECRET');
 
 export interface JwtPayloadUser {
   id: number;

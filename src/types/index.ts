@@ -347,3 +347,100 @@ export interface AwarenessArticle {
   publisher_first_name?: string;
   publisher_last_name?: string;
 }
+
+export type ServiceCategory = 'psychological' | 'legal' | 'social' | 'treatment' | string;
+export type RequestStatus = 'NEW' | 'PENDING' | 'ACCEPTED' | 'REJECTED' | 'AWAITING_PAYMENT' | 'PAID' | 'CONFIRMED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED' | string;
+export type PaymentStatus = 'PENDING' | 'PROCESSING' | 'PAID' | 'FAILED' | 'CANCELLED' | 'REFUNDED' | 'NOT_REQUIRED' | string;
+export interface Service {
+  id: number;
+  provider_id: number;
+  title: string;
+  description: string;
+  amount_dzd: number;
+  category: ServiceCategory;
+  is_active: boolean;
+  provider_name?: string;
+}
+export interface Provider {
+  id: number;
+  first_name: string;
+  last_name: string;
+  role_slug: string;
+  wilaya_name?: string;
+}
+export interface CareRequest {
+  id: number;
+  case_file_id: number;
+  number_case: string;
+  client_name: string;
+  provider_id: number;
+  provider_name: string;
+  service_id: number;
+  service_title: string;
+  amount_dzd: number;
+  payment_status: PaymentStatus;
+  status: RequestStatus;
+  priority: PriorityLevel;
+  description: string;
+  created_at: string;
+  rejection_reason?: string;
+  appointment_date?: string;
+  start_time?: string;
+  end_time?: string;
+  assigned_staff_id?: number;
+  assigned_staff_first_name?: string;
+  assigned_staff_last_name?: string;
+  assigned_staff_role_slug?: string;
+  refund_status?: string;
+  refund_request_status?: string;
+}
+export interface CareRequestDetail {
+  request: CareRequest;
+  history: Array<{ id?: number; status?: string; note?: string; created_at?: string; actor_name?: string }>;
+  reports: Array<{
+    id?: number;
+    assessment?: string;
+    professional_notes?: string;
+    recommendations?: string;
+    treatment_plan?: string;
+    next_appointment?: string;
+    client_summary?: string;
+    final_evaluation?: string;
+    created_at?: string;
+  }>;
+}
+export interface RequestStats {
+  pending: number;
+  accepted: number;
+  rejected: number;
+  in_progress: number;
+  upcoming: number;
+  paid: number;
+  revenue_dzd: number;
+}
+export interface PaymentRecord {
+  id: number;
+  request_id: number;
+  user_id?: number;
+  provider_id?: number;
+  amount_dzd?: number;
+  amount?: number;
+  currency?: string;
+  payment_method?: string;
+  transaction_id?: string;
+  status: PaymentStatus;
+  created_at: string;
+  paid_at?: string;
+  client_name?: string;
+  provider_name?: string;
+  service_title?: string;
+  refund_status?: string | null;
+}
+export interface ProviderStaff {
+  staff_user_id: number;
+  first_name: string;
+  last_name: string;
+  role_slug: string;
+  email: string;
+  is_active: boolean;
+}

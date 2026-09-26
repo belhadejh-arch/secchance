@@ -1,8 +1,51 @@
 import { Router, Response } from 'express';
+import { randomBytes } from 'crypto';
 import { query, queryOne, execute } from '../db';
 import { authenticateToken, AuthenticatedRequest, createAuditLog, createNotification } from '../middleware';
 
 const router = Router();
+
+function canViewCase(caseFile: any, user: NonNullable<AuthenticatedRequest['user']>): boolean {
+  const serviceRequest = queryOne<any>('SELECT requester_id, provider_id, assigned_staff_id FROM service_requests WHERE case_file_id = ?', [caseFile.id]);
+  if (serviceRequest) {
+    if (user.role_slug === 'admin' || serviceRequest.requester_id === user.id ||
+        caseFile.created_by === user.id || caseFile.patient_id === user.id ||
+        serviceRequest.provider_id === user.id) return true;
+    return Number(serviceRequest.assigned_staff_id) === user.id &&
+      !!queryOne('SELECT id FROM provider_staff WHERE provider_id = ? AND staff_user_id = ? AND is_active = 1',
+        [serviceRequest.provider_id, user.id]);
+  }
+  if (user.role_slug === 'admin' || caseFile.created_by === user.id || caseFile.patient_id === user.id ||
+      caseFile.assigned_psychologist_id === user.id || caseFile.assigned_lawyer_id === user.id ||
+      caseFile.treatment_center_id === user.id) return true;
+  return !!queryOne(`
+    SELECT c.id FROM case_files c
+    WHERE c.id = ? AND (
+      EXISTS (SELECT 1 FROM case_assignments ca WHERE ca.case_file_id = c.id AND ca.specialist_id = ? AND ca.status = 'accepted')
+      OR EXISTS (SELECT 1 FROM service_requests sr WHERE sr.case_file_id = ? AND (sr.provider_id = ? OR sr.assigned_staff_id = ?))
+    )
+  `, [caseFile.id, user.id, caseFile.id, user.id, user.id]);
+}
+
+function canManageCase(caseFile: any, user: NonNullable<AuthenticatedRequest['user']>): boolean {
+  if (user.role_slug === 'admin') return true;
+  const serviceRequest = queryOne<any>('SELECT provider_id, assigned_staff_id FROM service_requests WHERE case_file_id = ?', [caseFile.id]);
+  if (serviceRequest) {
+    if (serviceRequest.provider_id === user.id) return true;
+    return Number(serviceRequest.assigned_staff_id) === user.id &&
+      !!queryOne('SELECT id FROM provider_staff WHERE provider_id = ? AND staff_user_id = ? AND is_active = 1',
+        [serviceRequest.provider_id, user.id]);
+  }
+  if (caseFile.assigned_psychologist_id === user.id || caseFile.assigned_lawyer_id === user.id ||
+      caseFile.treatment_center_id === user.id) return true;
+  return !!queryOne(`
+    SELECT c.id FROM case_files c
+    WHERE c.id = ? AND (
+      EXISTS (SELECT 1 FROM case_assignments ca WHERE ca.case_file_id = c.id AND ca.specialist_id = ? AND ca.status = 'accepted')
+      OR EXISTS (SELECT 1 FROM service_requests sr WHERE sr.case_file_id = ? AND (sr.provider_id = ? OR sr.assigned_staff_id = ?))
+    )
+  `, [caseFile.id, user.id, caseFile.id, user.id, user.id]);
+}
 
 // Calculate target response hours from priority
 function getTargetResponseHours(priority: string): number {
@@ -43,17 +86,28 @@ router.get('/', authenticateToken, (req: AuthenticatedRequest, res: Response) =>
     sql += ' WHERE c.created_by = ? OR c.patient_id = ?';
     params.push(user.id, user.id);
   } else if (user.role_slug === 'psychologist') {
-    sql += ' WHERE c.assigned_psychologist_id = ?';
-    params.push(user.id);
+    sql += ` WHERE (c.assigned_psychologist_id = ? AND NOT EXISTS (SELECT 1 FROM service_requests sr WHERE sr.case_file_id = c.id))
+      OR EXISTS (SELECT 1 FROM service_requests sr JOIN provider_staff ps ON ps.provider_id = sr.provider_id
+        WHERE sr.case_file_id = c.id AND sr.assigned_staff_id = ? AND ps.staff_user_id = ? AND ps.is_active = 1)
+      OR EXISTS (SELECT 1 FROM service_requests sr WHERE sr.case_file_id = c.id AND sr.provider_id = ?)`;
+    params.push(user.id, user.id, user.id, user.id);
   } else if (user.role_slug === 'lawyer') {
-    sql += ' WHERE c.assigned_lawyer_id = ?';
-    params.push(user.id);
+    sql += ` WHERE (c.assigned_lawyer_id = ? AND NOT EXISTS (SELECT 1 FROM service_requests sr WHERE sr.case_file_id = c.id))
+      OR EXISTS (SELECT 1 FROM service_requests sr JOIN provider_staff ps ON ps.provider_id = sr.provider_id
+        WHERE sr.case_file_id = c.id AND sr.assigned_staff_id = ? AND ps.staff_user_id = ? AND ps.is_active = 1)
+      OR EXISTS (SELECT 1 FROM service_requests sr WHERE sr.case_file_id = c.id AND sr.provider_id = ?)`;
+    params.push(user.id, user.id, user.id, user.id);
   } else if (user.role_slug === 'treatment_center') {
-    sql += ' WHERE c.treatment_center_id = ?';
-    params.push(user.id);
+    sql += ` WHERE (c.treatment_center_id = ? AND NOT EXISTS (SELECT 1 FROM service_requests sr WHERE sr.case_file_id = c.id))
+      OR EXISTS (SELECT 1 FROM service_requests sr WHERE sr.case_file_id = c.id AND sr.provider_id = ?)`;
+    params.push(user.id, user.id);
   } else if (user.role_slug === 'association') {
-    sql += ' WHERE EXISTS (SELECT 1 FROM case_assignments ca WHERE ca.case_file_id = c.id AND ca.specialist_id = ?)';
-    params.push(user.id);
+    sql += ` WHERE (EXISTS (SELECT 1 FROM case_assignments ca WHERE ca.case_file_id = c.id AND ca.specialist_id = ? AND ca.status = 'accepted')
+        AND NOT EXISTS (SELECT 1 FROM service_requests sr WHERE sr.case_file_id = c.id))
+      OR EXISTS (SELECT 1 FROM service_requests sr WHERE sr.case_file_id = c.id AND sr.provider_id = ?)
+      OR EXISTS (SELECT 1 FROM service_requests sr JOIN provider_staff ps ON ps.provider_id = sr.provider_id
+        WHERE sr.case_file_id = c.id AND sr.assigned_staff_id = ? AND ps.staff_user_id = ? AND ps.is_active = 1)`;
+    params.push(user.id, user.id, user.id, user.id);
   } else if (user.role_slug !== 'admin') {
     res.status(403).json({ success: false, message: 'غير مصرح لك بعرض الحالات' });
     return;
@@ -101,12 +155,23 @@ router.post('/', authenticateToken, (req: AuthenticatedRequest, res: Response) =
     return;
   }
 
+  if (!['family', 'patient'].includes(user.role_slug)) {
+    res.status(403).json({ success: false, message: 'فقط المستفيد أو الأسرة يمكنهما إنشاء ملف حالة' });
+    return;
+  }
   const patientId = is_for_self ? user.id : user.id; // linked patient
   const targetResponseHours = getTargetResponseHours(priority);
 
-  // Generate Unique Case Number: SCP-2026-XXXXX
-  const randomSuffix = Math.floor(10000 + Math.random() * 90000);
-  const numberCase = `SCP-2026-${randomSuffix}`;
+  let numberCase = '';
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    numberCase = `SCP-${new Date().getFullYear()}-${randomBytes(12).toString('hex').toUpperCase()}`;
+    if (!queryOne('SELECT id FROM case_files WHERE number_case = ?', [numberCase])) break;
+    numberCase = '';
+  }
+  if (!numberCase) {
+    res.status(503).json({ success: false, message: 'تعذر إنشاء رقم فريد للحالة، يرجى المحاولة مجدداً' });
+    return;
+  }
 
   const { lastInsertRowId } = execute(`
     INSERT INTO case_files (
@@ -145,7 +210,7 @@ router.post('/', authenticateToken, (req: AuthenticatedRequest, res: Response) =
   );
 
   // Notify admins
-  const admins = query<{ id: number }>('SELECT id FROM users WHERE role_slug = "admin"');
+  const admins = query<{ id: number }>("SELECT id FROM users WHERE role_slug = 'admin'");
   admins.forEach(admin => {
     createNotification(
       admin.id,
@@ -209,10 +274,11 @@ router.get('/:id', authenticateToken, (req: AuthenticatedRequest, res: Response)
   const isAssignedCenter = caseFile.treatment_center_id === user.id;
   const isAdmin = user.role_slug === 'admin';
 
-  if (!isCreatorOrPatient && !isAssignedPsy && !isAssignedLawyer && !isAssignedCenter && !isAdmin) {
+  if (!canViewCase(caseFile, user)) {
     res.status(403).json({ success: false, message: 'غير مصرح لك بالوصول إلى هذا الملف' });
     return;
   }
+  const canViewPrivateClinicalNotes = isAdmin || user.role_slug === 'psychologist';
 
   // Fetch assessments (Psychologist & Admin only, or summary for family)
   let assessments: any[] = [];
@@ -224,15 +290,17 @@ router.get('/:id', authenticateToken, (req: AuthenticatedRequest, res: Response)
       WHERE a.case_file_id = ?
       ORDER BY a.id DESC
     `, [caseId]);
+    if (!canViewPrivateClinicalNotes) {
+      assessments = assessments.map((assessment: any) => ({ ...assessment, mental_health_notes: null }));
+    }
   }
 
   // Treatment plans
   const treatmentPlans = query(`SELECT * FROM treatment_plans WHERE case_file_id = ? ORDER BY id DESC`, [caseId]);
 
-  // Therapy sessions (Private medical notes hidden from Lawyer)
+  // Clinical notes are available only to the treating psychologist and admin.
   let therapySessions = query(`SELECT * FROM therapy_sessions WHERE case_file_id = ? ORDER BY session_number ASC`, [caseId]);
-  if (isAssignedLawyer) {
-    // Hide clinical notes from lawyer
+  if (!canViewPrivateClinicalNotes) {
     therapySessions = therapySessions.map(s => ({
       ...s,
       notes: '[ملاحظات طبية نفسية سرية خاصة بالأخصائي المعالج]'
@@ -335,6 +403,10 @@ router.put('/:id/status', authenticateToken, (req: AuthenticatedRequest, res: Re
     res.status(404).json({ success: false, message: 'الملف غير موجود' });
     return;
   }
+  if (!canManageCase(caseFile, user)) {
+    res.status(403).json({ success: false, message: 'Only an assigned provider or admin may change case status' });
+    return;
+  }
 
   // Mandatory Business Rule 3: Cannot close/complete case without final evaluation report!
   if (status === 'COMPLETED') {
@@ -392,6 +464,14 @@ router.post('/:id/assign', authenticateToken, (req: AuthenticatedRequest, res: R
   const caseFile = queryOne<any>('SELECT * FROM case_files WHERE id = ?', [caseId]);
   if (!caseFile) {
     res.status(404).json({ success: false, message: 'الملف غير موجود' });
+    return;
+  }
+  const roleTypes = ['psychologist', 'lawyer', 'treatment_center', 'association'];
+  const specialist = queryOne<any>(`
+    SELECT id, role_slug FROM users WHERE id = ? AND status = 'active' AND is_verified = 1
+  `, [Number(specialist_id)]);
+  if (!roleTypes.includes(role_type) || !specialist || specialist.role_slug !== role_type) {
+    res.status(422).json({ success: false, message: 'The assigned account must be active and match the selected role' });
     return;
   }
 
@@ -455,6 +535,15 @@ router.post('/:id/documents', authenticateToken, (req: AuthenticatedRequest, res
     res.status(422).json({ success: false, message: 'بيانات الوثيقة غير مكتملة' });
     return;
   }
+  const caseFile = queryOne<any>('SELECT * FROM case_files WHERE id = ?', [caseId]);
+  if (!caseFile) {
+    res.status(404).json({ success: false, message: 'ملف الحالة غير موجود' });
+    return;
+  }
+  if (!canViewCase(caseFile, user)) {
+    res.status(403).json({ success: false, message: 'غير مصرح لك بإضافة مستند لهذا الملف' });
+    return;
+  }
 
   execute(`
     INSERT INTO case_documents (case_file_id, uploaded_by, file_name, file_type, file_size, storage_path, visibility)
@@ -477,6 +566,15 @@ router.post('/:id/rate', authenticateToken, (req: AuthenticatedRequest, res: Res
 
   if (!rating || rating < 1 || rating > 5) {
     res.status(422).json({ success: false, message: 'التقييم يجب أن يكون من 1 إلى 5 نجوم' });
+    return;
+  }
+  const caseFile = queryOne<any>('SELECT * FROM case_files WHERE id = ?', [caseId]);
+  if (!caseFile) {
+    res.status(404).json({ success: false, message: 'ملف الحالة غير موجود' });
+    return;
+  }
+  if (user.role_slug === 'admin' || (caseFile.created_by !== user.id && caseFile.patient_id !== user.id)) {
+    res.status(403).json({ success: false, message: 'يمكن لصاحب ملف الحالة أو المستفيد فقط تقييم الخدمة' });
     return;
   }
 

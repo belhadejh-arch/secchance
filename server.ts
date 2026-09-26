@@ -13,6 +13,7 @@ import adminRoutes from './server/routes/adminRoutes';
 import aiRoutes from './server/routes/aiRoutes';
 import publicRoutes from './server/routes/publicRoutes';
 import awarenessRoutes from './server/routes/awarenessRoutes';
+import serviceRoutes, { providersRouter, requestsRouter, paymentsRouter } from './server/routes/serviceRoutes';
 
 async function startServer() {
   // Initialize Database Schema & Seeders
@@ -46,7 +47,12 @@ async function startServer() {
   });
 
   // Body parsers
-  app.use(express.json({ limit: '15mb' }));
+  app.use(express.json({
+    limit: '15mb',
+    verify: (req, _res, buffer) => {
+      (req as any).rawBody = Buffer.from(buffer);
+    },
+  }));
   app.use(express.urlencoded({ extended: true, limit: '15mb' }));
 
   // API Health Check
@@ -71,6 +77,10 @@ async function startServer() {
   app.use('/api/v1/ai', aiRoutes);
   app.use('/api/v1/public', publicRoutes);
   app.use('/api/v1/awareness', awarenessRoutes);
+  app.use('/api/v1/services', serviceRoutes);
+  app.use('/api/v1/providers', providersRouter);
+  app.use('/api/v1/requests', requestsRouter);
+  app.use('/api/v1/payments', paymentsRouter);
 
   // Vite Middleware for SPA Frontend
   if (process.env.NODE_ENV !== 'production') {

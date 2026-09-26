@@ -4,6 +4,48 @@ import { authenticateToken, AuthenticatedRequest, createAuditLog, createNotifica
 
 const router = Router();
 
+function mayManageCase(caseId: number, user: NonNullable<AuthenticatedRequest['user']>, role: string): boolean {
+  if (user.role_slug === 'admin') return true;
+  if (user.role_slug !== role) return false;
+  const caseFile = queryOne<any>('SELECT * FROM case_files WHERE id = ?', [caseId]);
+  if (!caseFile) return false;
+  const request = queryOne<any>(`SELECT provider_id, assigned_staff_id FROM service_requests WHERE case_file_id = ?`, [caseId]);
+  if (request) {
+    if (Number(request.assigned_staff_id) === user.id) {
+      return !!queryOne('SELECT id FROM provider_staff WHERE provider_id = ? AND staff_user_id = ? AND is_active = 1',
+        [request.provider_id, user.id]);
+    }
+    return Number(request.provider_id) === user.id;
+  }
+  const assignedColumn = role === 'psychologist' ? 'assigned_psychologist_id'
+    : role === 'lawyer' ? 'assigned_lawyer_id'
+      : role === 'treatment_center' ? 'treatment_center_id' : '';
+  if (assignedColumn && Number(caseFile[assignedColumn]) === user.id) return true;
+  if (queryOne(`SELECT id FROM case_assignments WHERE case_file_id = ? AND specialist_id = ? AND role_type = ? AND status = 'accepted'`,
+    [caseId, user.id, role])) return true;
+  return false;
+}
+
+function canManageAnyAssignedCase(caseId: number, user: NonNullable<AuthenticatedRequest['user']>): boolean {
+  if (user.role_slug === 'admin') return true;
+  const caseFile = queryOne<any>('SELECT * FROM case_files WHERE id = ?', [caseId]);
+  if (!caseFile) return false;
+  const serviceRequest = queryOne<any>('SELECT provider_id, assigned_staff_id FROM service_requests WHERE case_file_id = ?', [caseId]);
+  if (serviceRequest) {
+    if (serviceRequest.provider_id === user.id) return true;
+    return Number(serviceRequest.assigned_staff_id) === user.id &&
+      !!queryOne('SELECT id FROM provider_staff WHERE provider_id = ? AND staff_user_id = ? AND is_active = 1',
+        [serviceRequest.provider_id, user.id]);
+  }
+  if ([caseFile.assigned_psychologist_id, caseFile.assigned_lawyer_id, caseFile.treatment_center_id].includes(user.id)) return true;
+  return !!queryOne(`
+    SELECT id FROM case_assignments WHERE case_file_id = ? AND specialist_id = ? AND status = 'accepted'
+    UNION ALL
+    SELECT id FROM service_requests WHERE case_file_id = ? AND (provider_id = ? OR assigned_staff_id = ?)
+    LIMIT 1
+  `, [caseId, user.id, caseId, user.id, user.id]);
+}
+
 // Public / Authenticated list of approved specialists for selection
 router.get('/list', (req, res: Response) => {
   const specialists = query(`
@@ -34,6 +76,10 @@ router.post('/assessments', authenticateToken, (req: AuthenticatedRequest, res: 
   const { case_file_id, severity, recommendation, mental_health_notes } = req.body;
   if (!case_file_id || !severity || !recommendation) {
     res.status(422).json({ success: false, message: 'يرجى إكمال بيانات التقييم الأولي' });
+    return;
+  }
+  if (!mayManageCase(Number(case_file_id), user, 'psychologist')) {
+    res.status(403).json({ success: false, message: 'You may add assessments only to cases assigned to you' });
     return;
   }
 
@@ -67,6 +113,10 @@ router.post('/treatment-plans', authenticateToken, (req: AuthenticatedRequest, r
     res.status(422).json({ success: false, message: 'يرجى إدخال أهداف واستراتيجية الخطة العلاجية' });
     return;
   }
+  if (!mayManageCase(Number(case_file_id), user, 'psychologist')) {
+    res.status(403).json({ success: false, message: 'You may create treatment plans only for cases assigned to you' });
+    return;
+  }
 
   const { lastInsertRowId } = execute(`
     INSERT INTO treatment_plans (case_file_id, goal, strategy, duration, sessions_count)
@@ -96,6 +146,15 @@ router.put('/treatment-plans/:id/final-eval', authenticateToken, (req: Authentic
     return;
   }
 
+  const plan = queryOne<any>('SELECT id, case_file_id FROM treatment_plans WHERE id = ?', [planId]);
+  if (!plan) {
+    res.status(404).json({ success: false, message: 'Treatment plan not found' });
+    return;
+  }
+  if (!mayManageCase(Number(plan.case_file_id), user, 'psychologist')) {
+    res.status(403).json({ success: false, message: 'You may update evaluations only for cases assigned to you' });
+    return;
+  }
   execute(`UPDATE treatment_plans SET final_evaluation = ? WHERE id = ?`, [final_evaluation.trim(), planId]);
 
   createAuditLog(user.id, 'UPDATE_FINAL_EVALUATION', 'treatment_plans', planId, 'تسجيل التقرير النهائي للخطة العلاجية', req.ip);
@@ -117,6 +176,10 @@ router.post('/sessions', authenticateToken, (req: AuthenticatedRequest, res: Res
   const { case_file_id, session_number, date, duration, notes, session_next } = req.body;
   if (!case_file_id || !session_number || !date || !notes) {
     res.status(422).json({ success: false, message: 'يرجى استكمال بيانات الجلسة والملاحظات المهنية' });
+    return;
+  }
+  if (!mayManageCase(Number(case_file_id), user, 'psychologist')) {
+    res.status(403).json({ success: false, message: 'You may log sessions only for cases assigned to you' });
     return;
   }
 
@@ -144,6 +207,10 @@ router.post('/progress', authenticateToken, (req: AuthenticatedRequest, res: Res
       success: false,
       message: 'النسبة يجب أن تكون إحدى القيم المعتمدة: 0%، 10%، 25%، 50%، 75%، 100%'
     });
+    return;
+  }
+  if (!canManageAnyAssignedCase(Number(case_file_id), user)) {
+    res.status(403).json({ success: false, message: 'You may update progress only on cases assigned to your account' });
     return;
   }
 
@@ -183,6 +250,10 @@ router.post('/legal-consultation', authenticateToken, (req: AuthenticatedRequest
     res.status(422).json({ success: false, message: 'يرجى إدخال الرأي القانوني' });
     return;
   }
+  if (!mayManageCase(Number(case_file_id), user, 'lawyer')) {
+    res.status(403).json({ success: false, message: 'You may submit legal opinions only for cases assigned to you' });
+    return;
+  }
 
   const { lastInsertRowId } = execute(`
     INSERT INTO legal_consultations (case_file_id, lawyer_id, status, legal_opinion, recommendation)
@@ -208,6 +279,10 @@ router.post('/center-followup', authenticateToken, (req: AuthenticatedRequest, r
   const { case_file_id, week_number, medical_notes, status_summary } = req.body;
   if (!case_file_id || !week_number || !medical_notes) {
     res.status(422).json({ success: false, message: 'يرجى إدخال المتابعة الأسبوعية والملاحظات الطبية' });
+    return;
+  }
+  if (!mayManageCase(Number(case_file_id), user, 'treatment_center')) {
+    res.status(403).json({ success: false, message: 'You may record follow-ups only for cases assigned to your center' });
     return;
   }
 

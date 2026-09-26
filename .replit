@@ -1,4 +1,4 @@
-modules = ["nodejs-20", "web"]
+modules = ["nodejs-20", "web", "postgresql-16"]
 
 [nix]
 channel = "stable-25_05"
@@ -41,3 +41,10 @@ externalPort = 3000
 [[ports]]
 localPort = 24678
 externalPort = 80
+
+[userenv]
+
+[userenv.development]
+CHARGILY_MODE = "test"
+FRONTEND_URL = "https://93b7b27f-8da3-4f12-b374-51a1d2af90cb-00-37pko63vz5w7b.reed.replit.dev"
+PUBLIC_BACKEND_URL = "https://93b7b27f-8da3-4f12-b374-51a1d2af90cb-00-37pko63vz5w7b.reed.replit.dev"

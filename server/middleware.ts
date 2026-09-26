@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { verifyAccessToken, JwtPayloadUser } from './auth';
-import { execute } from './db';
+import { execute, queryOne } from './db';
 
 // Extend Express Request interface to include user
 export interface AuthenticatedRequest extends Request {
@@ -26,6 +26,19 @@ export function authenticateToken(req: AuthenticatedRequest, res: Response, next
       success: false,
       message: 'رمز المصادقة غير صالح.',
       errors: { auth: 'Invalid token' }
+    });
+    return;
+  }
+
+  const account = queryOne<{ status: string; is_verified: number }>(
+    'SELECT status, is_verified FROM users WHERE id = ?',
+    [payload.id],
+  );
+  if (!account || account.status !== 'active' || Number(account.is_verified) !== 1) {
+    res.status(403).json({
+      success: false,
+      message: 'الحساب غير نشط أو بانتظار الاعتماد.',
+      errors: { account: 'Account inactive or pending approval' }
     });
     return;
   }
