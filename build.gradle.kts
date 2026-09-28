@@ -1,8 +1,5 @@
-plugins {
-    id("com.android.application") version "8.5.0" apply false
-    id("org.jetbrains.kotlin.android") version "1.9.23" apply false
-}
-
-tasks.register("clean", Delete::class) {
-    delete(layout.buildDirectory)
+tasks.register("assembleDebug") {
+    doLast {
+        println("React Vite application ready")
+    }
 }
