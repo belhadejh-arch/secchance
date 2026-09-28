@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   User,
   CareRequest,
@@ -9,18 +9,29 @@ import {
   Message,
   ServiceItem,
   Priority,
+  AuditLogEntry,
 } from './types';
 import {
   initialUsers,
   initialServices,
-  initialCareRequests,
-  initialPaymentTransactions,
-  initialSpecialistReports,
-  initialAppointments,
   initialConversations,
   initialMessages,
-  initialNotifications,
 } from './data/initialData';
+
+import {
+  initializeDatabase,
+  subscribeToUsers,
+  subscribeToCareRequests,
+  subscribeToAppointments,
+  subscribeToSpecialistReports,
+  subscribeToPaymentTransactions,
+  subscribeToAuditLogs,
+  createCareRequestInDb,
+  updateCareRequestInDb,
+  createPaymentTransactionInDb,
+  createAppointmentInDb,
+  addSpecialistReportInDb,
+} from './services/dbService';
 
 import { Navbar } from './components/Navbar';
 import { BottomNavigator } from './components/BottomNavigator';
@@ -40,16 +51,21 @@ import { DirectoryView } from './views/DirectoryView';
 import { AwarenessView } from './views/AwarenessView';
 import { EmergencyView } from './views/EmergencyView';
 import { LegalAssistanceView } from './views/LegalAssistanceView';
+import { AdminDashboardView } from './views/AdminDashboardView';
+import { SpecialistDashboardView } from './views/SpecialistDashboardView';
 
 export function App() {
   const [currentUser, setCurrentUser] = useState<User | null>(initialUsers[0]);
   const [currentView, setCurrentView] = useState<string>('landing');
 
+  // Database-backed state
+  const [users, setUsers] = useState<User[]>(initialUsers);
   const [services] = useState<ServiceItem[]>(initialServices);
-  const [careRequests, setCareRequests] = useState<CareRequest[]>(initialCareRequests);
-  const [paymentTransactions, setPaymentTransactions] = useState<PaymentTransaction[]>(initialPaymentTransactions);
-  const [specialistReports, setSpecialistReports] = useState<SpecialistReport[]>(initialSpecialistReports);
-  const [appointments, setAppointments] = useState<Appointment[]>(initialAppointments);
+  const [careRequests, setCareRequests] = useState<CareRequest[]>([]);
+  const [paymentTransactions, setPaymentTransactions] = useState<PaymentTransaction[]>([]);
+  const [specialistReports, setSpecialistReports] = useState<SpecialistReport[]>([]);
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>([]);
   const [conversations] = useState<Conversation[]>(initialConversations);
   const [messagesMap, setMessagesMap] = useState<Record<number, Message[]>>(initialMessages);
 
@@ -60,10 +76,65 @@ export function App() {
   // Modals
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [isAiOpen, setIsAiOpen] = useState(false);
-  const [rejectionTargetId, setRejectionTargetId] = useState<number | null>(null);
+  const [rejectionTargetId, setRejectionTargetId] = useState<number | string | null>(null);
+
+  // Real-time Database initialization and subscriptions
+  useEffect(() => {
+    initializeDatabase().catch(console.error);
+
+    const unsubUsers = subscribeToUsers((data) => {
+      if (data.length > 0) setUsers(data);
+    });
+
+    const unsubRequests = subscribeToCareRequests((data) => {
+      setCareRequests(data);
+    });
+
+    const unsubAppts = subscribeToAppointments((data) => {
+      setAppointments(data);
+    });
+
+    const unsubReports = subscribeToSpecialistReports((data) => {
+      setSpecialistReports(data);
+    });
+
+    const unsubPayments = subscribeToPaymentTransactions((data) => {
+      setPaymentTransactions(data);
+    });
+
+    const unsubAudit = subscribeToAuditLogs((data) => {
+      setAuditLogs(data);
+    });
+
+    return () => {
+      unsubUsers();
+      unsubRequests();
+      unsubAppts();
+      unsubReports();
+      unsubPayments();
+      unsubAudit();
+    };
+  }, []);
+
+  // Restore remember-me user if available
+  useEffect(() => {
+    const savedUserId = localStorage.getItem('secchance_user_id');
+    if (savedUserId && users.length > 0) {
+      const found = users.find((u) => String(u.id) === savedUserId);
+      if (found) {
+        setCurrentUser(found);
+      }
+    }
+  }, [users]);
 
   // Navigation handlers
   const handleNavigate = (view: string) => {
+    // RBAC Security Gate: prevent unauthorized access to admin-dashboard
+    if (view === 'admin-dashboard' && currentUser?.roleSlug !== 'admin') {
+      setCurrentView('portal');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
     setCurrentView(view);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -95,8 +166,30 @@ export function App() {
     }
   };
 
-  // Request creation
-  const handleCreateRequest = (
+  // Login handler with RBAC auto-routing
+  const handleLogin = (user: User) => {
+    setCurrentUser(user);
+    if (user.roleSlug === 'admin') {
+      handleNavigate('admin-dashboard');
+    } else if (
+      ['psychologist', 'doctor', 'lawyer', 'legal_advisor', 'clinic', 'hospital', 'association', 'treatment_center'].includes(
+        user.roleSlug
+      )
+    ) {
+      handleNavigate('specialist-dashboard');
+    } else {
+      handleNavigate('portal');
+    }
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('secchance_user_id');
+    setCurrentUser(null);
+    handleNavigate('landing');
+  };
+
+  // Request creation in real database
+  const handleCreateRequest = async (
     serviceId: number,
     priority: Priority,
     wilaya: string,
@@ -106,8 +199,7 @@ export function App() {
     const service = services.find((s) => s.id === serviceId) || services[0];
     const newCaseNo = `SC-2026-${Math.floor(1000 + Math.random() * 9000)}`;
 
-    const newReq: CareRequest = {
-      id: careRequests.length + 1,
+    const newReqData: Omit<CareRequest, 'id'> = {
       caseNumber: newCaseNo,
       clientId: currentUser.id,
       clientName: `${currentUser.firstName} ${currentUser.lastName}`,
@@ -123,15 +215,15 @@ export function App() {
       paymentStatus: service.amountDzd > 0 ? 'PENDING' : 'NOT_REQUIRED',
       wilayaName: wilaya,
       description,
-      createdAt: 'الآن',
+      createdAt: new Date().toLocaleDateString('ar-DZ'),
     };
 
-    setCareRequests([newReq, ...careRequests]);
-    setSelectedRequest(newReq);
+    const saved = await createCareRequestInDb(newReqData);
+    setSelectedRequest(saved);
     handleNavigate('portal');
   };
 
-  const handleCreateLegalCase = (data: {
+  const handleCreateLegalCase = async (data: {
     serviceId: number;
     caseType: string;
     description: string;
@@ -141,12 +233,11 @@ export function App() {
     priority: Priority;
   }) => {
     if (!currentUser) return;
-    const lawyer = initialUsers.find((u) => u.id === data.lawyerId) || initialUsers[2];
+    const lawyer = users.find((u) => u.id === data.lawyerId) || initialUsers[2];
     const service = services.find((s) => s.id === data.serviceId) || services[1];
     const newCaseNo = `SC-LEG-${Math.floor(1000 + Math.random() * 9000)}`;
 
-    const newReq: CareRequest = {
-      id: careRequests.length + 1,
+    const newReqData: Omit<CareRequest, 'id'> = {
       caseNumber: newCaseNo,
       clientId: currentUser.id,
       clientName: `${currentUser.firstName} ${currentUser.lastName}`,
@@ -164,45 +255,39 @@ export function App() {
       description: data.description,
       caseType: data.caseType,
       attachedDocuments: data.attachedDocs,
-      createdAt: 'الآن',
+      createdAt: new Date().toLocaleDateString('ar-DZ'),
     };
 
-    setCareRequests([newReq, ...careRequests]);
-    setSelectedRequest(newReq);
+    const saved = await createCareRequestInDb(newReqData);
+    setSelectedRequest(saved);
+    handleNavigate('portal');
   };
 
   // Provider status updates
-  const handleAcceptRequest = (requestId: number) => {
-    setCareRequests((prev) =>
-      prev.map((r) =>
-        r.id === requestId ? { ...r, status: 'ACCEPTED' as const } : r
-      )
-    );
+  const handleAcceptRequest = async (requestId: number | string) => {
+    await updateCareRequestInDb(requestId, { status: 'ACCEPTED' }, currentUser?.firstName || 'المختص');
   };
 
-  const handleConfirmReject = (reason: string) => {
+  const handleConfirmReject = async (reason: string) => {
     if (!rejectionTargetId) return;
-    setCareRequests((prev) =>
-      prev.map((r) =>
-        r.id === rejectionTargetId
-          ? { ...r, status: 'REJECTED' as const, rejectionReason: reason }
-          : r
-      )
+    await updateCareRequestInDb(
+      rejectionTargetId,
+      { status: 'REJECTED', rejectionReason: reason },
+      currentUser?.firstName || 'المختص'
     );
     setRejectionTargetId(null);
   };
 
-  // Payment processing
-  const handleProcessPayment = (requestId: number, paymentMethod: 'EDAHABIA' | 'CIB') => {
-    const targetReq = careRequests.find((r) => r.id === requestId);
+  // Payment processing in database
+  const handleProcessPayment = async (requestId: number | string, paymentMethod: 'EDAHABIA' | 'CIB') => {
+    const targetReq = careRequests.find((r) => String(r.id) === String(requestId));
     if (!targetReq) return;
 
     const txnId = `TXN-${Math.floor(100000 + Math.random() * 900000)}`;
     const payId = `PAY-${targetReq.caseNumber.replace('SC-', '')}-DZ`;
     const orderId = `ORD-${Math.floor(1000 + Math.random() * 9000)}`;
 
-    const newTxn: PaymentTransaction = {
-      id: paymentTransactions.length + 1,
+    const newTxnData: Omit<PaymentTransaction, 'id'> = {
       paymentId: payId,
       orderId,
       clientId: targetReq.clientId,
@@ -215,43 +300,37 @@ export function App() {
       paymentMethod,
       transactionId: txnId,
       status: 'SUCCESSFUL',
-      createdAt: 'الآن',
-      paidAt: 'الآن',
+      createdAt: new Date().toLocaleDateString('ar-DZ'),
+      paidAt: new Date().toLocaleString('ar-DZ'),
     };
 
-    setPaymentTransactions([newTxn, ...paymentTransactions]);
+    await createPaymentTransactionInDb(newTxnData);
 
-    setCareRequests((prev) =>
-      prev.map((r) =>
-        r.id === requestId
-          ? {
-              ...r,
-              status: 'APPOINTMENT_CONFIRMED' as const,
-              paymentStatus: 'PAID' as const,
-              appointmentDate: '2026-10-05',
-              appointmentTime: '11:00 صباحاً',
-            }
-          : r
-      )
-    );
+    await updateCareRequestInDb(targetReq.id, {
+      status: 'APPOINTMENT_CONFIRMED',
+      paymentStatus: 'PAID',
+      appointmentDate: '2026-10-05',
+      appointmentTime: '11:00 صباحاً',
+    });
 
-    const newAppt: Appointment = {
-      id: appointments.length + 1,
+    await createAppointmentInDb({
       caseNumber: targetReq.caseNumber,
+      clientId: targetReq.clientId,
+      clientName: targetReq.clientName,
+      specialistId: targetReq.providerId,
       specialistName: targetReq.providerName,
       specialty: targetReq.serviceTitle,
       date: '2026-10-05',
       time: '11:00 صباحاً',
       type: 'جلسة مؤكدة عبر الدفع الإلكتروني',
       status: 'CONFIRMED',
-    };
+    });
 
-    setAppointments([...appointments, newAppt]);
     handleNavigate('portal');
   };
 
-  // Add specialist report
-  const handleAddReport = (
+  // Add specialist report in database
+  const handleAddReport = async (
     caseNumber: string,
     evaluation: string,
     notes: string,
@@ -260,25 +339,24 @@ export function App() {
     nextAppointment: string
   ) => {
     if (!currentUser) return;
-    const newReport: SpecialistReport = {
-      id: specialistReports.length + 1,
+    await addSpecialistReportInDb({
       caseNumber,
+      specialistId: currentUser.id,
       specialistName: `${currentUser.firstName} ${currentUser.lastName}`,
       specialty:
-        currentUser.roleSlug === 'psychologist'
+        currentUser.specialty ||
+        (currentUser.roleSlug === 'psychologist'
           ? 'أخصائي نفسي عيادي'
           : currentUser.roleSlug === 'lawyer'
           ? 'مستشار قانوني ومحامٍ'
-          : 'مختص معتمد بالمنصة',
+          : 'مختص معتمد بالمنصة'),
       evaluation,
       professionalNotes: notes,
       recommendations,
       treatmentPlan,
       nextAppointment,
-      createdAt: 'الآن',
-    };
-
-    setSpecialistReports([newReport, ...specialistReports]);
+      createdAt: new Date().toLocaleDateString('ar-DZ'),
+    });
   };
 
   // Send message in chat
@@ -311,6 +389,7 @@ export function App() {
           onNavigate={handleNavigate}
           onOpenAuth={() => setIsAuthOpen(true)}
           onOpenAiTriage={() => setIsAiOpen(true)}
+          onLogout={handleLogout}
         />
 
         {/* Main Content Area */}
@@ -320,6 +399,31 @@ export function App() {
               onNavigate={handleNavigate}
               onOpenAiTriage={() => setIsAiOpen(true)}
               onNewCase={handleNewCaseCTA}
+            />
+          )}
+
+          {currentView === 'admin-dashboard' && (
+            <AdminDashboardView
+              currentUser={currentUser}
+              users={users}
+              requests={careRequests}
+              appointments={appointments}
+              reports={specialistReports}
+              transactions={paymentTransactions}
+              auditLogs={auditLogs}
+              onOpenRequestDetail={handleSelectRequest}
+              onBackToPortal={() => handleNavigate('portal')}
+            />
+          )}
+
+          {currentView === 'specialist-dashboard' && currentUser && (
+            <SpecialistDashboardView
+              currentUser={currentUser}
+              requests={careRequests}
+              appointments={appointments}
+              reports={specialistReports}
+              onOpenChat={() => handleNavigate('messages')}
+              onOpenRequestDetail={handleSelectRequest}
             />
           )}
 
@@ -350,10 +454,7 @@ export function App() {
               onAcceptRequest={handleAcceptRequest}
               onRejectRequestClick={(id) => setRejectionTargetId(id)}
               onOpenChat={() => handleNavigate('messages')}
-              onLogout={() => {
-                setCurrentUser(null);
-                handleNavigate('landing');
-              }}
+              onLogout={handleLogout}
             />
           )}
 
@@ -431,10 +532,7 @@ export function App() {
       <AuthModal
         isOpen={isAuthOpen}
         onClose={() => setIsAuthOpen(false)}
-        onLogin={(user) => {
-          setCurrentUser(user);
-          handleNavigate('portal');
-        }}
+        onLogin={handleLogin}
       />
 
       <AITriageModal
@@ -453,6 +551,7 @@ export function App() {
       <BottomNavigator
         currentView={currentView}
         onNavigate={handleNavigate}
+        currentUser={currentUser}
       />
     </div>
   );

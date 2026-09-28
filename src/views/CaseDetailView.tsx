@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { CareRequest, SpecialistReport, User } from '../types';
-import { ArrowForward, ArrowRight, CreditCard, MessageSquare } from 'lucide-react';
+import { ArrowRight, CreditCard, MessageSquare } from 'lucide-react';
 
 interface CaseDetailViewProps {
   request: CareRequest | null;

@@ -12,6 +12,10 @@ import {
   Association,
   AwarenessArticle,
   EmergencyResource,
+  LegalTopic,
+  CaseFileDocument,
+  AuditLogEntry,
+  UserComplaint,
 } from '../types';
 
 export const initialUsers: User[] = [

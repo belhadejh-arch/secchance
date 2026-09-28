@@ -4,7 +4,7 @@ import { CreditCard, Landmark, Lock } from 'lucide-react';
 
 interface PaymentViewProps {
   request: CareRequest | null;
-  onProcessPayment: (requestId: number, method: 'EDAHABIA' | 'CIB') => void;
+  onProcessPayment: (requestId: number | string, method: 'EDAHABIA' | 'CIB') => void;
   onCancel: () => void;
 }
 

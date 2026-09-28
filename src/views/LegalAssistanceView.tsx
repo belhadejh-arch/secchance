@@ -10,7 +10,7 @@ interface LegalAssistanceViewProps {
     caseType: string;
     description: string;
     wilaya: string;
-    lawyerId: number;
+    lawyerId: number | string;
     attachedDocs: string[];
     priority: Priority;
   }) => void;
@@ -38,7 +38,7 @@ export const LegalAssistanceView: React.FC<LegalAssistanceViewProps> = ({
   const [description, setDescription] = useState('');
   const [caseType, setCaseType] = useState(caseTypes[0]);
   const [wilaya, setWilaya] = useState(currentUser?.wilayaName || '16. الجزائر العاصمة');
-  const [selectedLawyerId, setSelectedLawyerId] = useState<number>(lawyers[0]?.id || 3);
+  const [selectedLawyerId, setSelectedLawyerId] = useState<number | string>(lawyers[0]?.id || 3);
   const [priority, setPriority] = useState<Priority>('High');
   const [uploadedFiles, setUploadedFiles] = useState<string[]>([
     'استدعاء_أو_محضر_قضائي_أولي.pdf',

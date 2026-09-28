@@ -1,12 +1,38 @@
+export type UserRole =
+  | 'admin'
+  | 'psychologist'
+  | 'doctor'
+  | 'lawyer'
+  | 'legal_advisor'
+  | 'clinic'
+  | 'hospital'
+  | 'treatment_center'
+  | 'association'
+  | 'family'
+  | 'patient'
+  | 'user';
+
+export type UserStatus = 'active' | 'inactive' | 'pending' | 'suspended';
+
 export interface User {
-  id: number;
+  id: number | string;
+  uid?: string;
   firstName: string;
   lastName: string;
   email: string;
   phone: string;
-  roleSlug: 'admin' | 'psychologist' | 'lawyer' | 'treatment_center' | 'clinic' | 'association' | 'family' | 'patient';
+  roleSlug: UserRole;
   wilayaName: string | null;
-  status: string;
+  status: UserStatus | string;
+  specialty?: string;
+  subSpecialty?: string;
+  licenseNumber?: string;
+  address?: string;
+  avatarUrl?: string;
+  documents?: string[];
+  servicesOffered?: string[];
+  createdAt?: string;
+  password?: string;
 }
 
 export type Priority = 'Critical' | 'High' | 'Medium' | 'Low';
@@ -33,11 +59,11 @@ export type PaymentStatus =
   | 'NOT_REQUIRED';
 
 export interface CareRequest {
-  id: number;
+  id: number | string;
   caseNumber: string;
-  clientId: number;
+  clientId: number | string;
   clientName: string;
-  providerId: number;
+  providerId: number | string;
   providerName: string;
   serviceId: number;
   serviceTitle: string;
@@ -57,12 +83,12 @@ export interface CareRequest {
 }
 
 export interface PaymentTransaction {
-  id: number;
+  id: number | string;
   paymentId: string;
   orderId: string;
-  clientId: number;
+  clientId: number | string;
   clientName: string;
-  providerId: number;
+  providerId: number | string;
   providerName: string;
   serviceTitle: string;
   amountDzd: number;
@@ -75,8 +101,9 @@ export interface PaymentTransaction {
 }
 
 export interface SpecialistReport {
-  id: number;
+  id: number | string;
   caseNumber: string;
+  specialistId?: number | string;
   specialistName: string;
   specialty: string;
   evaluation: string;
@@ -88,8 +115,11 @@ export interface SpecialistReport {
 }
 
 export interface Appointment {
-  id: number;
+  id: number | string;
   caseNumber: string;
+  clientId?: number | string;
+  clientName?: string;
+  specialistId?: number | string;
   specialistName: string;
   specialty: string;
   date: string;

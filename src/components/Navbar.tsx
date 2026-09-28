@@ -8,6 +8,10 @@ import {
   BookOpen,
   AlertTriangle,
   Scale,
+  ShieldCheck,
+  Stethoscope,
+  LogOut,
+  User as UserIcon,
 } from 'lucide-react';
 import { User } from '../types';
 
@@ -16,6 +20,7 @@ interface NavbarProps {
   onNavigate: (view: string) => void;
   onOpenAuth: () => void;
   onOpenAiTriage: () => void;
+  onLogout?: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -23,12 +28,30 @@ export const Navbar: React.FC<NavbarProps> = ({
   onNavigate,
   onOpenAuth,
   onOpenAiTriage,
+  onLogout,
 }) => {
+  const isAdmin = currentUser?.roleSlug === 'admin';
+  const isSpecialist =
+    currentUser &&
+    ['psychologist', 'doctor', 'lawyer', 'legal_advisor', 'clinic', 'hospital', 'association', 'treatment_center'].includes(
+      currentUser.roleSlug
+    );
+
+  const handleDashboardClick = () => {
+    if (isAdmin) {
+      onNavigate('admin-dashboard');
+    } else if (isSpecialist) {
+      onNavigate('specialist-dashboard');
+    } else {
+      onNavigate('portal');
+    }
+  };
+
   return (
     <header className="sticky top-0 z-40 bg-[#FBFDFC] border-b border-[#E0E8E6] shadow-xs">
       {/* Top AppBar */}
       <div className="max-w-4xl mx-auto px-4 py-2 flex items-center justify-between">
-        {/* Brand with New Official Logo */}
+        {/* Brand with Official Logo */}
         <div
           onClick={() => onNavigate('landing')}
           className="flex items-center gap-2.5 cursor-pointer select-none"
@@ -54,7 +77,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           <button
             onClick={onOpenAiTriage}
             className="p-2 rounded-lg text-[#1766A6] hover:bg-[#EAF3F8] transition-colors"
-            title="التوجيه الذكي الآلي"
+            title="المساعد الذكي والتوجيه المعتمد"
           >
             <Bot className="w-5 h-5" />
           </button>
@@ -70,18 +93,46 @@ export const Navbar: React.FC<NavbarProps> = ({
 
           {/* Auth State Button */}
           {currentUser ? (
-            <button
-              onClick={() => onNavigate('portal')}
-              className="px-3 py-1.5 rounded-[8px] bg-[#EAF3F8] text-[#104A78] hover:bg-[#DCEBF4] text-xs font-bold transition-colors"
-            >
-              {currentUser.firstName}
-            </button>
+            <div className="flex items-center gap-1">
+              <button
+                onClick={handleDashboardClick}
+                className={`px-3 py-1.5 rounded-[10px] text-xs font-bold transition-colors flex items-center gap-1.5 ${
+                  isAdmin
+                    ? 'bg-[#1766A6] text-white hover:bg-[#125386] shadow-xs'
+                    : isSpecialist
+                    ? 'bg-[#25866D] text-white hover:bg-[#1E6F5A] shadow-xs'
+                    : 'bg-[#EAF3F8] text-[#104A78] hover:bg-[#DCEBF4]'
+                }`}
+                title={isAdmin ? 'لوحة التحكم الإدارية' : isSpecialist ? 'لوحة تحكم المختص' : 'لوحة طلباتي'}
+              >
+                {isAdmin ? (
+                  <ShieldCheck className="w-3.5 h-3.5" />
+                ) : isSpecialist ? (
+                  <Stethoscope className="w-3.5 h-3.5" />
+                ) : (
+                  <UserIcon className="w-3.5 h-3.5" />
+                )}
+                <span>
+                  {isAdmin ? 'لوحة الإدارة' : isSpecialist ? 'لوحة المختص' : currentUser.firstName}
+                </span>
+              </button>
+
+              {onLogout && (
+                <button
+                  onClick={onLogout}
+                  className="p-1.5 rounded-lg text-[#203945]/50 hover:text-[#A64842] hover:bg-[#FBECEB] transition-colors"
+                  title="تسجيل الخروج"
+                >
+                  <LogOut className="w-4 h-4" />
+                </button>
+              )}
+            </div>
           ) : (
             <button
               onClick={onOpenAuth}
               className="px-3.5 py-1.5 rounded-[8px] bg-[#1766A6] text-white hover:bg-[#125386] text-xs font-bold transition-colors shadow-xs"
             >
-              دخول
+              تسجيل الدخول
             </button>
           )}
         </div>
@@ -89,7 +140,7 @@ export const Navbar: React.FC<NavbarProps> = ({
 
       {/* Sub Navigation Bar */}
       <div className="bg-[#EAF3F8]/70 border-t border-[#DCEBF4] px-4 py-1.5">
-        <div className="max-w-4xl mx-auto flex items-center justify-between sm:justify-start sm:gap-5 overflow-x-auto text-[11px] font-semibold text-[#203945] no-scrollbar">
+        <div className="max-w-4xl mx-auto flex items-center justify-between sm:justify-start sm:gap-4 overflow-x-auto text-[11px] font-semibold text-[#203945] no-scrollbar">
           <button
             onClick={() => onNavigate('landing')}
             className="flex items-center gap-1 hover:text-[#1766A6] transition-colors py-1 px-1 rounded-sm shrink-0"
@@ -97,6 +148,26 @@ export const Navbar: React.FC<NavbarProps> = ({
             <Home className="w-3.5 h-3.5 text-[#1766A6]" />
             <span>الرئيسية</span>
           </button>
+
+          {isAdmin && (
+            <button
+              onClick={() => onNavigate('admin-dashboard')}
+              className="flex items-center gap-1 text-[#1766A6] bg-[#1766A6]/10 px-2 py-0.5 rounded-md shrink-0 font-bold"
+            >
+              <ShieldCheck className="w-3.5 h-3.5" />
+              <span>لوحة الإدارة العامة</span>
+            </button>
+          )}
+
+          {isSpecialist && (
+            <button
+              onClick={() => onNavigate('specialist-dashboard')}
+              className="flex items-center gap-1 text-[#25866D] bg-[#25866D]/10 px-2 py-0.5 rounded-md shrink-0 font-bold"
+            >
+              <Stethoscope className="w-3.5 h-3.5" />
+              <span>لوحة المختص</span>
+            </button>
+          )}
 
           <button
             onClick={() => onNavigate('legal-assistance')}

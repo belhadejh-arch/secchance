@@ -41,8 +41,8 @@ interface PortalViewProps {
   onSelectRequest: (request: CareRequest) => void;
   onStartPayment: (request: CareRequest) => void;
   onNewRequest: () => void;
-  onAcceptRequest: (requestId: number, priority: Priority) => void;
-  onRejectRequestClick: (requestId: number) => void;
+  onAcceptRequest: (requestId: number | string, priority: Priority) => void;
+  onRejectRequestClick: (requestId: number | string) => void;
   onOpenChat: (convId: number) => void;
   onLogout: () => void;
 }

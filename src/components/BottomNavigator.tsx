@@ -1,16 +1,40 @@
 import React from 'react';
-import { Home, Briefcase, FolderOpen, Calendar, MessageSquare } from 'lucide-react';
+import { Home, Briefcase, FolderOpen, Calendar, MessageSquare, ShieldCheck, Stethoscope } from 'lucide-react';
+import { User } from '../types';
 
 interface BottomNavigatorProps {
   currentView: string;
   onNavigate: (view: string) => void;
+  currentUser?: User | null;
 }
 
 export const BottomNavigator: React.FC<BottomNavigatorProps> = ({
   currentView,
   onNavigate,
+  currentUser,
 }) => {
-  const isPortalActive = currentView === 'portal' || currentView === 'case-detail' || currentView === 'legal-assistance';
+  const isAdmin = currentUser?.roleSlug === 'admin';
+  const isSpecialist =
+    currentUser &&
+    ['psychologist', 'doctor', 'lawyer', 'legal_advisor', 'clinic', 'hospital', 'association', 'treatment_center'].includes(
+      currentUser.roleSlug
+    );
+
+  const isPortalActive =
+    currentView === 'portal' ||
+    currentView === 'admin-dashboard' ||
+    currentView === 'specialist-dashboard' ||
+    currentView === 'case-detail';
+
+  const handlePortalClick = () => {
+    if (isAdmin) {
+      onNavigate('admin-dashboard');
+    } else if (isSpecialist) {
+      onNavigate('specialist-dashboard');
+    } else {
+      onNavigate('portal');
+    }
+  };
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-40 bg-[#FBFDFC] border-t border-[#E0E8E6] shadow-xs">
@@ -53,9 +77,9 @@ export const BottomNavigator: React.FC<BottomNavigatorProps> = ({
           </span>
         </button>
 
-        {/* طلباتي */}
+        {/* الداشبورد / طلباتي */}
         <button
-          onClick={() => onNavigate('portal')}
+          onClick={handlePortalClick}
           className={`flex flex-col items-center justify-center py-1 transition-all ${
             isPortalActive ? 'text-[#1766A6]' : 'text-[#5B707B] hover:text-[#203945]'
           }`}
@@ -65,10 +89,16 @@ export const BottomNavigator: React.FC<BottomNavigatorProps> = ({
               isPortalActive ? 'bg-[#EAF3F8]' : ''
             }`}
           >
-            <FolderOpen className="w-5 h-5 stroke-[2]" />
+            {isAdmin ? (
+              <ShieldCheck className="w-5 h-5 stroke-[2] text-[#1766A6]" />
+            ) : isSpecialist ? (
+              <Stethoscope className="w-5 h-5 stroke-[2] text-[#25866D]" />
+            ) : (
+              <FolderOpen className="w-5 h-5 stroke-[2]" />
+            )}
           </div>
           <span className={`text-[11px] mt-0.5 ${isPortalActive ? 'font-bold' : 'font-medium'}`}>
-            طلباتي
+            {isAdmin ? 'الإدارة' : isSpecialist ? 'لوحتي' : 'طلباتي'}
           </span>
         </button>
 
@@ -91,7 +121,7 @@ export const BottomNavigator: React.FC<BottomNavigatorProps> = ({
           </span>
         </button>
 
-        {/* الرسائل */}
+        {/* المحادثة */}
         <button
           onClick={() => onNavigate('messages')}
           className={`flex flex-col items-center justify-center py-1 transition-all ${
@@ -106,7 +136,7 @@ export const BottomNavigator: React.FC<BottomNavigatorProps> = ({
             <MessageSquare className="w-5 h-5 stroke-[2]" />
           </div>
           <span className={`text-[11px] mt-0.5 ${currentView === 'messages' ? 'font-bold' : 'font-medium'}`}>
-            الرسائل
+            المحادثة
           </span>
         </button>
       </div>

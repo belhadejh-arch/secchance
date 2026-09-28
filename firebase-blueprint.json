@@ -1,0 +1,154 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "User profile with role-based access control attributes",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "email": { "type": "string" },
+        "firstName": { "type": "string" },
+        "lastName": { "type": "string" },
+        "phone": { "type": "string" },
+        "roleSlug": {
+          "type": "string",
+          "enum": [
+            "admin",
+            "psychologist",
+            "doctor",
+            "lawyer",
+            "clinic",
+            "hospital",
+            "treatment_center",
+            "association",
+            "family",
+            "patient",
+            "user"
+          ]
+        },
+        "specialty": { "type": "string" },
+        "subSpecialty": { "type": "string" },
+        "licenseNumber": { "type": "string" },
+        "address": { "type": "string" },
+        "wilayaName": { "type": "string" },
+        "status": {
+          "type": "string",
+          "enum": ["active", "inactive", "pending", "suspended"]
+        },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["email", "firstName", "lastName", "roleSlug", "status"]
+    },
+    "CareRequest": {
+      "title": "CareRequest",
+      "description": "Support, counseling, rehabilitation, or legal care request",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "caseNumber": { "type": "string" },
+        "clientId": { "type": "string" },
+        "clientName": { "type": "string" },
+        "providerId": { "type": "string" },
+        "providerName": { "type": "string" },
+        "serviceId": { "type": "number" },
+        "serviceTitle": { "type": "string" },
+        "category": { "type": "string" },
+        "amountDzd": { "type": "number" },
+        "priority": { "type": "string" },
+        "status": { "type": "string" },
+        "paymentStatus": { "type": "string" },
+        "wilayaName": { "type": "string" },
+        "description": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["caseNumber", "clientId", "serviceTitle", "status"]
+    },
+    "Appointment": {
+      "title": "Appointment",
+      "description": "Scheduled appointments between clients and specialists",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "caseNumber": { "type": "string" },
+        "clientId": { "type": "string" },
+        "specialistId": { "type": "string" },
+        "specialistName": { "type": "string" },
+        "date": { "type": "string" },
+        "time": { "type": "string" },
+        "status": { "type": "string" }
+      },
+      "required": ["caseNumber", "specialistName", "date", "status"]
+    },
+    "SpecialistReport": {
+      "title": "SpecialistReport",
+      "description": "Confidential evaluation or clinical/legal report",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "caseNumber": { "type": "string" },
+        "specialistName": { "type": "string" },
+        "specialty": { "type": "string" },
+        "evaluation": { "type": "string" },
+        "professionalNotes": { "type": "string" },
+        "recommendations": { "type": "string" },
+        "treatmentPlan": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["caseNumber", "specialistName", "evaluation"]
+    },
+    "PaymentTransaction": {
+      "title": "PaymentTransaction",
+      "description": "Edahabia/CIB electronic payment records",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "paymentId": { "type": "string" },
+        "orderId": { "type": "string" },
+        "amountDzd": { "type": "number" },
+        "status": { "type": "string" },
+        "paymentMethod": { "type": "string" }
+      },
+      "required": ["paymentId", "amountDzd", "status"]
+    },
+    "AuditLogEntry": {
+      "title": "AuditLogEntry",
+      "description": "Security audit and user activity log",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "timestamp": { "type": "string" },
+        "userId": { "type": "string" },
+        "userName": { "type": "string" },
+        "action": { "type": "string" },
+        "details": { "type": "string" }
+      },
+      "required": ["timestamp", "action", "details"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "UserProfile",
+      "description": "User profiles with role information"
+    },
+    "/careRequests/{requestId}": {
+      "schema": "CareRequest",
+      "description": "Care and consultation requests"
+    },
+    "/appointments/{appointmentId}": {
+      "schema": "Appointment",
+      "description": "Appointments scheduled for cases"
+    },
+    "/specialistReports/{reportId}": {
+      "schema": "SpecialistReport",
+      "description": "Case evaluation reports written by specialists"
+    },
+    "/paymentTransactions/{txId}": {
+      "schema": "PaymentTransaction",
+      "description": "Payment records"
+    },
+    "/auditLogs/{logId}": {
+      "schema": "AuditLogEntry",
+      "description": "Platform audit and compliance logs"
+    }
+  }
+}
