@@ -39,6 +39,7 @@ import { ChatView } from './views/ChatView';
 import { DirectoryView } from './views/DirectoryView';
 import { AwarenessView } from './views/AwarenessView';
 import { EmergencyView } from './views/EmergencyView';
+import { LegalAssistanceView } from './views/LegalAssistanceView';
 
 export function App() {
   const [currentUser, setCurrentUser] = useState<User | null>(initialUsers[0]);
@@ -128,6 +129,46 @@ export function App() {
     setCareRequests([newReq, ...careRequests]);
     setSelectedRequest(newReq);
     handleNavigate('portal');
+  };
+
+  const handleCreateLegalCase = (data: {
+    serviceId: number;
+    caseType: string;
+    description: string;
+    wilaya: string;
+    lawyerId: number;
+    attachedDocs: string[];
+    priority: Priority;
+  }) => {
+    if (!currentUser) return;
+    const lawyer = initialUsers.find((u) => u.id === data.lawyerId) || initialUsers[2];
+    const service = services.find((s) => s.id === data.serviceId) || services[1];
+    const newCaseNo = `SC-LEG-${Math.floor(1000 + Math.random() * 9000)}`;
+
+    const newReq: CareRequest = {
+      id: careRequests.length + 1,
+      caseNumber: newCaseNo,
+      clientId: currentUser.id,
+      clientName: `${currentUser.firstName} ${currentUser.lastName}`,
+      providerId: lawyer.id,
+      providerName: `${lawyer.firstName} ${lawyer.lastName}`,
+      serviceId: service.id,
+      serviceTitle: `${service.title} (${data.caseType})`,
+      category: 'استشارة ومرافقة قانونية',
+      amountDzd: service.amountDzd,
+      priority: data.priority,
+      status: 'PENDING_PROVIDER',
+      rejectionReason: null,
+      paymentStatus: 'PENDING',
+      wilayaName: data.wilaya,
+      description: data.description,
+      caseType: data.caseType,
+      attachedDocuments: data.attachedDocs,
+      createdAt: 'الآن',
+    };
+
+    setCareRequests([newReq, ...careRequests]);
+    setSelectedRequest(newReq);
   };
 
   // Provider status updates
@@ -365,9 +406,22 @@ export function App() {
             />
           )}
 
+          {currentView === 'legal-assistance' && (
+            <LegalAssistanceView
+              currentUser={currentUser}
+              onSubmitLegalCase={handleCreateLegalCase}
+              onOpenAuth={() => setIsAuthOpen(true)}
+              onBack={() => handleNavigate('portal')}
+            />
+          )}
+
           {currentView === 'directory' && <DirectoryView />}
 
-          {currentView === 'awareness' && <AwarenessView />}
+          {currentView === 'awareness' && (
+            <AwarenessView
+              onNavigateToLegalAssistance={() => handleNavigate('legal-assistance')}
+            />
+          )}
 
           {currentView === 'emergency' && <EmergencyView />}
         </main>

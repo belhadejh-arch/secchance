@@ -37,18 +37,25 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs">
       <div className="bg-[#FBFDFC] rounded-[20px] max-w-lg w-full shadow-lg border border-[#E5ECE9] overflow-hidden p-6 space-y-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h3 className="text-[20px] font-black text-[#203945]">
-              تسجيل الدخول وربط الأطراف
-            </h3>
-            <p className="text-[12px] text-[#203945]/70 mt-0.5">
-              اختر دور الحساب لاستعراض اللوحة والعمليات المرتبطة بها
-            </p>
+        <div className="flex items-center justify-between border-b border-[#E5ECE9] pb-3">
+          <div className="flex items-center gap-3">
+            <img
+              src="/logo.png"
+              alt="Logo"
+              className="w-12 h-12 object-contain rounded-full border border-[#CCD8D5] bg-white p-0.5 shrink-0"
+            />
+            <div>
+              <h3 className="text-[18px] sm:text-[20px] font-black text-[#203945]">
+                تسجيل الدخول وربط الأطراف
+              </h3>
+              <p className="text-[11px] sm:text-[12px] text-[#203945]/70 mt-0.5">
+                اختر دور الحساب لاستعراض اللوحة والعمليات المرتبطة بها
+              </p>
+            </div>
           </div>
           <button
             onClick={onClose}
-            className="text-[#203945]/50 hover:text-[#203945] p-1 rounded-lg"
+            className="text-[#203945]/50 hover:text-[#203945] p-1.5 rounded-lg"
           >
             <X className="w-5 h-5" />
           </button>

@@ -10,7 +10,7 @@ export const BottomNavigator: React.FC<BottomNavigatorProps> = ({
   currentView,
   onNavigate,
 }) => {
-  const isPortalActive = currentView === 'portal' || currentView === 'case-detail';
+  const isPortalActive = currentView === 'portal' || currentView === 'case-detail' || currentView === 'legal-assistance';
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-40 bg-[#FBFDFC] border-t border-[#E0E8E6] shadow-xs">

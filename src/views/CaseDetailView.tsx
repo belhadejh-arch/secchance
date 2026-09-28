@@ -114,6 +114,31 @@ export const CaseDetailView: React.FC<CaseDetailViewProps> = ({
           </div>
         )}
 
+        {/* Attached Confidential Documents (Requirement 21) */}
+        {request.attachedDocuments && request.attachedDocuments.length > 0 && (
+          <div className="bg-[#EAF3F8] p-3.5 rounded-[14px] border border-[#DCEBF4] space-y-2">
+            <span className="font-bold text-xs text-[#1766A6] block">
+              📁 الوثائق والمستندات القضائية / الطبية المرفقة:
+            </span>
+            <div className="space-y-1.5">
+              {request.attachedDocuments.map((doc, idx) => (
+                <div
+                  key={idx}
+                  className="bg-white p-2 rounded-[8px] border border-[#CCD8D5] flex items-center justify-between text-xs"
+                >
+                  <span className="font-medium text-[#203945]">{doc}</span>
+                  <span className="text-[10px] text-[#1766A6] font-bold">
+                    🔒 مشفر ومحمي
+                  </span>
+                </div>
+              ))}
+            </div>
+            <p className="text-[11px] text-[#104A78] font-bold pt-1">
+              🔒 هذا المستند خاص ولا يمكن الوصول إليه إلا من المستخدم والجهة المخولة.
+            </p>
+          </div>
+        )}
+
         {/* Action Buttons */}
         <div className="space-y-2 pt-1">
           {(request.status === 'ACCEPTED' || request.status === 'WAITING_PAYMENT') &&

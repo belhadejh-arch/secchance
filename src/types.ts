@@ -49,6 +49,8 @@ export interface CareRequest {
   paymentStatus: PaymentStatus;
   wilayaName: string;
   description: string;
+  caseType?: string;
+  attachedDocuments?: string[];
   createdAt: string;
   appointmentDate?: string | null;
   appointmentTime?: string | null;
@@ -167,6 +169,66 @@ export interface EmergencyResource {
   phoneNumber: string;
   description: string;
   is247: boolean;
+  isPoisonCenter?: boolean;
+}
+
+export interface LegalTopic {
+  id: number;
+  title: string;
+  plainSummary: string;
+  legalReference: string; // e.g. القانون رقم 04-18 (25 ديسمبر 2004)
+  lawDate: string;
+  relevantArticle: string; // المادة ذات الصلة
+  officialText: string; // النص الرسمي للمادة
+  amendments: string[]; // التعديلات: 23-05 / 2023, 25-03 / 2025
+  plainExplanation: string; // شرح مبسط
+  executiveDecree: string; // المرسوم التطبيقي: المرسوم التنفيذي 07-229
+  officialSource: string; // الجريدة الرسمية للجمهورية الجزائرية
+  lastReviewedDate: string; // آخر مراجعة
+  status: 'ACTIVE' | 'ARCHIVED';
+}
+
+export interface LegalContentVersion {
+  id: number;
+  topicId: number;
+  versionLabel: string;
+  updatedAt: string;
+  updatedBy: string;
+  changeNotes: string;
+}
+
+export interface CaseFileDocument {
+  id: number;
+  caseNumber: string;
+  clientId: number;
+  clientName: string;
+  providerId: number;
+  providerName: string;
+  fileName: string;
+  fileCategory: 'تقرير طبي' | 'شهادة طبية' | 'وثيقة قضائية' | 'محضر رسمي' | 'وثيقة شخصية';
+  fileSize: string;
+  uploadDate: string;
+  isConfidential: boolean;
+}
+
+export interface AuditLogEntry {
+  id: number;
+  timestamp: string;
+  userId: number;
+  userName: string;
+  action: string;
+  details: string;
+  ipAddress: string;
+}
+
+export interface UserComplaint {
+  id: number;
+  userId: number;
+  userName: string;
+  subject: string;
+  description: string;
+  status: 'NEW' | 'IN_REVIEW' | 'RESOLVED';
+  createdAt: string;
 }
 
 export const ALGERIA_WILAYAS: string[] = [
@@ -218,4 +280,14 @@ export const ALGERIA_WILAYAS: string[] = [
   '46. عين تيموشنت',
   '47. غرداية',
   '48. غليزان',
+  '49. تيميمون',
+  '50. برج باجي مختار',
+  '51. أولاد جلال',
+  '52. بني عباس',
+  '53. إن صالح',
+  '54. إن قزام',
+  '55. توقرت',
+  '56. جانت',
+  '57. المغير',
+  '58. المنيعة',
 ];
