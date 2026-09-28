@@ -1,12 +1,10 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Default deny
     match /{document=**} {
       allow read, write: if false;
     }
 
-    // Connection test doc
     match /test/connection {
       allow read: if true;
     }
@@ -36,30 +34,36 @@ service cloud.firestore {
     }
 
     match /careRequests/{requestId} {
-      allow read: if isSignedIn();
-      allow create: if isSignedIn();
-      allow update: if isSignedIn();
+      allow read, create, update: if isSignedIn();
       allow delete: if isAdmin();
     }
 
     match /appointments/{appointmentId} {
-      allow read: if isSignedIn();
-      allow create: if isSignedIn();
-      allow update: if isSignedIn();
+      allow read, create, update: if isSignedIn();
       allow delete: if isAdmin();
     }
 
     match /specialistReports/{reportId} {
-      allow read: if isSignedIn();
-      allow create: if isSignedIn();
-      allow update: if isSignedIn();
+      allow read, create, update: if isSignedIn();
       allow delete: if isAdmin();
     }
 
+    match /treatmentFollowUps/{followUpId} {
+      allow read, create, update: if isSignedIn();
+      allow delete: if isAdmin();
+    }
+
+    match /partners/{partnerId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /notifications/{notificationId} {
+      allow read, write: if isSignedIn();
+    }
+
     match /paymentTransactions/{txId} {
-      allow read: if isSignedIn();
-      allow create: if isSignedIn();
-      allow update: if isSignedIn();
+      allow read, create, update: if isSignedIn();
       allow delete: if isAdmin();
     }
 

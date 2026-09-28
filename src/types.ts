@@ -185,12 +185,42 @@ export interface ServiceItem {
 }
 
 export interface PlatformNotification {
-  id: number;
-  userId: number;
+  id: number | string;
+  userId: number | string;
+  recipientRole?: UserRole | 'ALL';
   title: string;
   message: string;
   timestamp: string;
   isRead: boolean;
+  type?: 'REQUEST' | 'APPOINTMENT' | 'MESSAGE' | 'SYSTEM' | 'URGENT' | 'STATUS';
+  caseNumber?: string;
+}
+
+export interface TreatmentFollowUp {
+  id: number | string;
+  caseNumber: string;
+  clientId: number | string;
+  clientName?: string;
+  specialistId: number | string;
+  specialistName: string;
+  date: string;
+  notes: string;
+  progress: 'ممتاز' | 'متحسن' | 'مستقر' | 'يحتاج تكثيف المتابعة' | 'حالة حرجة';
+  currentPlan: string;
+  recommendations: string;
+  nextAppointment: string;
+  createdAt: string;
+}
+
+export interface PartnerOrganization {
+  id: number | string;
+  name: string;
+  category: 'وزارة' | 'مستشفى' | 'جمعية' | 'هيئة وطنية';
+  logoUrl?: string;
+  websiteUrl?: string;
+  description: string;
+  isVisible: boolean;
+  orderIndex?: number;
 }
 
 export interface EmergencyResource {

@@ -10,6 +10,9 @@ import {
   ServiceItem,
   Priority,
   AuditLogEntry,
+  PartnerOrganization,
+  TreatmentFollowUp,
+  PlatformNotification,
 } from './types';
 import {
   initialUsers,
@@ -26,11 +29,15 @@ import {
   subscribeToSpecialistReports,
   subscribeToPaymentTransactions,
   subscribeToAuditLogs,
+  subscribeToPartners,
+  subscribeToTreatmentFollowUps,
+  subscribeToNotifications,
   createCareRequestInDb,
   updateCareRequestInDb,
   createPaymentTransactionInDb,
   createAppointmentInDb,
   addSpecialistReportInDb,
+  initialPartners,
 } from './services/dbService';
 
 import { Navbar } from './components/Navbar';
@@ -66,6 +73,9 @@ export function App() {
   const [specialistReports, setSpecialistReports] = useState<SpecialistReport[]>([]);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>([]);
+  const [partners, setPartners] = useState<PartnerOrganization[]>(initialPartners);
+  const [followUps, setFollowUps] = useState<TreatmentFollowUp[]>([]);
+  const [notifications, setNotifications] = useState<PlatformNotification[]>([]);
   const [conversations] = useState<Conversation[]>(initialConversations);
   const [messagesMap, setMessagesMap] = useState<Record<number, Message[]>>(initialMessages);
 
@@ -106,6 +116,18 @@ export function App() {
       setAuditLogs(data);
     });
 
+    const unsubPartners = subscribeToPartners((data) => {
+      if (data.length > 0) setPartners(data);
+    });
+
+    const unsubFollowUps = subscribeToTreatmentFollowUps((data) => {
+      setFollowUps(data);
+    });
+
+    const unsubNotifs = subscribeToNotifications((data) => {
+      setNotifications(data);
+    });
+
     return () => {
       unsubUsers();
       unsubRequests();
@@ -113,6 +135,9 @@ export function App() {
       unsubReports();
       unsubPayments();
       unsubAudit();
+      unsubPartners();
+      unsubFollowUps();
+      unsubNotifs();
     };
   }, []);
 
@@ -129,8 +154,18 @@ export function App() {
 
   // Navigation handlers
   const handleNavigate = (view: string) => {
-    // RBAC Security Gate: prevent unauthorized access to admin-dashboard
+    // RBAC Security Gate: prevent unauthorized access to dashboards
     if (view === 'admin-dashboard' && currentUser?.roleSlug !== 'admin') {
+      setCurrentView('portal');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
+    if (
+      view === 'specialist-dashboard' &&
+      !['psychologist', 'doctor', 'lawyer', 'legal_advisor', 'clinic', 'hospital', 'association', 'treatment_center', 'admin'].includes(
+        currentUser?.roleSlug || ''
+      )
+    ) {
       setCurrentView('portal');
       window.scrollTo({ top: 0, behavior: 'smooth' });
       return;
@@ -399,6 +434,15 @@ export function App() {
               onNavigate={handleNavigate}
               onOpenAiTriage={() => setIsAiOpen(true)}
               onNewCase={handleNewCaseCTA}
+              onOpenAuth={(mode) => setIsAuthOpen(true)}
+              partners={partners}
+              usersCount={users.length}
+              completedCasesCount={careRequests.filter((r) => r.status === 'COMPLETED').length || 38}
+              specialistsCount={
+                users.filter((u) =>
+                  ['psychologist', 'doctor', 'lawyer', 'legal_advisor', 'clinic', 'hospital'].includes(u.roleSlug)
+                ).length || 24
+              }
             />
           )}
 
@@ -411,6 +455,7 @@ export function App() {
               reports={specialistReports}
               transactions={paymentTransactions}
               auditLogs={auditLogs}
+              partners={partners}
               onOpenRequestDetail={handleSelectRequest}
               onBackToPortal={() => handleNavigate('portal')}
             />
@@ -422,6 +467,9 @@ export function App() {
               requests={careRequests}
               appointments={appointments}
               reports={specialistReports}
+              followUps={followUps}
+              notifications={notifications}
+              users={users}
               onOpenChat={() => handleNavigate('messages')}
               onOpenRequestDetail={handleSelectRequest}
             />
@@ -448,6 +496,9 @@ export function App() {
               currentUser={currentUser}
               requests={careRequests}
               transactions={paymentTransactions}
+              appointments={appointments}
+              reports={specialistReports}
+              notifications={notifications}
               onSelectRequest={handleSelectRequest}
               onStartPayment={handleStartPayment}
               onNewRequest={() => handleNavigate('new-request')}

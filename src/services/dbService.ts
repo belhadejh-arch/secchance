@@ -19,6 +19,9 @@ import {
   SpecialistReport,
   PaymentTransaction,
   AuditLogEntry,
+  TreatmentFollowUp,
+  PartnerOrganization,
+  PlatformNotification,
 } from '../types';
 import {
   initialUsers,
@@ -35,11 +38,66 @@ const REPORTS_COL = 'specialistReports';
 const PAYMENTS_COL = 'paymentTransactions';
 const AUDIT_LOGS_COL = 'auditLogs';
 const RESETS_COL = 'passwordResets';
+const FOLLOW_UPS_COL = 'treatmentFollowUps';
+const PARTNERS_COL = 'partners';
+const NOTIFICATIONS_COL = 'notifications';
 
 // Initial default Admin credentials
 export const DEFAULT_ADMIN_EMAIL = 'admin@secchance.dz';
 export const DEFAULT_ADMIN_PASSWORD = 'admin123456';
 export const SECONDARY_ADMIN_EMAIL = 'khotwaride@gmail.com';
+
+// Default Partners
+export const initialPartners: PartnerOrganization[] = [
+  {
+    id: 'p-1',
+    name: 'وزارة الصحة والسكان وإصلاح المستشفيات',
+    category: 'وزارة',
+    websiteUrl: 'https://www.sante.gov.dz',
+    description: 'الجهة الوصية على برامج إزالة السموم ومراكز الوسيط لعلاج الإدمان (CPA)',
+    isVisible: true,
+  },
+  {
+    id: 'p-2',
+    name: 'وزارة التضامن الوطني والأسرة وقضايا المرأة',
+    category: 'وزارة',
+    websiteUrl: 'https://www.msnfcf.gov.dz',
+    description: 'برامج الدعم الاجتماعي وإعادة الإدماج المهني والأسري للمتعافين',
+    isVisible: true,
+  },
+  {
+    id: 'p-3',
+    name: 'الاتحاد الوطني لمنظمات المحامين الجزائريين',
+    category: 'هيئة وطنية',
+    websiteUrl: 'https://www.ordre-avocats.dz',
+    description: 'المرافقة القانونية لحالات العلاج الطوعي والإعفاء القضائي وفق المادة 6',
+    isVisible: true,
+  },
+  {
+    id: 'p-4',
+    name: 'المؤسسات الاستشفائية المتخصصة في الطب العقلي وإزالة التسمم (EHS)',
+    category: 'مستشفى',
+    websiteUrl: 'https://www.sante.dz/ehs',
+    description: 'شبكة المؤسسات الاستشفائية المتخصصة عبر مختلف ولايات الوطن',
+    isVisible: true,
+  },
+  {
+    id: 'p-5',
+    name: 'الهيئة الوطنية لترقية الصحة وتطوير البحث (FOREM)',
+    category: 'هيئة وطنية',
+    websiteUrl: 'https://forem.dz',
+    description: 'أبحاث ودراسات ميدانية وبرامج التوعية الميدانية ضد المخدرات',
+    isVisible: true,
+  },
+  {
+    id: 'p-6',
+    name: 'الفيدرالية الجزائرية لجمعيات محاربة الإدمان والمرافقة',
+    category: 'جمعية',
+    websiteUrl: 'https://secchance.dz/partners',
+    description: 'شبكة الجمعيات الخيرية والاجتماعية في مرافقة الأسر وحماية الشباب',
+    isVisible: true,
+  },
+];
 
 // Setup and seed Firestore if empty
 export async function initializeDatabase(): Promise<void> {
@@ -126,12 +184,74 @@ export async function initializeDatabase(): Promise<void> {
         });
       }
 
-      // 7. Seed initial audit log
+      // 7. Seed partners
+      for (const part of initialPartners) {
+        await setDoc(doc(db, PARTNERS_COL, String(part.id)), part);
+      }
+
+      // 8. Seed sample notifications (Requirement 20)
+      const sampleNotifs: PlatformNotification[] = [
+        {
+          id: 'notif-1',
+          userId: 'user-1',
+          recipientRole: 'user',
+          title: 'قبول طلب الاستشارة',
+          message: 'تم قبول طلبك برقم SC-2026-1042 من طرف د. أمين منصوري. يرجى تأكيد الموعد.',
+          timestamp: 'منذ ساعتين',
+          isRead: false,
+          type: 'REQUEST',
+          caseNumber: 'SC-2026-1042',
+        },
+        {
+          id: 'notif-2',
+          userId: 'user-2',
+          recipientRole: 'psychologist',
+          title: 'طلب رعاية نفسي جديد',
+          message: 'وردك طلب رعاية جديد ذو أولوية عالية من الجزائر العاصمة.',
+          timestamp: 'منذ 30 دقيقة',
+          isRead: false,
+          type: 'URGENT',
+          caseNumber: 'SC-2026-8841',
+        },
+        {
+          id: 'notif-3',
+          userId: 'admin-1',
+          recipientRole: 'admin',
+          title: 'تسجيل مستفيد جديد',
+          message: 'قام مستفيد جديد بالتسجيل من ولاية وهران بانتظار التوجيه.',
+          timestamp: 'منذ 15 دقيقة',
+          isRead: false,
+          type: 'SYSTEM',
+        },
+      ];
+      for (const n of sampleNotifs) {
+        await setDoc(doc(db, NOTIFICATIONS_COL, String(n.id)), n);
+      }
+
+      // 9. Seed follow-up
+      const sampleFollowUp: TreatmentFollowUp = {
+        id: 'follow-1',
+        caseNumber: 'SC-2026-1042',
+        clientId: 'user-1',
+        clientName: 'محمد بن خالد',
+        specialistId: 'user-2',
+        specialistName: 'د. أمين منصوري',
+        date: '2026-09-27',
+        notes: 'استجابة إيجابية لبروتوكول العلاج السلوكي وتراجع أعراض القلق والانسحاب.',
+        progress: 'متحسن',
+        currentPlan: 'جلسة دعم نفسي أسبوعية مع تمارين الاسترخاء',
+        recommendations: 'الاستمرار في المتابعة العيادية ومرافقة الأسرة',
+        nextAppointment: '2026-10-05',
+        createdAt: new Date().toISOString(),
+      };
+      await setDoc(doc(db, FOLLOW_UPS_COL, 'follow-1'), sampleFollowUp);
+
+      // 10. Seed initial audit log
       await logAuditAction(
         'admin-1',
         'الأدمن العام',
         'INITIALIZE_SYSTEM',
-        'تمت تهيئة قاعدة البيانات السحابية Firestore وتفعيل حسابات النظام والصلاحيات'
+        'تمت تهيئة قاعدة البيانات السحابية Firestore وتفعيل حسابات النظام والصلاحيات والشركاء'
       );
     }
   } catch (error) {
@@ -527,3 +647,102 @@ export async function createPaymentTransactionInDb(tx: Omit<PaymentTransaction, 
   );
   return fullTx;
 }
+
+// ==================== TREATMENT FOLLOW-UPS (Requirement 13) ====================
+export function subscribeToTreatmentFollowUps(callback: (list: TreatmentFollowUp[]) => void) {
+  return onSnapshot(
+    collection(db, FOLLOW_UPS_COL),
+    (snap) => {
+      const list = snap.docs.map((d) => d.data() as TreatmentFollowUp);
+      list.sort((a, b) => (b.date > a.date ? 1 : -1));
+      callback(list);
+    },
+    (err) => console.warn('Follow-ups subscription error:', err)
+  );
+}
+
+export async function addTreatmentFollowUpInDb(followUp: Omit<TreatmentFollowUp, 'id'>): Promise<TreatmentFollowUp> {
+  const newId = `follow-${Date.now()}`;
+  const fullItem: TreatmentFollowUp = {
+    ...followUp,
+    id: newId,
+  };
+  await setDoc(doc(db, FOLLOW_UPS_COL, newId), fullItem);
+  await logAuditAction(
+    fullItem.specialistId,
+    fullItem.specialistName,
+    'LOG_TREATMENT_FOLLOWUP',
+    `تم تسجيل جلسة متابعة علاجية جديدة للحالة ${fullItem.caseNumber} - التطور: ${fullItem.progress}`
+  );
+  return fullItem;
+}
+
+// ==================== PARTNERS (Requirement 15) ====================
+export function subscribeToPartners(callback: (partners: PartnerOrganization[]) => void) {
+  return onSnapshot(
+    collection(db, PARTNERS_COL),
+    (snap) => {
+      if (snap.empty) {
+        callback(initialPartners);
+      } else {
+        const list = snap.docs.map((d) => d.data() as PartnerOrganization);
+        callback(list);
+      }
+    },
+    (err) => console.warn('Partners subscription error:', err)
+  );
+}
+
+export async function createPartnerInDb(partner: Omit<PartnerOrganization, 'id'>): Promise<PartnerOrganization> {
+  const newId = `partner-${Date.now()}`;
+  const fullItem: PartnerOrganization = {
+    ...partner,
+    id: newId,
+  };
+  await setDoc(doc(db, PARTNERS_COL, newId), fullItem);
+  await logAuditAction(
+    'admin',
+    'الأدمن',
+    'CREATE_PARTNER',
+    `تمت إضافة شريك وطني جديد: ${fullItem.name}`
+  );
+  return fullItem;
+}
+
+export async function updatePartnerInDb(id: string | number, updates: Partial<PartnerOrganization>): Promise<void> {
+  await updateDoc(doc(db, PARTNERS_COL, String(id)), updates);
+  await logAuditAction('admin', 'الأدمن', 'UPDATE_PARTNER', `تم تحديث بيانات الشريك ID: ${id}`);
+}
+
+export async function deletePartnerFromDb(id: string | number): Promise<void> {
+  await deleteDoc(doc(db, PARTNERS_COL, String(id)));
+  await logAuditAction('admin', 'الأدمن', 'DELETE_PARTNER', `تم حذف الشريك ID: ${id}`);
+}
+
+// ==================== NOTIFICATIONS (Requirement 20) ====================
+export function subscribeToNotifications(callback: (notifs: PlatformNotification[]) => void) {
+  return onSnapshot(
+    collection(db, NOTIFICATIONS_COL),
+    (snap) => {
+      const list = snap.docs.map((d) => d.data() as PlatformNotification);
+      list.sort((a, b) => (b.timestamp > a.timestamp ? 1 : -1));
+      callback(list);
+    },
+    (err) => console.warn('Notifications subscription error:', err)
+  );
+}
+
+export async function createNotificationInDb(notif: Omit<PlatformNotification, 'id'>): Promise<PlatformNotification> {
+  const newId = `notif-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+  const fullItem: PlatformNotification = {
+    ...notif,
+    id: newId,
+  };
+  await setDoc(doc(db, NOTIFICATIONS_COL, newId), fullItem);
+  return fullItem;
+}
+
+export async function markNotificationAsReadInDb(id: string | number): Promise<void> {
+  await updateDoc(doc(db, NOTIFICATIONS_COL, String(id)), { isRead: true });
+}
+

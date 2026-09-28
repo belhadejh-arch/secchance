@@ -96,6 +96,52 @@
       },
       "required": ["caseNumber", "specialistName", "evaluation"]
     },
+    "TreatmentFollowUp": {
+      "title": "TreatmentFollowUp",
+      "description": "Clinical follow-up progress logs and treatment updates",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "caseNumber": { "type": "string" },
+        "specialistId": { "type": "string" },
+        "date": { "type": "string" },
+        "notes": { "type": "string" },
+        "progress": { "type": "string" },
+        "currentPlan": { "type": "string" },
+        "recommendations": { "type": "string" },
+        "nextAppointment": { "type": "string" }
+      },
+      "required": ["caseNumber", "date", "notes"]
+    },
+    "PartnerOrganization": {
+      "title": "PartnerOrganization",
+      "description": "Official partner ministries, hospitals and institutions",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "category": { "type": "string" },
+        "logoUrl": { "type": "string" },
+        "websiteUrl": { "type": "string" },
+        "description": { "type": "string" },
+        "isVisible": { "type": "string" }
+      },
+      "required": ["name", "category"]
+    },
+    "PlatformNotification": {
+      "title": "PlatformNotification",
+      "description": "System event notifications",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "title": { "type": "string" },
+        "message": { "type": "string" },
+        "timestamp": { "type": "string" },
+        "isRead": { "type": "string" }
+      },
+      "required": ["title", "message"]
+    },
     "PaymentTransaction": {
       "title": "PaymentTransaction",
       "description": "Edahabia/CIB electronic payment records",
@@ -141,6 +187,18 @@
     "/specialistReports/{reportId}": {
       "schema": "SpecialistReport",
       "description": "Case evaluation reports written by specialists"
+    },
+    "/treatmentFollowUps/{followUpId}": {
+      "schema": "TreatmentFollowUp",
+      "description": "Progress and session logs for ongoing cases"
+    },
+    "/partners/{partnerId}": {
+      "schema": "PartnerOrganization",
+      "description": "Official partner ministries, hospitals and associations"
+    },
+    "/notifications/{notificationId}": {
+      "schema": "PlatformNotification",
+      "description": "User and specialist alerts"
     },
     "/paymentTransactions/{txId}": {
       "schema": "PaymentTransaction",
