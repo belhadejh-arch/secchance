@@ -114,10 +114,12 @@ export const LegalAssistanceView: React.FC<LegalAssistanceViewProps> = ({
             <ArrowRight className="w-3.5 h-3.5" />
             <span>العودة</span>
           </button>
-          <div className="flex items-center gap-2">
-            <div className="w-9 h-9 rounded-full bg-[#1766A6] text-white flex items-center justify-center shrink-0">
-              <Scale className="w-5 h-5" />
-            </div>
+          <div className="flex items-center gap-2.5">
+            <img
+              src="/logo.png"
+              alt="شعار منصة الفرصة الثانية"
+              className="w-10 h-10 object-contain rounded-full border border-[#DCEBF4] bg-white p-0.5 shrink-0"
+            />
             <div>
               <h1 className="text-[20px] font-black text-[#203945]">
                 ⚖️ المساعدة القانونية المتخصصة
