@@ -130,7 +130,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
                 if (apiKey.isNotBlank()) {
                     val generativeModel = GenerativeModel(modelName = "gemini-1.5-flash", apiKey = apiKey)
-                    val prompt = "أنت مساعد ذكاء اصطناعي طبي وقانوني في منصة الفرصة الثانية الجزائرية لمكافحة الإدمان والدعم النفسي. قم بتحليل الحالة التالية وتقديم توجيه أولي، تقييم الأولوية (حرجة، عالية، متوسطة، منخفضة)، واقتراح خطوة علاجية مناسبة:\n$symptoms"
+                    val prompt = "أنت مساعد ذكاء اصطناعي طبي وقانوني في منصة الفرصة الثانية الجزائرية لمكافحة الإدمان والدعم النفسي. تلتزم تماماً بالتشريعات الجزائرية فقط (القانون 04-18، وتعديلاته بالقانون 23-05 والمرسوم 25-03، والمرسوم التنفيذي 07-229). ممنوع اختلاق المواد القانونية أو ضمان أي نتيجة قضائية. قم بتحليل الحالة التالية وتقديم توجيه أولي، تقييم الأولوية، واقتراح خطوة علاجية مناسبة مع تنبيه المستخدم لاستشارة متخصص:\n$symptoms"
                     val response = generativeModel.generateContent(prompt)
                     _aiTriageResult.value = response.text ?: "تم استلام الحالة وتحليلها بنجاح."
                 } else {

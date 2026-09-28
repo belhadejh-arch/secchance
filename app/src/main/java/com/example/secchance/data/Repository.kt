@@ -307,9 +307,9 @@ object Repository {
     )
 
     val emergencyResources = listOf(
-        com.example.secchance.data.EmergencyResource(1, "الرقم الأخضر الوطني للدرك الوطني", "1055", "مساعدة فورية وتبليغ عن شبكات ترويج المخدرات بحرية وسرية تامة", true),
-        com.example.secchance.data.EmergencyResource(2, "نجدة الشرطة الجزائرية", "1548", "للطوارئ الأمنية والحالات الحرجة على مدار الساعة", true),
-        com.example.secchance.data.EmergencyResource(3, "الحماية المدنية", "14", "للحالات الطبية الاستعجالية والإنقاذ والإسعاف السريع", true),
-        com.example.secchance.data.EmergencyResource(4, "الرقم الأخضر لوزارة التضامن الوطني", "1527", "استشارات اجتماعية ونفسية ومرافقة الفئات الهشة والأسر", false)
+        com.example.secchance.data.EmergencyResource(1, "المركز الوطني لعلم السموم (Centre Anti Poison)", "020 39 59 59", "للطوارئ الطبية والتسمومات وحالات الجرعات الزائدة على مدار الساعة", true),
+        com.example.secchance.data.EmergencyResource(2, "الرقم الأخضر الوطني للدرك الوطني", "1055", "مساعدة فورية وتبليغ عن شبكات ترويج المخدرات بحرية وسرية تامة", true),
+        com.example.secchance.data.EmergencyResource(3, "نجدة الشرطة الجزائرية", "1548", "للطوارئ الأمنية والحالات الحرجة على مدار الساعة", true),
+        com.example.secchance.data.EmergencyResource(4, "الحماية المدنية", "14", "للحالات الطبية الاستعجالية والإنقاذ والإسعاف السريع", true)
     )
 }
