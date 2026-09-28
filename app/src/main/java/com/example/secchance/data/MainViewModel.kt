@@ -1,21 +1,14 @@
 package com.example.secchance.data
 
-import android.app.Application
-import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.ai.client.generativeai.GenerativeModel
-import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
-class MainViewModel(application: Application) : AndroidViewModel(application) {
-    // Current screen state: 'landing', 'portal', 'services', 'new-case', 'case-detail', 'appointments', 'messages', 'directory', 'awareness', 'emergency', 'payment'
-    private val _currentView = MutableStateFlow("landing")
-    val currentView: StateFlow<String> = _currentView.asStateFlow()
-
-    fun navigateTo(view: String) {
-        _currentView.value = view
-    }
-
+class MainViewModel : ViewModel() {
     val currentUser = Repository.currentUser
     val services = Repository.services
     val careRequests = Repository.careRequests
@@ -25,21 +18,37 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val conversations = Repository.conversations
     val messages = Repository.messages
     val notifications = Repository.notifications
+    val treatmentCenters = Repository.treatmentCenters
+    val associations = Repository.associations
+    val awarenessArticles = Repository.awarenessArticles
+    val emergencyResources = Repository.emergencyResources
+
+    private val _currentView = MutableStateFlow("landing")
+    val currentView: StateFlow<String> = _currentView.asStateFlow()
 
     private val _selectedRequest = MutableStateFlow<CareRequest?>(null)
     val selectedRequest: StateFlow<CareRequest?> = _selectedRequest.asStateFlow()
 
-    fun selectRequest(req: CareRequest) {
-        _selectedRequest.value = req
-        _currentView.value = "case-detail"
-    }
-
     private val _paymentTargetRequest = MutableStateFlow<CareRequest?>(null)
     val paymentTargetRequest: StateFlow<CareRequest?> = _paymentTargetRequest.asStateFlow()
 
-    fun startPayment(req: CareRequest) {
-        _paymentTargetRequest.value = req
-        _currentView.value = "payment"
+    private val _selectedConversationId = MutableStateFlow(1)
+    val selectedConversationId: StateFlow<Int> = _selectedConversationId.asStateFlow()
+
+    fun navigateTo(view: String) {
+        _currentView.value = view
+    }
+
+    fun selectRequest(request: CareRequest?) {
+        _selectedRequest.value = request
+        if (request != null) {
+            _currentView.value = "case-detail"
+        }
+    }
+
+    fun openChat(convId: Int) {
+        _selectedConversationId.value = convId
+        _currentView.value = "messages"
     }
 
     fun login(user: User) {
@@ -54,7 +63,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun createRequest(serviceId: Int, priority: String, wilaya: String, description: String) {
         val user = currentUser.value ?: return
-        val service = services.value.find { it.id == serviceId } ?: services.value.first()
+        val service = services.value.find { it.id == serviceId } ?: return
         Repository.createRequest(
             clientId = user.id,
             clientName = "${user.firstName} ${user.lastName}",
@@ -71,16 +80,20 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun acceptRequest(requestId: Int, priority: String) {
-        Repository.updateRequestPriority(requestId, priority)
-        Repository.updateRequestStatus(requestId, "ACCEPTED")
+        Repository.updateRequestStatus(requestId, "ACCEPTED", null)
     }
 
     fun rejectRequest(requestId: Int, reason: String) {
         Repository.updateRequestStatus(requestId, "REJECTED", reason)
     }
 
-    fun processPayment(requestId: Int, paymentMethod: String) {
-        Repository.processPayment(requestId, paymentMethod)
+    fun startPayment(request: CareRequest) {
+        _paymentTargetRequest.value = request
+        _currentView.value = "payment"
+    }
+
+    fun processPayment(requestId: Int, method: String) {
+        Repository.processPayment(requestId, method)
         _currentView.value = "portal"
     }
 
@@ -93,7 +106,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             specialty = when(user.roleSlug) {
                 "psychologist" -> "أخصائي نفسي عيادي"
                 "lawyer" -> "مستشار قانوني ومحامٍ"
-                else -> "طبيب معالج"
+                "treatment_center" -> "مركز علاج الإدمان"
+                "clinic" -> "عيادة طبية متخصصة"
+                else -> "مختص معتمد"
             },
             evaluation = evaluation,
             professionalNotes = notes,
@@ -134,10 +149,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     val response = generativeModel.generateContent(prompt)
                     _aiTriageResult.value = response.text ?: "تم استلام الحالة وتحليلها بنجاح."
                 } else {
-                    _aiTriageResult.value = "تحليل الذكاء الاصطناعي الأولي:\n• الأولوية المقترحة: عالية\n• التوجيه: نوصي بحجز جلسة دعم نفسي عيادي ومرافقة أسرية فورية.\n• الخطوة الموالية: طلب خدمة استشارية عبر المنصة لربطكم بمختص معتمد."
+                    _aiTriageResult.value = "تحليل الذكاء الاصطناعي الأولي:\n• الأولوية المقترحة: عالية\n• التوجيه: نوصي بحجز جلسة دعم نفسي عيادي ومرافقة أسرية فورية.\n• المرجع القانوني: المادة 6 من القانون 04-18 وتعديلاته (عدم ممارسة الدعوى العمومية عند الخضوع للعلاج الطوعي)."
                 }
             } catch (e: Exception) {
-                _aiTriageResult.value = "تحليل الذكاء الاصطناعي:\nنوصي بطلب استشارة أو دعم نفسي عيادي في أسرع وقت."
+                _aiTriageResult.value = "تحليل الذكاء الاصطناعي الأولي:\n• التوجيه العيادي: نوصي بالتواصل الفوري مع أخصائي نفسي أو طبيب معتمد عبر المنصة.\n• المرجع القانوني: وفق المادة 6 من القانون 04-18 وتعديلاته (القانون 23-05 و 25-03) والمرسوم 07-229، الخضوع للعلاج الطوعي أو المتابعة الطبية يوفر الحماية والإعفاء وفق الشروط القانونية."
             } finally {
                 _isAiLoading.value = false
             }
