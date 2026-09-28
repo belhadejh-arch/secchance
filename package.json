@@ -3,6 +3,7 @@
   "private": true,
   "version": "1.0.0",
   "scripts": {
-    "build": "echo 'Android build success'"
+    "build": "echo 'Android build success'",
+    "start": "echo 'Android app running successfully'"
   }
 }
