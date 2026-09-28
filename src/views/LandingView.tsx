@@ -4,12 +4,10 @@ import {
   PlusCircle,
   Bot,
   PhoneCall,
-  HeartPulse,
+  Brain,
   Scale,
-  Building2,
+  Hospital,
   CreditCard,
-  ArrowLeft,
-  CheckCircle,
 } from 'lucide-react';
 
 interface LandingViewProps {
@@ -24,190 +22,140 @@ export const LandingView: React.FC<LandingViewProps> = ({
   onNewCase,
 }) => {
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 max-w-4xl mx-auto">
       {/* Hero Banner Card */}
-      <div className="bg-gradient-to-br from-blue-700 via-blue-800 to-indigo-900 text-white rounded-3xl p-6 sm:p-8 shadow-xl relative overflow-hidden">
-        {/* Background decorative pattern */}
-        <div className="absolute top-0 -left-10 w-64 h-64 bg-blue-500/10 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute bottom-0 -right-10 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
-
-        <div className="relative z-10 max-w-3xl space-y-4">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-xs font-semibold text-blue-100">
-            <ShieldCheck className="w-4 h-4 text-emerald-400" />
-            <span>منصة رقمية وطنية متكاملة — التشريع الجزائري والمرافقة العيادية</span>
+      <div className="bg-[#EAF3F8] rounded-[24px] p-6 sm:p-7 shadow-xs">
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            <ShieldCheck className="w-5 h-5 text-[#1766A6]" />
+            <span className="text-[12px] font-bold text-[#1766A6]">
+              منصة رقمية وطنية متكاملة
+            </span>
           </div>
 
-          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-black leading-tight sm:leading-snug">
+          <h1 className="text-[22px] sm:text-2xl font-black text-[#104A78] leading-snug">
             منصة الفرصة الثانية للدعم النفسي والاستشارات ومحاربة الإدمان
           </h1>
 
-          <p className="text-sm sm:text-base text-blue-100/90 leading-relaxed font-normal">
-            نوفر مرافقة سرية وآمنة عبر الخبراء والأطباء والمحامين ومراكز علاج الإدمان في جميع ولايات الوطن، مع نظام دفع إلكتروني آمن عبر البطاقة الذهبية و CIB ودعم المادة 6 من القانون 04-18.
+          <p className="text-[13px] text-[#104A78]/80 leading-relaxed font-normal">
+            نوفر مرافقة سرية وآمنة عبر الخبراء والأطباء والمحامين ومراكز علاج الإدمان في جميع ولايات الوطن مع نظام دفع إلكتروني آمن.
           </p>
 
-          <div className="pt-2 flex flex-col sm:flex-row gap-3">
+          <div className="pt-2 flex flex-col sm:flex-row gap-2.5">
             <button
               onClick={onNewCase}
-              className="flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm shadow-md transition-all active:scale-98"
+              className="flex-1 flex items-center justify-center gap-1.5 py-3 px-4 rounded-[12px] bg-[#1766A6] hover:bg-[#125386] text-white font-bold text-xs sm:text-sm shadow-xs transition-colors"
             >
-              <PlusCircle className="w-5 h-5" />
+              <PlusCircle className="w-4 h-4" />
               <span>طلب خدمة أو استشارة</span>
             </button>
 
             <button
               onClick={onOpenAiTriage}
-              className="flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-white/10 hover:bg-white/20 text-white border border-white/25 font-bold text-sm backdrop-blur-xs transition-all active:scale-98"
+              className="flex-1 flex items-center justify-center gap-1.5 py-3 px-4 rounded-[12px] border border-[#1766A6] text-[#1766A6] hover:bg-[#1766A6]/10 font-bold text-xs sm:text-sm transition-colors"
             >
-              <Bot className="w-5 h-5 text-sky-300" />
-              <span>التوجيه الذكي الآلي (AI Triage)</span>
+              <Bot className="w-4 h-4" />
+              <span>التوجيه الذكي الآلي</span>
             </button>
           </div>
         </div>
       </div>
 
-      {/* Emergency Hotline Banner */}
-      <div className="bg-red-50 border border-red-200 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-xs">
-        <div className="flex items-center gap-3.5 w-full sm:w-auto">
-          <div className="w-12 h-12 rounded-xl bg-red-600 text-white flex items-center justify-center shrink-0 shadow-xs">
-            <PhoneCall className="w-6 h-6 animate-pulse" />
+      {/* Emergency Banner Card */}
+      <div className="bg-[#FBECEB] rounded-[16px] p-4 flex items-center justify-between gap-3 shadow-xs">
+        <div className="flex items-center gap-3.5">
+          <div className="w-11 h-11 rounded-[12px] bg-[#A64842] text-white flex items-center justify-center shrink-0">
+            <PhoneCall className="w-5 h-5" />
           </div>
           <div>
-            <h2 className="font-extrabold text-sm sm:text-base text-red-950">
+            <h2 className="text-[13px] font-bold text-[#5F1D1A]">
               خط الطوارئ الوطني 24/24 ساعة
             </h2>
-            <p className="text-xs text-red-800/80 leading-normal">
-              مركز السموم: 1032 | الدرك الوطني: 1055 | الشرطة: 1548 | الحماية المدنية: 14
+            <p className="text-[11px] text-[#5F1D1A]/80 leading-normal">
+              الدرك الوطني: 1055 | الشرطة: 1548 | الحماية: 14
             </p>
           </div>
         </div>
 
         <button
           onClick={() => onNavigate('emergency')}
-          className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs sm:text-sm font-bold shadow-xs transition-colors shrink-0 text-center"
+          className="px-3 py-1.5 rounded-[8px] bg-[#A64842] hover:bg-[#8e3c37] text-white text-[11px] font-bold shadow-xs transition-colors shrink-0"
         >
-          أرقام النجدة والإسعاف
+          اتصل الآن
         </button>
       </div>
 
       {/* Features Grid Header */}
-      <div className="flex items-center justify-between pt-2">
-        <h2 className="text-lg font-black text-slate-900">
+      <div className="pt-2">
+        <h2 className="text-[16px] font-bold text-[#203945]">
           خدمات المنصة الأساسية
         </h2>
-        <button
-          onClick={() => onNavigate('services')}
-          className="text-xs font-bold text-blue-700 hover:text-blue-800 flex items-center gap-1"
-        >
-          <span>عرض كافة الخدمات</span>
-          <ArrowLeft className="w-3.5 h-3.5" />
-        </button>
       </div>
 
-      {/* Feature Cards Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* Features Grid: 2x2 */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {/* Card 1 */}
         <div
           onClick={() => onNavigate('services')}
-          className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs hover:border-blue-400 hover:shadow-md transition-all cursor-pointer group flex flex-col justify-between"
+          className="bg-[#FBFDFC] p-4 rounded-[16px] border border-[#E5ECE9] shadow-xs hover:border-[#1766A6]/40 transition-all cursor-pointer space-y-2"
         >
-          <div>
-            <div className="w-11 h-11 rounded-xl bg-blue-50 text-blue-700 flex items-center justify-center mb-3.5 group-hover:bg-blue-700 group-hover:text-white transition-colors">
-              <HeartPulse className="w-6 h-6" />
-            </div>
-            <h3 className="font-bold text-slate-900 text-sm mb-1">
-              الدعم النفسي العيادي
-            </h3>
-            <p className="text-xs text-slate-500 leading-relaxed">
-              متابعة سرية مع أخصائيين نفسيين عياديين معتمدين وجلسات فردية وأسرية.
-            </p>
+          <div className="w-[38px] h-[38px] rounded-[10px] bg-[#E8F4EF] text-[#25866D] flex items-center justify-center">
+            <Brain className="w-5 h-5" />
           </div>
-          <span className="text-[11px] font-bold text-blue-700 mt-3 block">
-            استكشف الجلسات ←
-          </span>
+          <h3 className="font-bold text-[13px] text-[#203945]">
+            الدعم النفسي العيادي
+          </h3>
+          <p className="text-[11px] text-[#203945]/70 leading-[16px]">
+            متابعة مع أخصائيين نفسيين وجلسات سرية
+          </p>
         </div>
 
         {/* Card 2 */}
         <div
           onClick={() => onNavigate('services')}
-          className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs hover:border-blue-400 hover:shadow-md transition-all cursor-pointer group flex flex-col justify-between"
+          className="bg-[#FBFDFC] p-4 rounded-[16px] border border-[#E5ECE9] shadow-xs hover:border-[#1766A6]/40 transition-all cursor-pointer space-y-2"
         >
-          <div>
-            <div className="w-11 h-11 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center mb-3.5 group-hover:bg-emerald-700 group-hover:text-white transition-colors">
-              <Scale className="w-6 h-6" />
-            </div>
-            <h3 className="font-bold text-slate-900 text-sm mb-1">
-              الاستشارة القانونية
-            </h3>
-            <p className="text-xs text-slate-500 leading-relaxed">
-              توجيه قانوني وفق القانون 04-18 والمادة 6 (العلاج الطوعي وإسقاط المتابعة).
-            </p>
+          <div className="w-[38px] h-[38px] rounded-[10px] bg-[#E8F4EF] text-[#25866D] flex items-center justify-center">
+            <Scale className="w-5 h-5" />
           </div>
-          <span className="text-[11px] font-bold text-emerald-700 mt-3 block">
-            استشارات المحامين ←
-          </span>
+          <h3 className="font-bold text-[13px] text-[#203945]">
+            الاستشارة القانونية
+          </h3>
+          <p className="text-[11px] text-[#203945]/70 leading-[16px]">
+            حماية أسرية وتوجيه قانوني للمتعافي
+          </p>
         </div>
 
         {/* Card 3 */}
         <div
           onClick={() => onNavigate('directory')}
-          className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs hover:border-blue-400 hover:shadow-md transition-all cursor-pointer group flex flex-col justify-between"
+          className="bg-[#FBFDFC] p-4 rounded-[16px] border border-[#E5ECE9] shadow-xs hover:border-[#1766A6]/40 transition-all cursor-pointer space-y-2"
         >
-          <div>
-            <div className="w-11 h-11 rounded-xl bg-amber-50 text-amber-700 flex items-center justify-center mb-3.5 group-hover:bg-amber-600 group-hover:text-white transition-colors">
-              <Building2 className="w-6 h-6" />
-            </div>
-            <h3 className="font-bold text-slate-900 text-sm mb-1">
-              مراكز علاج الإدمان
-            </h3>
-            <p className="text-xs text-slate-500 leading-relaxed">
-              دليل المؤسسات الاستشفائية المتخصصة والجمعيات الوطنية عبر الولايات.
-            </p>
+          <div className="w-[38px] h-[38px] rounded-[10px] bg-[#E8F4EF] text-[#25866D] flex items-center justify-center">
+            <Hospital className="w-5 h-5" />
           </div>
-          <span className="text-[11px] font-bold text-amber-700 mt-3 block">
-            دليل المراكز المعتمدة ←
-          </span>
+          <h3 className="font-bold text-[13px] text-[#203945]">
+            مراكز علاج الإدمان
+          </h3>
+          <p className="text-[11px] text-[#203945]/70 leading-[16px]">
+            دليل المراكز والجمعيات عبر 58 ولاية
+          </p>
         </div>
 
         {/* Card 4 */}
         <div
           onClick={() => onNavigate('services')}
-          className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs hover:border-blue-400 hover:shadow-md transition-all cursor-pointer group flex flex-col justify-between"
+          className="bg-[#FBFDFC] p-4 rounded-[16px] border border-[#E5ECE9] shadow-xs hover:border-[#1766A6]/40 transition-all cursor-pointer space-y-2"
         >
-          <div>
-            <div className="w-11 h-11 rounded-xl bg-indigo-50 text-indigo-700 flex items-center justify-center mb-3.5 group-hover:bg-indigo-700 group-hover:text-white transition-colors">
-              <CreditCard className="w-6 h-6" />
-            </div>
-            <h3 className="font-bold text-slate-900 text-sm mb-1">
-              الدفع الإلكتروني الآمن
-            </h3>
-            <p className="text-xs text-slate-500 leading-relaxed">
-              تسديد تكاليف الجلسات والاستشارات عبر البطاقة الذهبية وبطاقات CIB البنكية.
-            </p>
+          <div className="w-[38px] h-[38px] rounded-[10px] bg-[#E8F4EF] text-[#25866D] flex items-center justify-center">
+            <CreditCard className="w-5 h-5" />
           </div>
-          <span className="text-[11px] font-bold text-indigo-700 mt-3 block">
-            بوابة الدفع الوطنية ←
-          </span>
-        </div>
-      </div>
-
-      {/* Trust & Legal Safeguards */}
-      <div className="bg-slate-100/70 border border-slate-200/80 rounded-2xl p-5">
-        <h3 className="font-bold text-xs text-slate-800 uppercase tracking-wider mb-3">
-          ضمانات ومزايا منصة الفرصة الثانية:
-        </h3>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs text-slate-700">
-          <div className="flex items-center gap-2 bg-white p-3 rounded-xl border border-slate-200">
-            <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
-            <span>سرية تامة وتشفير كامل للبيانات</span>
-          </div>
-          <div className="flex items-center gap-2 bg-white p-3 rounded-xl border border-slate-200">
-            <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
-            <span>خبراء وأطباء معتمدون رسمياً</span>
-          </div>
-          <div className="flex items-center gap-2 bg-white p-3 rounded-xl border border-slate-200">
-            <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
-            <span>تطبيق كامل للمادة 6 من القانون 04-18</span>
-          </div>
+          <h3 className="font-bold text-[13px] text-[#203945]">
+            الدفع الإلكتروني الآمن
+          </h3>
+          <p className="text-[11px] text-[#203945]/70 leading-[16px]">
+            بطاقة الذهبية و CIB لتأكيد المواعيد
+          </p>
         </div>
       </div>
     </div>

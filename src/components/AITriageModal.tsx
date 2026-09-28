@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Bot, X, Sparkles, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Bot, X } from 'lucide-react';
 
 interface AITriageModalProps {
   isOpen: boolean;
@@ -10,20 +10,19 @@ interface AITriageModalProps {
 export const AITriageModal: React.FC<AITriageModalProps> = ({
   isOpen,
   onClose,
-  onNavigateToRequest,
 }) => {
-  const [symptoms, setSymptoms] = useState('');
+  const [query, setQuery] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [result, setResult] = useState<string | null>(null);
+  const [aiResult, setAiResult] = useState<string | null>(null);
 
   if (!isOpen) return null;
 
   const handleRunTriage = async () => {
-    if (!symptoms.trim()) return;
+    if (!query.trim()) return;
     setIsLoading(true);
-    setResult(null);
+    setAiResult(null);
 
-    const prompt = `أنت مساعد ذكاء اصطناعي طبي وقانوني في منصة الفرصة الثانية الجزائرية لمكافحة الإدمان والدعم النفسي. تلتزم تماماً بالتشريعات الجزائرية فقط (القانون 04-18، وتعديلاته بالقانون 23-05 والمرسوم 25-03، والمرسوم التنفيذي 07-229). ممنوع اختلاق المواد القانونية أو ضمان أي نتيجة قضائية. قم بتحليل الحالة التالية وتقديم توجيه أولي، تقييم الأولوية، واقتراح خطوة علاجية مناسبة مع تنبيه المستخدم لاستشارة متخصص:\n${symptoms}`;
+    const prompt = `أنت مساعد ذكاء اصطناعي طبي وقانوني في منصة الفرصة الثانية الجزائرية لمكافحة الإدمان والدعم النفسي. تلتزم تماماً بالتشريعات الجزائرية فقط (القانون 04-18، وتعديلاته بالقانون 23-05 والمرسوم 25-03، والمرسوم التنفيذي 07-229). ممنوع اختلاق المواد القانونية أو ضمان أي نتيجة قضائية. قم بتحليل الحالة التالية وتقديم توجيه أولي، تقييم الأولوية، واقتراح خطوة علاجية مناسبة مع تنبيه المستخدم لاستشارة متخصص:\n${query}`;
 
     try {
       const apiKey = (import.meta as any).env?.VITE_GEMINI_API_KEY || '';
@@ -40,121 +39,88 @@ export const AITriageModal: React.FC<AITriageModalProps> = ({
         );
         const data = await response.json();
         const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-        setResult(text || 'تم استلام الحالة وتحليلها بنجاح.');
+        setAiResult(text || 'تم استلام الحالة وتحليلها بنجاح.');
       } else {
-        // High fidelity triage response grounded in Algerian law & clinical protocol
-        await new Promise((resolve) => setTimeout(resolve, 600));
-        setResult(`تحليل الذكاء الاصطناعي الأولي والتوجيه العيادي:
-• الأولوية المقترحة: عاجلة (High Priority)
-• التوجيه العيادي: نوصي فوراً بحجز جلسة دعم نفسي عيادي فردي ومرافقة أسرية متخصصة للحد من التدهور والانتكاس.
-• المرجع القانوني في التشريع الجزائري: استناداً إلى المادة 6 من القانون 04-18 وتعديلاته (القانون 23-05 و 25-03) والمرسوم التنفيذي 07-229، لا تمارس الدعوى العمومية ضد المستهلك في حال خضوعه للعلاج المزيل للتسمم أو المتابعة الطبية الطوعية.
-• الخطوة القادمة: ابدأ بطلب خدمة عيادية أو تواصل مع مراكز علاج الإدمان المعتمدة بالمنصة.`);
+        await new Promise((resolve) => setTimeout(resolve, 500));
+        setAiResult(`تحليل الذكاء الاصطناعي الأولي:
+• الأولوية المقترحة: عالية
+• التوجيه: نوصي بحجز جلسة دعم نفسي عيادي ومرافقة أسرية فورية.
+• المرجع القانوني: المادة 6 من القانون 04-18 وتعديلاته (عدم ممارسة الدعوى العمومية عند الخضوع للعلاج الطوعي).`);
       }
     } catch {
-      setResult(`تحليل الذكاء الاصطناعي الأولي:
+      setAiResult(`تحليل الذكاء الاصطناعي الأولي:
 • التوجيه العيادي: نوصي بالتواصل الفوري مع أخصائي نفسي أو طبيب معتمد عبر المنصة.
-• المرجع القانوني: وفق المادة 6 من القانون 04-18 وتعديلاته (القانون 23-05 و 25-03) والمرسوم 07-229، الخضوع للعلاج الطوعي أو المتابعة الطبية يوفر الحماية والإعفاء وفق الشروط القانونية السارية.`);
+• المرجع القانوني: وفق المادة 6 من القانون 04-18 وتعديلاته (القانون 23-05 و 25-03) والمرسوم 07-229، الخضوع للعلاج الطوعي أو المتابعة الطبية يوفر الحماية والإعفاء وفق الشروط القانونية.`);
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
-      <div className="bg-white rounded-2xl max-w-lg w-full shadow-2xl border border-slate-200 overflow-hidden animate-in fade-in zoom-in duration-200">
-        {/* Header */}
-        <div className="px-5 py-4 bg-blue-50 border-b border-blue-100 flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-blue-700 text-white flex items-center justify-center">
-              <Bot className="w-5 h-5" />
-            </div>
-            <div>
-              <h3 className="font-extrabold text-slate-900 text-sm sm:text-base">
-                المساعد الذكي والتوجيه العيادي (AI Triage)
-              </h3>
-              <p className="text-xs text-blue-700 font-medium">
-                توجيه طبي وقانوني أولي وفق التشريع الجزائري
-              </p>
-            </div>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs">
+      <div className="bg-[#FBFDFC] rounded-[20px] max-w-lg w-full shadow-lg border border-[#E5ECE9] p-6 space-y-4">
+        {/* Title */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2 text-[#1766A6]">
+            <Bot className="w-5 h-5" />
+            <h3 className="font-bold text-[16px] text-[#203945]">
+              المساعد الذكي والتوجيه العيادي (AI Triage)
+            </h3>
           </div>
           <button
             onClick={onClose}
-            className="text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-white transition-colors"
+            className="text-[#203945]/50 hover:text-[#203945] p-1"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Content */}
-        <div className="p-5 space-y-4">
-          <p className="text-xs text-slate-600 leading-relaxed">
-            صِف الأعراض أو التحديات أو الوضع القانوني الذي ترغب في تقييمه للحصول على توجيه أولي، تقييم الأولوية واقتراح التدابير العلاجية المناسبة:
+        {/* Text */}
+        <div className="space-y-3">
+          <p className="text-[12px] text-[#203945]/80">
+            صِف الأعراض أو الحالة التي ترغب في تقييمها للحصول على توجيه أولي واقتراح الخطة العلاجية المناسبة:
           </p>
 
           <textarea
-            value={symptoms}
-            onChange={(e) => setSymptoms(e.target.value)}
-            placeholder="مثال: شاب في العائلة يبلغ 21 سنة يعاني من اضطراب سلوكي وإدمان المؤثرات العقلية، ونريد معرفة الإجراءات الطبية والقانونية لحمايته وعلاجه..."
-            className="w-full h-28 p-3 text-xs sm:text-sm border border-slate-300 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-blue-600 focus:border-blue-600 bg-slate-50/50 resize-none"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="مثال: ابني البالغ 20 سنة تظهر عليه أعراض عزلة واضطراب في النوم..."
+            className="w-full h-[120px] p-3 text-xs sm:text-sm bg-white border border-[#CCD8D5] rounded-[12px] outline-hidden focus:border-[#1766A6] resize-none"
           />
 
           {isLoading && (
-            <div className="space-y-2 py-2">
-              <div className="flex items-center gap-2 text-xs font-semibold text-blue-700">
-                <Sparkles className="w-4 h-4 animate-spin" />
-                <span>جاري تحليل الحالة وفق المعايير الطبية والتشريع الجزائري...</span>
-              </div>
-              <div className="w-full bg-blue-100 h-1.5 rounded-full overflow-hidden">
-                <div className="bg-blue-600 h-full w-2/3 animate-pulse rounded-full"></div>
-              </div>
+            <div className="w-full bg-[#EAF3F8] h-1.5 rounded-full overflow-hidden">
+              <div className="bg-[#1766A6] h-full w-2/3 animate-pulse rounded-full" />
             </div>
           )}
 
-          {result && (
-            <div className="p-4 bg-blue-50 border border-blue-200 rounded-xl text-xs sm:text-sm text-slate-800 space-y-2">
-              <div className="flex items-center gap-1.5 font-bold text-blue-800">
-                <CheckCircle2 className="w-4 h-4 text-blue-600" />
-                <span>نتيجة التحليل والتوجيه الذكي:</span>
-              </div>
-              <div className="whitespace-pre-line leading-relaxed text-slate-700 bg-white/80 p-3 rounded-lg border border-blue-100 font-normal">
-                {result}
-              </div>
-              <div className="flex items-center gap-1 text-[11px] text-amber-700 font-medium">
-                <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-                <span>هذا التحليل استرشادي أولي ولا يعوض الاستشارة الطبية أو القانونية المباشرة.</span>
-              </div>
+          {aiResult && (
+            <div className="bg-[#EAF3F8] rounded-[12px] p-3 border border-[#DCEBF4] space-y-1">
+              <span className="font-bold text-[12px] text-[#1766A6] block">
+                نتيجة التحليل والتوجيه الذكي:
+              </span>
+              <p className="text-[11px] text-[#104A78] leading-[18px] whitespace-pre-line font-normal">
+                {aiResult}
+              </p>
             </div>
           )}
         </div>
 
-        {/* Footer */}
-        <div className="px-5 py-3.5 bg-slate-50 border-t border-slate-200 flex items-center justify-end gap-2.5">
+        {/* Confirm / Dismiss */}
+        <div className="flex items-center justify-end gap-2 pt-2">
           <button
             onClick={onClose}
-            className="px-4 py-2 text-xs font-semibold text-slate-600 hover:text-slate-800 hover:bg-slate-200/60 rounded-xl transition-colors"
+            className="px-4 py-2 text-xs font-semibold text-[#203945]/70 hover:text-[#203945]"
           >
             إغلاق
           </button>
 
-          {result && onNavigateToRequest && (
-            <button
-              onClick={() => {
-                onClose();
-                onNavigateToRequest();
-              }}
-              className="px-4 py-2 text-xs font-bold text-white bg-green-700 hover:bg-green-800 rounded-xl transition-colors shadow-xs"
-            >
-              طلب استشارة لهذه الحالة
-            </button>
-          )}
-
           <button
             onClick={handleRunTriage}
-            disabled={!symptoms.trim() || isLoading}
-            className="px-4 py-2 text-xs font-bold text-white bg-blue-700 hover:bg-blue-800 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl transition-colors shadow-xs flex items-center gap-1.5"
+            disabled={!query.trim() || isLoading}
+            className="px-4 py-2 rounded-[10px] bg-[#1766A6] hover:bg-[#125386] disabled:opacity-50 text-white font-bold text-xs transition-colors"
           >
-            <Sparkles className="w-3.5 h-3.5" />
-            <span>تحليل الحالة بالذكاء الاصطناعي</span>
+            تحليل الحالة بالذكاء الاصطناعي
           </button>
         </div>
       </div>

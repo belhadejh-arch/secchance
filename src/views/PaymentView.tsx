@@ -1,13 +1,6 @@
 import React, { useState } from 'react';
 import { CareRequest } from '../types';
-import {
-  CreditCard,
-  Building,
-  ShieldCheck,
-  Lock,
-  ArrowRight,
-  CheckCircle2,
-} from 'lucide-react';
+import { CreditCard, Landmark, Lock } from 'lucide-react';
 
 interface PaymentViewProps {
   request: CareRequest | null;
@@ -20,20 +13,19 @@ export const PaymentView: React.FC<PaymentViewProps> = ({
   onProcessPayment,
   onCancel,
 }) => {
-  const [method, setMethod] = useState<'EDAHABIA' | 'CIB'>('EDAHABIA');
-  const [cardNumber, setCardNumber] = useState('6030 0000 1234 5678');
-  const [cardHolder, setCardHolder] = useState('BENKHALED MOHAMMED');
-  const [expiry, setExpiry] = useState('12/28');
-  const [cvv, setCvv] = useState('123');
-  const [isProcessing, setIsProcessing] = useState(false);
+  const [selectedMethod, setSelectedMethod] = useState<'EDAHABIA' | 'CIB'>('EDAHABIA');
+  const [cardNumber, setCardNumber] = useState('');
+  const [cardHolder, setCardHolder] = useState('');
+  const [expiryDate, setExpiryDate] = useState('');
+  const [cvv, setCvv] = useState('');
 
   if (!request) {
     return (
       <div className="text-center py-12 space-y-3">
-        <p className="text-slate-600 font-semibold">لم يتم تحديد طلب للدفع.</p>
+        <p className="text-[#203945] font-semibold">لم يتم تحديد طلب للدفع.</p>
         <button
           onClick={onCancel}
-          className="px-4 py-2 bg-blue-700 text-white rounded-xl text-xs font-bold"
+          className="px-4 py-2 bg-[#1766A6] text-white rounded-[10px] text-xs font-bold"
         >
           العودة للطلبات
         </button>
@@ -41,108 +33,81 @@ export const PaymentView: React.FC<PaymentViewProps> = ({
     );
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handlePay = (e: React.FormEvent) => {
     e.preventDefault();
     if (!cardNumber.trim()) return;
-    setIsProcessing(true);
-    setTimeout(() => {
-      onProcessPayment(request.id, method);
-      setIsProcessing(false);
-    }, 800);
+    onProcessPayment(request.id, selectedMethod);
   };
 
   return (
-    <div className="max-w-xl mx-auto space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-black text-slate-900">
-            إتمام الدفع الإلكتروني (البطاقة الذهبية / CIB)
-          </h1>
-          <p className="text-xs text-slate-500 mt-0.5">
-            بوابة دفع آمنة ومعتمدة في الجزائر لتأكيد المواعيد وتفعيل المتابعة
-          </p>
-        </div>
-        <button
-          onClick={onCancel}
-          className="text-xs font-bold text-slate-600 hover:text-slate-900 flex items-center gap-1"
-        >
-          <span>إلغاء</span>
-          <ArrowRight className="w-4 h-4" />
-        </button>
+    <div className="space-y-4 max-w-lg mx-auto">
+      <div>
+        <h1 className="text-[18px] font-black text-[#203945]">
+          إتمام الدفع الإلكتروني (البطاقة الذهبية / CIB)
+        </h1>
+        <p className="text-[11px] text-[#203945]/70 mt-0.5">
+          بوابة دفع آمنة ومعتمدة في الجزائر. لا يتم تخزين بيانات بطاقتك على الخادم.
+        </p>
       </div>
 
       {/* Invoice Overview Card */}
-      <div className="bg-gradient-to-br from-blue-700 to-indigo-800 text-white rounded-2xl p-5 shadow-md space-y-3">
-        <div className="flex items-center justify-between text-xs text-blue-200 border-b border-white/15 pb-2.5">
-          <span>رقم الحالة: {request.caseNumber}</span>
-          <span className="bg-white/20 px-2 py-0.5 rounded-md font-semibold">دفع فوري</span>
-        </div>
-
-        <div>
-          <h3 className="font-extrabold text-base sm:text-lg">{request.serviceTitle}</h3>
-          <p className="text-xs text-blue-100 mt-0.5">مقدم الخدمة: {request.providerName}</p>
-        </div>
-
-        <div className="pt-2 border-t border-white/15 flex items-center justify-between">
-          <span className="text-xs text-blue-200">المبلغ الإجمالي الواجب دفعه:</span>
-          <span className="text-xl sm:text-2xl font-black text-white">
+      <div className="bg-[#EAF3F8] rounded-[16px] p-4 space-y-2 border border-[#DCEBF4]">
+        <span className="font-bold text-[13px] text-[#1766A6] block">
+          تفاصيل العملية:
+        </span>
+        <p className="text-[13px] text-[#203945]">الخدمة: {request.serviceTitle}</p>
+        <p className="text-[12px] text-[#203945]">مقدم الخدمة: {request.providerName}</p>
+        <p className="text-[11px] text-[#203945]/70">رقم الحالة: {request.caseNumber}</p>
+        <div className="border-t border-[#DCEBF4] pt-2 flex items-center justify-between">
+          <span className="font-bold text-[14px] text-[#203945]">
+            المبلغ الإجمالي الواجب دفعه:
+          </span>
+          <span className="font-black text-[16px] text-[#25866D]">
             {request.amountDzd.toLocaleString()} دج
           </span>
         </div>
       </div>
 
-      {/* Form */}
-      <form onSubmit={handleSubmit} className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs space-y-5">
-        {/* Method selection */}
-        <div>
-          <label className="block text-xs font-bold text-slate-900 mb-2">
-            اختر وسيلة الدفع الإلكتروني:
-          </label>
-          <div className="grid grid-cols-2 gap-3">
-            <div
-              onClick={() => setMethod('EDAHABIA')}
-              className={`p-3.5 rounded-xl border cursor-pointer transition-all flex items-center gap-3 ${
-                method === 'EDAHABIA'
-                  ? 'border-amber-500 bg-amber-50/70 ring-2 ring-amber-500/20'
-                  : 'border-slate-200 hover:bg-slate-50'
-              }`}
-            >
-              <div className="w-8 h-8 rounded-lg bg-amber-500 text-white flex items-center justify-center font-bold text-xs shrink-0">
-                <CreditCard className="w-4 h-4" />
-              </div>
-              <div>
-                <span className="font-bold text-xs sm:text-sm text-slate-900 block">
-                  البطاقة الذهبية
-                </span>
-                <span className="text-[10px] text-slate-500">بريد الجزائر</span>
-              </div>
-            </div>
+      {/* Method Selector */}
+      <div className="space-y-2">
+        <label className="text-[13px] font-bold text-[#203945] block">
+          اختر طريقة الدفع الإلكتروني
+        </label>
+        <div className="grid grid-cols-2 gap-2.5">
+          <div
+            onClick={() => setSelectedMethod('EDAHABIA')}
+            className={`p-3.5 rounded-[12px] cursor-pointer text-center space-y-1 transition-colors border ${
+              selectedMethod === 'EDAHABIA'
+                ? 'bg-[#E8F4EF] border-[#25866D]'
+                : 'bg-[#FBFDFC] border-[#E5ECE9] hover:bg-[#F3F7F6]'
+            }`}
+          >
+            <CreditCard className="w-5 h-5 mx-auto text-[#25866D]" />
+            <span className="font-bold text-[12px] text-[#203945] block">
+              البطاقة الذهبية
+            </span>
+          </div>
 
-            <div
-              onClick={() => setMethod('CIB')}
-              className={`p-3.5 rounded-xl border cursor-pointer transition-all flex items-center gap-3 ${
-                method === 'CIB'
-                  ? 'border-blue-600 bg-blue-50/70 ring-2 ring-blue-600/20'
-                  : 'border-slate-200 hover:bg-slate-50'
-              }`}
-            >
-              <div className="w-8 h-8 rounded-lg bg-blue-600 text-white flex items-center justify-center font-bold text-xs shrink-0">
-                <Building className="w-4 h-4" />
-              </div>
-              <div>
-                <span className="font-bold text-xs sm:text-sm text-slate-900 block">
-                  بطاقة CIB
-                </span>
-                <span className="text-[10px] text-slate-500">البنوك الجزائرية</span>
-              </div>
-            </div>
+          <div
+            onClick={() => setSelectedMethod('CIB')}
+            className={`p-3.5 rounded-[12px] cursor-pointer text-center space-y-1 transition-colors border ${
+              selectedMethod === 'CIB'
+                ? 'bg-[#E8F4EF] border-[#25866D]'
+                : 'bg-[#FBFDFC] border-[#E5ECE9] hover:bg-[#F3F7F6]'
+            }`}
+          >
+            <Landmark className="w-5 h-5 mx-auto text-[#25866D]" />
+            <span className="font-bold text-[12px] text-[#203945] block">
+              بطاقة CIB
+            </span>
           </div>
         </div>
+      </div>
 
-        {/* Card Number */}
+      {/* Form Fields */}
+      <form onSubmit={handlePay} className="space-y-3">
         <div>
-          <label className="block text-xs font-bold text-slate-800 mb-1">
+          <label className="text-[12px] text-[#203945]/80 block mb-1">
             رقم البطاقة (16 رقماً)
           </label>
           <input
@@ -150,14 +115,13 @@ export const PaymentView: React.FC<PaymentViewProps> = ({
             type="text"
             value={cardNumber}
             onChange={(e) => setCardNumber(e.target.value)}
-            placeholder="XXXX XXXX XXXX XXXX"
-            className="w-full p-3 text-xs sm:text-sm border border-slate-300 rounded-xl outline-hidden focus:ring-2 focus:ring-blue-600 font-mono"
+            placeholder="6030 XXXX XXXX XXXX"
+            className="w-full p-2.5 text-xs sm:text-sm bg-white border border-[#CCD8D5] rounded-[10px] outline-hidden focus:border-[#1766A6]"
           />
         </div>
 
-        {/* Cardholder name */}
         <div>
-          <label className="block text-xs font-bold text-slate-800 mb-1">
+          <label className="text-[12px] text-[#203945]/80 block mb-1">
             اسم صاحب البطاقة
           </label>
           <input
@@ -165,30 +129,29 @@ export const PaymentView: React.FC<PaymentViewProps> = ({
             type="text"
             value={cardHolder}
             onChange={(e) => setCardHolder(e.target.value)}
-            placeholder="الاسم واللقب كما هو مدون على البطاقة"
-            className="w-full p-3 text-xs sm:text-sm border border-slate-300 rounded-xl outline-hidden focus:ring-2 focus:ring-blue-600 uppercase"
+            placeholder="الاسم واللقب"
+            className="w-full p-2.5 text-xs sm:text-sm bg-white border border-[#CCD8D5] rounded-[10px] outline-hidden focus:border-[#1766A6]"
           />
         </div>
 
-        {/* Expiry & CVV */}
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-2 gap-2.5">
           <div>
-            <label className="block text-xs font-bold text-slate-800 mb-1">
-              تاريخ الصلاحية
+            <label className="text-[12px] text-[#203945]/80 block mb-1">
+              تاريخ الصلاحية (MM/YY)
             </label>
             <input
               required
               type="text"
-              value={expiry}
-              onChange={(e) => setExpiry(e.target.value)}
-              placeholder="MM/YY"
-              className="w-full p-3 text-xs sm:text-sm border border-slate-300 rounded-xl outline-hidden focus:ring-2 focus:ring-blue-600 font-mono text-center"
+              value={expiryDate}
+              onChange={(e) => setExpiryDate(e.target.value)}
+              placeholder="12/28"
+              className="w-full p-2.5 text-xs sm:text-sm bg-white border border-[#CCD8D5] rounded-[10px] outline-hidden focus:border-[#1766A6]"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-slate-800 mb-1">
-              الرمز السري (CVV2)
+            <label className="text-[12px] text-[#203945]/80 block mb-1">
+              الرمز السري (CVV)
             </label>
             <input
               required
@@ -197,30 +160,28 @@ export const PaymentView: React.FC<PaymentViewProps> = ({
               value={cvv}
               onChange={(e) => setCvv(e.target.value)}
               placeholder="•••"
-              className="w-full p-3 text-xs sm:text-sm border border-slate-300 rounded-xl outline-hidden focus:ring-2 focus:ring-blue-600 font-mono text-center"
+              className="w-full p-2.5 text-xs sm:text-sm bg-white border border-[#CCD8D5] rounded-[10px] outline-hidden focus:border-[#1766A6]"
             />
           </div>
         </div>
 
-        {/* Security badge */}
-        <div className="flex items-center gap-2 text-xs text-slate-600 bg-slate-50 p-3 rounded-xl border border-slate-200">
-          <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
-          <span>الدفع مؤمن بتشفير SSL عالي الحماية ومتصل بالشبكة البنكية الوطنية SATIM.</span>
-        </div>
+        <div className="pt-2 space-y-2">
+          <button
+            type="submit"
+            className="w-full h-[50px] rounded-[12px] bg-[#25866D] hover:bg-[#1e6c58] text-white font-bold text-[14px] shadow-xs flex items-center justify-center gap-2 transition-colors"
+          >
+            <Lock className="w-4 h-4" />
+            <span>دفع آمن ومؤكد ({request.amountDzd.toLocaleString()} دج)</span>
+          </button>
 
-        {/* Action Button */}
-        <button
-          type="submit"
-          disabled={isProcessing}
-          className="w-full py-3.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-bold text-sm shadow-md transition-colors flex items-center justify-center gap-2"
-        >
-          <Lock className="w-4 h-4" />
-          <span>
-            {isProcessing
-              ? 'جاري تأكيد المعاملة واقتطاع المبلغ...'
-              : `تأكيد الدفع الآن (${request.amountDzd.toLocaleString()} دج)`}
-          </span>
-        </button>
+          <button
+            type="button"
+            onClick={onCancel}
+            className="w-full h-[46px] rounded-[12px] border border-[#CCD8D5] text-[#203945] font-semibold text-xs hover:bg-[#FBFDFC] transition-colors"
+          >
+            إلغاء والعودة للطلبات
+          </button>
+        </div>
       </form>
     </div>
   );

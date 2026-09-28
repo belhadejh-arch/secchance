@@ -262,7 +262,7 @@ export function App() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col justify-between pb-16">
+    <div className="min-h-screen bg-[#F3F7F6] text-[#203945] flex flex-col justify-between pb-16">
       <div>
         {/* Top Navbar */}
         <Navbar
@@ -273,7 +273,7 @@ export function App() {
         />
 
         {/* Main Content Area */}
-        <main className="max-w-6xl mx-auto px-4 py-6">
+        <main className="max-w-4xl mx-auto px-4 py-4">
           {currentView === 'landing' && (
             <LandingView
               onNavigate={handleNavigate}
@@ -318,12 +318,12 @@ export function App() {
 
           {currentView === 'portal' && !currentUser && (
             <div className="text-center py-16 space-y-4">
-              <p className="text-base font-bold text-slate-800">
+              <p className="text-base font-bold text-[#203945]">
                 يرجى تسجيل الدخول للوصول إلى لوحة التحكم الخاصة بك.
               </p>
               <button
                 onClick={() => setIsAuthOpen(true)}
-                className="px-6 py-2.5 rounded-xl bg-blue-700 text-white font-bold text-sm shadow-md"
+                className="px-6 py-2.5 rounded-[12px] bg-[#1766A6] text-white font-bold text-sm shadow-xs hover:bg-[#125386] transition-colors"
               >
                 تسجيل الدخول الآن
               </button>

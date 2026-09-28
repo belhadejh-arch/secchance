@@ -1,15 +1,6 @@
 import React, { useState } from 'react';
 import { CareRequest, SpecialistReport, User } from '../types';
-import {
-  ArrowRight,
-  CreditCard,
-  MessageSquare,
-  FileText,
-  Calendar,
-  AlertCircle,
-  CheckCircle2,
-  Send,
-} from 'lucide-react';
+import { ArrowForward, ArrowRight, CreditCard, MessageSquare } from 'lucide-react';
 
 interface CaseDetailViewProps {
   request: CareRequest | null;
@@ -46,12 +37,12 @@ export const CaseDetailView: React.FC<CaseDetailViewProps> = ({
   if (!request) {
     return (
       <div className="text-center py-12 space-y-3">
-        <p className="text-slate-600 font-semibold">لم يتم العثور على تفاصيل الحالة.</p>
+        <p className="text-[#203945] font-semibold">لم يتم العثور على تفاصيل الطلب.</p>
         <button
           onClick={onBack}
-          className="px-4 py-2 bg-blue-700 text-white rounded-xl text-xs font-bold"
+          className="px-4 py-2 bg-[#1766A6] text-white rounded-[10px] text-xs font-bold"
         >
-          العودة للطلبات
+          رجوع للطلبات
         </button>
       </div>
     );
@@ -82,67 +73,54 @@ export const CaseDetailView: React.FC<CaseDetailViewProps> = ({
   };
 
   return (
-    <div className="max-w-3xl mx-auto space-y-6">
+    <div className="space-y-4 max-w-3xl mx-auto">
       {/* Back button */}
       <div>
         <button
           onClick={onBack}
-          className="inline-flex items-center gap-2 text-xs sm:text-sm font-bold text-slate-700 hover:text-blue-700 py-1.5 px-2.5 rounded-lg hover:bg-slate-100 transition-colors"
+          className="flex items-center gap-1.5 text-xs sm:text-sm font-bold text-[#203945] hover:text-[#1766A6] transition-colors"
         >
           <ArrowRight className="w-4 h-4" />
-          <span>الرجوع إلى قائمة الطلبات</span>
+          <span>رجوع للطلبات</span>
         </button>
       </div>
 
-      {/* Main Request Information Card */}
-      <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs space-y-4">
-        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-3">
-          <div className="flex items-center gap-2">
-            <span className="font-black text-sm text-blue-700 bg-blue-50 px-2.5 py-1 rounded-lg">
-              {request.caseNumber}
-            </span>
-            <span className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700">
-              الأولوية: {request.priority}
-            </span>
-          </div>
-
-          <span className="text-xs font-bold px-3 py-1 rounded-lg bg-blue-100 text-blue-900">
+      {/* Main Request Card */}
+      <div className="bg-[#FBFDFC] rounded-[20px] border border-[#E5ECE9] p-5 sm:p-6 shadow-xs space-y-3">
+        <div className="flex items-center justify-between">
+          <span className="font-bold text-[13px] text-[#1766A6]">
+            {request.caseNumber}
+          </span>
+          <span className="font-bold text-[12px] text-[#203945]">
             الحالة: {request.status}
           </span>
         </div>
 
-        <div>
-          <h2 className="text-lg sm:text-xl font-black text-slate-900">
-            {request.serviceTitle}
-          </h2>
-          <p className="text-xs text-slate-500 mt-1">
-            العميل: <span className="font-bold text-slate-800">{request.clientName}</span> | مقدم الخدمة: <span className="font-bold text-blue-700">{request.providerName}</span> | الولاية: {request.wilayaName}
-          </p>
-        </div>
+        <h2 className="font-black text-[18px] text-[#203945]">
+          {request.serviceTitle}
+        </h2>
 
-        <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 text-xs sm:text-sm text-slate-700 leading-relaxed">
-          <span className="font-bold text-slate-900 block mb-1">وصف الحالة والتفاصيل:</span>
+        <p className="font-semibold text-[12px] text-[#25866D]">
+          العميل: {request.clientName} | مقدم الخدمة: {request.providerName}
+        </p>
+
+        <p className="text-[13px] text-[#203945]/80 leading-[20px]">
           {request.description}
-        </div>
+        </p>
 
-        {/* If Rejected */}
         {request.rejectionReason && (
-          <div className="p-3.5 bg-red-50 border border-red-200 rounded-xl text-xs text-red-900 flex items-start gap-2">
-            <AlertCircle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
-            <div>
-              <span className="font-bold block">تم رفض هذا الطلب:</span>
-              <span>السبب: {request.rejectionReason}</span>
-            </div>
+          <div className="bg-[#FBECEB] text-[#5F1D1A] text-[11px] p-2.5 rounded-[8px] border border-[#F5D4D2]">
+            سبب الرفض: {request.rejectionReason}
           </div>
         )}
 
         {/* Action Buttons */}
-        <div className="pt-2 flex flex-col sm:flex-row gap-3">
+        <div className="space-y-2 pt-1">
           {(request.status === 'ACCEPTED' || request.status === 'WAITING_PAYMENT') &&
             request.paymentStatus === 'PENDING' && (
               <button
                 onClick={() => onStartPayment(request)}
-                className="flex-1 py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs sm:text-sm shadow-sm transition-colors flex items-center justify-center gap-2"
+                className="w-full flex items-center justify-center gap-1.5 py-3 px-4 rounded-[12px] bg-[#25866D] hover:bg-[#1e6c58] text-white font-bold text-xs sm:text-sm shadow-xs transition-colors"
               >
                 <CreditCard className="w-4 h-4" />
                 <span>إتمام الدفع الإلكتروني ({request.amountDzd.toLocaleString()} دج)</span>
@@ -151,7 +129,7 @@ export const CaseDetailView: React.FC<CaseDetailViewProps> = ({
 
           <button
             onClick={() => onOpenChat(1)}
-            className="flex-1 py-3 px-4 rounded-xl bg-blue-700 hover:bg-blue-800 text-white font-bold text-xs sm:text-sm shadow-sm transition-colors flex items-center justify-center gap-2"
+            className="w-full flex items-center justify-center gap-1.5 py-3 px-4 rounded-[12px] bg-[#1766A6] hover:bg-[#125386] text-white font-bold text-xs sm:text-sm shadow-xs transition-colors"
           >
             <MessageSquare className="w-4 h-4" />
             <span>فتح غرفة المحادثة المباشرة</span>
@@ -159,155 +137,105 @@ export const CaseDetailView: React.FC<CaseDetailViewProps> = ({
         </div>
       </div>
 
-      {/* Specialist Report Form */}
+      {/* Specialist Report Section */}
       {isSpecialist && (
         <form
           onSubmit={handleSaveReport}
-          className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs space-y-4"
+          className="bg-[#FBFDFC] rounded-[20px] border border-[#E5ECE9] p-5 shadow-xs space-y-3"
         >
-          <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
-            <FileText className="w-5 h-5 text-blue-700" />
-            <h3 className="font-black text-slate-900 text-base">
-              تحرير تقرير وملاحظات عيادية / قانونية للحالة
-            </h3>
-          </div>
+          <h3 className="font-bold text-[15px] text-[#1766A6]">
+            كتابة تقرير وملاحظات مهنية للحالة
+          </h3>
 
-          <div className="space-y-3">
+          <div className="space-y-2">
             <div>
-              <label className="block text-xs font-bold text-slate-800 mb-1">
+              <label className="text-[12px] text-[#203945]/80 block mb-0.5">
                 التقييم العيادي أو القانوني
               </label>
-              <textarea
+              <input
                 required
+                type="text"
                 value={evaluation}
                 onChange={(e) => setEvaluation(e.target.value)}
-                placeholder="أدخل التقييم الأولي أو ملخص الاستشارة القانونية/الطبية..."
-                rows={2}
-                className="w-full p-2.5 text-xs sm:text-sm border border-slate-300 rounded-xl outline-hidden focus:ring-2 focus:ring-blue-600"
+                className="w-full p-2.5 text-xs sm:text-sm bg-white border border-[#CCD8D5] rounded-[8px] outline-hidden focus:border-[#1766A6]"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-800 mb-1">
-                الملاحظات المهنية الدقيقة
-              </label>
-              <textarea
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                placeholder="ملاحظات سلوكية، تاريخ الإدمان، الأعراض، أو السوابق القانونية..."
-                rows={2}
-                className="w-full p-2.5 text-xs sm:text-sm border border-slate-300 rounded-xl outline-hidden focus:ring-2 focus:ring-blue-600"
-              />
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs font-bold text-slate-800 mb-1">
-                  التوصيات
-                </label>
-                <input
-                  type="text"
-                  value={recommendations}
-                  onChange={(e) => setRecommendations(e.target.value)}
-                  placeholder="مثال: جلسات دعم أسبوعية، إشراك الأسرة..."
-                  className="w-full p-2.5 text-xs sm:text-sm border border-slate-300 rounded-xl outline-hidden focus:ring-2 focus:ring-blue-600"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-800 mb-1">
-                  الخطة العلاجية المقترحة
-                </label>
-                <input
-                  type="text"
-                  value={treatmentPlan}
-                  onChange={(e) => setTreatmentPlan(e.target.value)}
-                  placeholder="مثال: برنامج إزالة السموم + مرافقة 6 أسابيع"
-                  className="w-full p-2.5 text-xs sm:text-sm border border-slate-300 rounded-xl outline-hidden focus:ring-2 focus:ring-blue-600"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-slate-800 mb-1">
-                تاريخ الموعد القادم
+              <label className="text-[12px] text-[#203945]/80 block mb-0.5">
+                الملاحظات المهنية
               </label>
               <input
-                type="date"
-                value={nextAppt}
-                onChange={(e) => setNextAppt(e.target.value)}
-                className="w-full p-2.5 text-xs sm:text-sm border border-slate-300 rounded-xl outline-hidden focus:ring-2 focus:ring-blue-600"
+                type="text"
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                className="w-full p-2.5 text-xs sm:text-sm bg-white border border-[#CCD8D5] rounded-[8px] outline-hidden focus:border-[#1766A6]"
               />
             </div>
-          </div>
 
-          <div className="pt-2">
+            <div>
+              <label className="text-[12px] text-[#203945]/80 block mb-0.5">
+                التوصيات
+              </label>
+              <input
+                type="text"
+                value={recommendations}
+                onChange={(e) => setRecommendations(e.target.value)}
+                className="w-full p-2.5 text-xs sm:text-sm bg-white border border-[#CCD8D5] rounded-[8px] outline-hidden focus:border-[#1766A6]"
+              />
+            </div>
+
+            <div>
+              <label className="text-[12px] text-[#203945]/80 block mb-0.5">
+                الخطة العلاجية / المتابعة
+              </label>
+              <input
+                type="text"
+                value={treatmentPlan}
+                onChange={(e) => setTreatmentPlan(e.target.value)}
+                className="w-full p-2.5 text-xs sm:text-sm bg-white border border-[#CCD8D5] rounded-[8px] outline-hidden focus:border-[#1766A6]"
+              />
+            </div>
+
             <button
               type="submit"
               disabled={!evaluation.trim()}
-              className="w-full py-2.5 px-4 rounded-xl bg-blue-700 hover:bg-blue-800 text-white font-bold text-xs sm:text-sm shadow-xs transition-colors flex items-center justify-center gap-1.5"
+              className="w-full py-2.5 px-4 rounded-[10px] bg-[#1766A6] hover:bg-[#125386] text-white font-bold text-xs shadow-xs transition-colors mt-2"
             >
-              <Send className="w-4 h-4" />
-              <span>حفظ وإرسال التقرير لملف الحالة</span>
+              حفظ وإرسال التقرير
             </button>
           </div>
         </form>
       )}
 
-      {/* Existing Reports List */}
-      <div className="space-y-3">
-        <h3 className="font-black text-slate-900 text-base">
-          التقارير والمتابعات المهنية المسجلة ({caseReports.length})
-        </h3>
+      {/* Reports List */}
+      {caseReports.length > 0 && (
+        <div className="space-y-2.5">
+          <h3 className="font-bold text-[15px] text-[#203945]">
+            التقارير والمتابعات المهنية
+          </h3>
 
-        {caseReports.length === 0 ? (
-          <div className="bg-white rounded-2xl border border-slate-200 p-6 text-center text-xs text-slate-500">
-            لا توجد تقارير مسجلة لهذه الحالة بعد.
-          </div>
-        ) : (
-          caseReports.map((rep) => (
+          {caseReports.map((rep) => (
             <div
               key={rep.id}
-              className="bg-white rounded-2xl border border-blue-200 p-5 shadow-xs space-y-2.5"
+              className="bg-[#E8F4EF] rounded-[14px] p-4 text-[#1A5E4D] space-y-1.5 shadow-xs border border-[#D5EADB]"
             >
-              <div className="flex items-center justify-between text-xs">
-                <span className="font-extrabold text-blue-800">
-                  {rep.specialistName} ({rep.specialty})
-                </span>
-                <span className="text-slate-400">{rep.createdAt}</span>
-              </div>
-
-              <div className="text-xs sm:text-sm space-y-1.5 text-slate-800">
-                <p>
-                  <span className="font-bold text-slate-900">التقييم:</span> {rep.evaluation}
-                </p>
-                {rep.professionalNotes && (
-                  <p>
-                    <span className="font-bold text-slate-900">الملاحظات:</span> {rep.professionalNotes}
-                  </p>
-                )}
-                {rep.recommendations && (
-                  <p>
-                    <span className="font-bold text-slate-900">التوصيات:</span> {rep.recommendations}
-                  </p>
-                )}
-                {rep.treatmentPlan && (
-                  <p>
-                    <span className="font-bold text-slate-900">الخطة العلاجية:</span> {rep.treatmentPlan}
-                  </p>
-                )}
-              </div>
-
+              <p className="font-bold text-[12px] text-[#1A5E4D]">
+                المزود: {rep.specialistName} ({rep.specialty})
+              </p>
+              <p className="text-[12px]">التقييم: {rep.evaluation}</p>
+              {rep.professionalNotes && <p className="text-[11px]">الملاحظات: {rep.professionalNotes}</p>}
+              {rep.recommendations && <p className="text-[11px]">التوصيات: {rep.recommendations}</p>}
+              {rep.treatmentPlan && <p className="text-[11px]">الخطة: {rep.treatmentPlan}</p>}
               {rep.nextAppointment && (
-                <div className="pt-2 border-t border-slate-100 flex items-center gap-2 text-xs font-bold text-blue-700">
-                  <Calendar className="w-4 h-4" />
-                  <span>الموعد القادم المحدد: {rep.nextAppointment}</span>
-                </div>
+                <p className="font-bold text-[11px] text-[#1766A6] pt-1">
+                  الموعد القادم: {rep.nextAppointment}
+                </p>
               )}
             </div>
-          ))
-        )}
-      </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 };

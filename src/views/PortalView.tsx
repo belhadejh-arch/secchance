@@ -10,15 +10,9 @@ import {
   LogOut,
   Plus,
   CreditCard,
-  CheckCircle,
-  XCircle,
-  Clock,
-  AlertTriangle,
-  FolderOpen,
-  ArrowUpRight,
-  ShieldCheck,
   Check,
   X,
+  FolderOpen,
 } from 'lucide-react';
 import { initialUsers } from '../data/initialData';
 
@@ -72,57 +66,57 @@ export const PortalView: React.FC<PortalViewProps> = ({
     }
   };
 
-  const getPriorityBadge = (prio: Priority) => {
+  const getPriorityText = (prio: Priority) => {
     switch (prio) {
       case 'Critical':
-        return { text: 'عاجلة جداً', color: 'bg-red-100 text-red-800 border-red-200' };
+        return '🔴 عاجلة جداً';
       case 'High':
-        return { text: 'عاجلة', color: 'bg-amber-100 text-amber-800 border-amber-200' };
+        return '🟠 عاجلة';
       case 'Medium':
-        return { text: 'متوسطة', color: 'bg-blue-100 text-blue-800 border-blue-200' };
+        return '🟡 متوسطة';
       default:
-        return { text: 'عادية', color: 'bg-slate-100 text-slate-800 border-slate-200' };
+        return '🟢 عادية';
     }
   };
 
-  const getStatusBadge = (status: string) => {
+  const getStatusText = (status: string) => {
     switch (status) {
       case 'NEW':
       case 'PENDING_PROVIDER':
-        return { text: 'في انتظار مقدم الخدمة', color: 'bg-amber-100 text-amber-900 border-amber-200' };
+        return 'في انتظار مقدم الخدمة';
       case 'ACCEPTED':
       case 'WAITING_PAYMENT':
-        return { text: 'مقبول — بانتظار الدفع', color: 'bg-blue-100 text-blue-900 border-blue-200' };
+        return 'مقبول - بانتظار الدفع';
       case 'PAID':
       case 'APPOINTMENT_CONFIRMED':
-        return { text: 'مدفوع وموعد مؤكد', color: 'bg-emerald-100 text-emerald-900 border-emerald-200' };
+        return 'مدفوع وموعد مؤكد';
       case 'IN_PROGRESS':
-        return { text: 'المتابعة جارية', color: 'bg-indigo-100 text-indigo-900 border-indigo-200' };
+        return 'المتابعة جارية';
       case 'COMPLETED':
-        return { text: 'مكتملة', color: 'bg-emerald-100 text-emerald-900 border-emerald-200' };
+        return 'مكتملة';
       case 'REJECTED':
-        return { text: 'مرفوض', color: 'bg-red-100 text-red-900 border-red-200' };
+        return 'مرفوض';
       default:
-        return { text: status, color: 'bg-slate-100 text-slate-800 border-slate-200' };
+        return status;
     }
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 max-w-4xl mx-auto">
       {/* Profile Header */}
-      <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs flex items-center justify-between gap-4">
+      <div className="bg-[#FBFDFC] rounded-[20px] p-5 border border-[#E5ECE9] shadow-xs flex items-center justify-between gap-4">
         <div className="flex items-center gap-4">
-          <div className="w-13 h-13 rounded-2xl bg-blue-100 text-blue-800 flex items-center justify-center shrink-0">
-            <UserIcon className="w-6 h-6" />
+          <div className="w-[54px] h-[54px] rounded-[16px] bg-[#EAF3F8] text-[#1766A6] flex items-center justify-center shrink-0">
+            <UserIcon className="w-7 h-7" />
           </div>
           <div>
-            <h2 className="font-extrabold text-slate-900 text-base sm:text-lg">
+            <h2 className="font-black text-[18px] text-[#203945]">
               {currentUser.firstName} {currentUser.lastName}
             </h2>
-            <p className="text-xs font-bold text-blue-700">
+            <p className="text-[12px] font-semibold text-[#1766A6]">
               {getRoleTitle(currentUser.roleSlug)}
             </p>
-            <p className="text-[11px] text-slate-500">
+            <p className="text-[11px] text-[#203945]/60">
               الولاية: {currentUser.wilayaName || 'الجزائر العاصمة'}
             </p>
           </div>
@@ -130,42 +124,36 @@ export const PortalView: React.FC<PortalViewProps> = ({
 
         <button
           onClick={onLogout}
-          className="p-2.5 rounded-xl border border-red-200 text-red-600 hover:bg-red-50 transition-colors flex items-center gap-1.5 text-xs font-bold"
-          title="تسجيل الخروج"
+          className="p-2.5 rounded-xl text-[#A64842] hover:bg-[#FBECEB] transition-colors"
+          title="خروج"
         >
-          <LogOut className="w-4 h-4" />
-          <span className="hidden sm:inline">خروج</span>
+          <LogOut className="w-5 h-5" />
         </button>
       </div>
 
-      {/* VIEW FOR FAMILY / PATIENT */}
+      {/* ROLE 1: FAMILY / PATIENT */}
       {(currentUser.roleSlug === 'family' || currentUser.roleSlug === 'patient') && (
-        <div className="space-y-4">
+        <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <div>
-              <h3 className="font-black text-slate-900 text-base">
-                طلباتي ومتابعاتي (My Requests)
-              </h3>
-              <p className="text-xs text-slate-500">
-                متابعة حالة استشاراتك، إتمام الدفع بالذهبية، وتأكيد المواعيد
-              </p>
-            </div>
+            <h3 className="text-[16px] font-bold text-[#203945]">
+              طلباتي ومتابعاتي (My Requests)
+            </h3>
             <button
               onClick={onNewRequest}
-              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-blue-700 hover:bg-blue-800 text-white text-xs font-bold shadow-xs transition-colors"
+              className="flex items-center gap-1 px-3 py-1.5 rounded-[10px] bg-[#1766A6] text-white text-[11px] font-bold shadow-xs transition-colors hover:bg-[#125386]"
             >
-              <Plus className="w-4 h-4" />
+              <Plus className="w-3.5 h-3.5" />
               <span>طلب خدمة جديد</span>
             </button>
           </div>
 
           {requests.filter((r) => r.clientId === currentUser.id).length === 0 ? (
-            <div className="bg-white rounded-2xl border border-slate-200 p-8 text-center space-y-3">
-              <FolderOpen className="w-10 h-10 text-slate-300 mx-auto" />
-              <p className="text-sm font-bold text-slate-700">ليس لديك أي طلبات حالية</p>
+            <div className="bg-[#FBFDFC] rounded-[16px] border border-[#E5ECE9] p-7 text-center space-y-2">
+              <FolderOpen className="w-9 h-9 text-[#1766A6] mx-auto" />
+              <p className="font-bold text-sm text-[#203945]">ليس لديك أي طلبات حالية</p>
               <button
                 onClick={onNewRequest}
-                className="px-4 py-2 rounded-xl bg-blue-700 text-white text-xs font-bold shadow-xs"
+                className="px-4 py-2 rounded-xl bg-[#1766A6] text-white text-xs font-bold shadow-xs"
               >
                 ابدأ بطلب استشارة أو خدمة
               </button>
@@ -175,8 +163,6 @@ export const PortalView: React.FC<PortalViewProps> = ({
               {requests
                 .filter((r) => r.clientId === currentUser.id)
                 .map((req) => {
-                  const prioBadge = getPriorityBadge(req.priority);
-                  const statusBadge = getStatusBadge(req.status);
                   const canPay =
                     (req.status === 'ACCEPTED' || req.status === 'WAITING_PAYMENT') &&
                     req.paymentStatus === 'PENDING';
@@ -184,67 +170,63 @@ export const PortalView: React.FC<PortalViewProps> = ({
                   return (
                     <div
                       key={req.id}
-                      className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs hover:border-blue-300 transition-all space-y-3"
+                      onClick={() => onSelectRequest(req)}
+                      className="bg-[#FBFDFC] rounded-[16px] border border-[#E5ECE9] p-4 shadow-xs hover:border-[#1766A6]/40 cursor-pointer transition-all space-y-2.5"
                     >
-                      <div className="flex flex-wrap items-center justify-between gap-2">
-                        <span className="font-extrabold text-xs text-blue-700 bg-blue-50 px-2 py-0.5 rounded-md">
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-[11px] text-[#1766A6]">
                           {req.caseNumber}
                         </span>
-                        <div className="flex items-center gap-2">
-                          <span
-                            className={`text-[11px] font-bold px-2.5 py-0.5 rounded-md border ${prioBadge.color}`}
-                          >
-                            الأولوية: {prioBadge.text}
-                          </span>
-                          <span
-                            className={`text-[11px] font-bold px-2.5 py-0.5 rounded-md border ${statusBadge.color}`}
-                          >
-                            {statusBadge.text}
-                          </span>
-                        </div>
+                        <span
+                          className={`text-[10px] font-semibold px-2 py-0.5 rounded-[8px] ${
+                            req.priority === 'Critical' || req.priority === 'High'
+                              ? 'bg-[#FBECEB] text-[#5F1D1A]'
+                              : 'bg-[#E8F4EF] text-[#1A5E4D]'
+                          }`}
+                        >
+                          الأولوية: {getPriorityText(req.priority)}
+                        </span>
                       </div>
 
-                      <div
-                        onClick={() => onSelectRequest(req)}
-                        className="cursor-pointer group"
-                      >
-                        <h4 className="font-bold text-sm sm:text-base text-slate-900 group-hover:text-blue-700 transition-colors">
-                          {req.serviceTitle}
-                        </h4>
-                        <p className="text-xs text-slate-500 mt-0.5">
-                          مقدم الخدمة: {req.providerName} | الولاية: {req.wilayaName}
-                        </p>
-                        <p className="text-xs text-slate-600 line-clamp-2 mt-2 leading-relaxed bg-slate-50 p-2.5 rounded-xl border border-slate-100">
-                          {req.description}
-                        </p>
+                      <h4 className="font-bold text-[15px] text-[#203945]">
+                        {req.serviceTitle}
+                      </h4>
+
+                      <p className="text-[12px] text-[#203945]/70">
+                        مقدم الخدمة: {req.providerName} | الولاية: {req.wilayaName}
+                      </p>
+
+                      <div className="flex items-center justify-between pt-1">
+                        <span
+                          className={`text-[11px] font-bold px-2 py-1 rounded-[8px] ${
+                            req.status === 'ACCEPTED' || req.status === 'WAITING_PAYMENT'
+                              ? 'bg-[#EAF3F8] text-[#104A78]'
+                              : req.status === 'PAID' || req.status === 'APPOINTMENT_CONFIRMED'
+                              ? 'bg-[#E8F4EF] text-[#1A5E4D]'
+                              : req.status === 'REJECTED'
+                              ? 'bg-[#FBECEB] text-[#5F1D1A]'
+                              : 'bg-[#E5ECE9] text-[#203945]'
+                          }`}
+                        >
+                          الحالة: {getStatusText(req.status)}
+                        </span>
+
+                        <span className="font-black text-[14px] text-[#25866D]">
+                          {req.amountDzd.toLocaleString()} دج
+                        </span>
                       </div>
 
-                      <div className="flex flex-wrap items-center justify-between pt-2 border-t border-slate-100 gap-2">
-                        <div className="text-xs font-semibold text-slate-600">
-                          المبلغ:{' '}
-                          <span className="font-black text-emerald-700 text-sm">
-                            {req.amountDzd.toLocaleString()} دج
-                          </span>
-                        </div>
-
-                        <div className="flex items-center gap-2">
-                          {canPay && (
-                            <button
-                              onClick={() => onStartPayment(req)}
-                              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-xs transition-colors"
-                            >
-                              <CreditCard className="w-3.5 h-3.5" />
-                              <span>الدفع الآن (الذهبية / CIB)</span>
-                            </button>
-                          )}
+                      {canPay && (
+                        <div className="pt-1.5" onClick={(e) => e.stopPropagation()}>
                           <button
-                            onClick={() => onSelectRequest(req)}
-                            className="px-3 py-1.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-bold transition-colors"
+                            onClick={() => onStartPayment(req)}
+                            className="w-full flex items-center justify-center gap-1.5 py-2 px-3 rounded-[10px] bg-[#25866D] hover:bg-[#1e6c58] text-white font-bold text-[12px] shadow-xs transition-colors"
                           >
-                            عرض التفاصيل والتقارير
+                            <CreditCard className="w-4 h-4" />
+                            <span>الدفع الآن (البطاقة الذهبية / CIB)</span>
                           </button>
                         </div>
-                      </div>
+                      )}
                     </div>
                   );
                 })}
@@ -253,66 +235,66 @@ export const PortalView: React.FC<PortalViewProps> = ({
         </div>
       )}
 
-      {/* VIEW FOR PROVIDERS */}
+      {/* ROLE 2: PROVIDERS */}
       {currentUser.roleSlug in
         { psychologist: 1, lawyer: 1, treatment_center: 1, clinic: 1, association: 1 } && (
-        <div className="space-y-4">
-          {/* Provider Tabs */}
-          <div className="flex items-center gap-2 border-b border-slate-200 pb-2">
+        <div className="space-y-3">
+          {/* Tabs */}
+          <div className="grid grid-cols-2 gap-2">
             <button
               onClick={() => setProviderTab('waiting')}
-              className={`px-4 py-2 rounded-xl text-xs font-bold transition-colors flex items-center gap-2 ${
+              className={`py-2 px-3 rounded-[10px] text-[11px] font-bold transition-colors ${
                 providerTab === 'waiting'
-                  ? 'bg-blue-700 text-white shadow-xs'
-                  : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                  ? 'bg-[#1766A6] text-white'
+                  : 'bg-[#E5ECE9] text-[#203945] hover:bg-[#d8e1de]'
               }`}
             >
-              <span>الطلبات في انتظارك</span>
-              <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-white/20">
-                {
-                  requests.filter(
-                    (r) =>
-                      r.providerId === currentUser.id &&
-                      (r.status === 'PENDING_PROVIDER' || r.status === 'NEW')
-                  ).length
-                }
-              </span>
+              الطلبات في انتظارك (
+              {
+                requests.filter(
+                  (r) =>
+                    r.providerId === currentUser.id &&
+                    (r.status === 'PENDING_PROVIDER' || r.status === 'NEW')
+                ).length
+              }
+              )
             </button>
-
             <button
               onClick={() => setProviderTab('active')}
-              className={`px-4 py-2 rounded-xl text-xs font-bold transition-colors flex items-center gap-2 ${
+              className={`py-2 px-3 rounded-[10px] text-[11px] font-bold transition-colors ${
                 providerTab === 'active'
-                  ? 'bg-blue-700 text-white shadow-xs'
-                  : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                  ? 'bg-[#1766A6] text-white'
+                  : 'bg-[#E5ECE9] text-[#203945] hover:bg-[#d8e1de]'
               }`}
             >
-              <span>الحالات والمتابعات الجارية</span>
-              <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-white/20">
-                {
-                  requests.filter(
-                    (r) =>
-                      r.providerId === currentUser.id &&
-                      r.status !== 'PENDING_PROVIDER' &&
-                      r.status !== 'NEW' &&
-                      r.status !== 'REJECTED'
-                  ).length
-                }
-              </span>
+              الحالات الجارية (
+              {
+                requests.filter(
+                  (r) =>
+                    r.providerId === currentUser.id &&
+                    r.status !== 'PENDING_PROVIDER' &&
+                    r.status !== 'NEW' &&
+                    r.status !== 'REJECTED'
+                ).length
+              }
+              )
             </button>
           </div>
 
-          {/* Tab 1: Waiting for Acceptance */}
-          {providerTab === 'waiting' && (
+          {providerTab === 'waiting' ? (
             <div className="space-y-3">
+              <h3 className="text-[15px] font-bold text-[#A64842]">
+                الطلبات في انتظارك ⑥
+              </h3>
+
               {requests.filter(
                 (r) =>
                   r.providerId === currentUser.id &&
                   (r.status === 'PENDING_PROVIDER' || r.status === 'NEW')
               ).length === 0 ? (
-                <div className="bg-white rounded-2xl border border-slate-200 p-8 text-center text-xs text-slate-500 font-medium">
+                <p className="text-[12px] text-[#203945]/60 py-4 text-center">
                   لا توجد طلبات جديدة في الانتظار حالياً.
-                </div>
+                </p>
               ) : (
                 requests
                   .filter(
@@ -323,46 +305,36 @@ export const PortalView: React.FC<PortalViewProps> = ({
                   .map((req) => (
                     <div
                       key={req.id}
-                      className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs space-y-3"
+                      className="bg-[#FBFDFC] rounded-[16px] border border-[#E5ECE9] p-4 shadow-xs space-y-2.5"
                     >
                       <div className="flex items-center justify-between">
-                        <span className="font-extrabold text-xs text-blue-700 bg-blue-50 px-2 py-0.5 rounded-md">
+                        <span className="font-bold text-[11px] text-[#1766A6]">
                           {req.caseNumber}
                         </span>
-                        <span className="text-xs font-bold text-slate-800">
+                        <span className="font-bold text-[12px] text-[#203945]">
                           العميل: {req.clientName}
                         </span>
                       </div>
 
-                      <h4 className="font-bold text-sm sm:text-base text-slate-900">
+                      <h4 className="font-bold text-[15px] text-[#203945]">
                         {req.serviceTitle}
                       </h4>
 
-                      <p className="text-xs text-slate-600 leading-relaxed bg-slate-50 p-3 rounded-xl border border-slate-100">
+                      <p className="text-[12px] text-[#203945]/80 line-clamp-2 leading-relaxed">
                         {req.description}
                       </p>
 
-                      <div className="flex items-center justify-between text-xs pt-1">
-                        <span className="text-slate-500">
-                          الولاية: {req.wilayaName} | الأولوية:{' '}
-                          <span className="font-bold">{req.priority}</span>
-                        </span>
-                        <span className="font-bold text-emerald-700">
-                          {req.amountDzd.toLocaleString()} دج
-                        </span>
-                      </div>
-
-                      <div className="flex items-center gap-2 pt-2 border-t border-slate-100">
+                      <div className="flex items-center gap-2 pt-2 border-t border-[#E5ECE9]">
                         <button
                           onClick={() => onAcceptRequest(req.id, req.priority)}
-                          className="flex-1 py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-xs transition-colors flex items-center justify-center gap-1.5"
+                          className="flex-1 flex items-center justify-center gap-1 py-2 px-3 rounded-[10px] bg-[#1766A6] text-white font-bold text-[12px] hover:bg-[#125386] transition-colors"
                         >
                           <Check className="w-4 h-4" />
                           <span>قبول الطلب</span>
                         </button>
                         <button
                           onClick={() => onRejectRequestClick(req.id)}
-                          className="flex-1 py-2 px-3 rounded-xl border border-red-300 text-red-600 hover:bg-red-50 font-bold text-xs transition-colors flex items-center justify-center gap-1.5"
+                          className="flex-1 flex items-center justify-center gap-1 py-2 px-3 rounded-[10px] border border-[#A64842] text-[#A64842] hover:bg-[#FBECEB] font-bold text-[12px] transition-colors"
                         >
                           <X className="w-4 h-4" />
                           <span>رفض الطلب</span>
@@ -372,11 +344,12 @@ export const PortalView: React.FC<PortalViewProps> = ({
                   ))
               )}
             </div>
-          )}
-
-          {/* Tab 2: Active Cases */}
-          {providerTab === 'active' && (
+          ) : (
             <div className="space-y-3">
+              <h3 className="text-[15px] font-bold text-[#203945]">
+                الحالات والمتابعات المقبولة والجارية
+              </h3>
+
               {requests
                 .filter(
                   (r) =>
@@ -389,25 +362,22 @@ export const PortalView: React.FC<PortalViewProps> = ({
                   <div
                     key={req.id}
                     onClick={() => onSelectRequest(req)}
-                    className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs hover:border-blue-300 cursor-pointer space-y-2.5"
+                    className="bg-[#FBFDFC] rounded-[16px] border border-[#E5ECE9] p-4 shadow-xs hover:border-[#1766A6]/40 cursor-pointer transition-all space-y-2"
                   >
                     <div className="flex items-center justify-between">
-                      <span className="font-bold text-xs text-blue-700">
+                      <span className="font-bold text-[11px] text-[#1766A6]">
                         {req.caseNumber}
                       </span>
-                      <span className="text-xs font-semibold px-2 py-0.5 rounded-md bg-blue-50 text-blue-800">
-                        الحالة: {req.status}
+                      <span className="text-[10px] font-semibold px-2 py-0.5 rounded-[8px] bg-[#EAF3F8] text-[#104A78]">
+                        {req.status}
                       </span>
                     </div>
-
-                    <h4 className="font-bold text-sm text-slate-900">
+                    <h4 className="font-bold text-[14px] text-[#203945]">
                       {req.serviceTitle}
                     </h4>
-
-                    <div className="flex items-center justify-between text-xs text-slate-500">
-                      <span>العميل: {req.clientName}</span>
-                      <span>موعد الجلسة: {req.appointmentDate || 'لم يحدد بعد'}</span>
-                    </div>
+                    <p className="text-[12px] text-[#203945]/70">
+                      العميل: {req.clientName} | الموعد: {req.appointmentDate || 'لم يحدد بعد'}
+                    </p>
                   </div>
                 ))}
             </div>
@@ -415,114 +385,123 @@ export const PortalView: React.FC<PortalViewProps> = ({
         </div>
       )}
 
-      {/* VIEW FOR ADMIN */}
+      {/* ROLE 3: ADMIN */}
       {currentUser.roleSlug === 'admin' && (
-        <div className="space-y-5">
-          <div>
-            <h3 className="font-black text-slate-900 text-base sm:text-lg">
-              لوحة الإدارة والتحكم الشامل
-            </h3>
-            <p className="text-xs text-slate-500">
-              إحصائيات المنصة، سجل الطلبات، ومتابعة المعاملات المالية المعتمدة
-            </p>
+        <div className="space-y-3">
+          <h3 className="text-[18px] font-black text-[#203945]">
+            لوحة الإدارة والتحكم الشامل
+          </h3>
+
+          {/* Stats Grid */}
+          <div className="grid grid-cols-3 gap-2">
+            <div className="bg-[#FBFDFC] p-3 rounded-[14px] border border-[#E5ECE9] text-center">
+              <span className="text-[10px] text-[#203945]/70 block">إجمالي المستخدمين</span>
+              <span className="text-[16px] font-black text-[#1766A6]">
+                {initialUsers.length}
+              </span>
+            </div>
+            <div className="bg-[#FBFDFC] p-3 rounded-[14px] border border-[#E5ECE9] text-center">
+              <span className="text-[10px] text-[#203945]/70 block">الطلبات</span>
+              <span className="text-[16px] font-black text-[#1766A6]">
+                {requests.length}
+              </span>
+            </div>
+            <div className="bg-[#FBFDFC] p-3 rounded-[14px] border border-[#E5ECE9] text-center">
+              <span className="text-[10px] text-[#203945]/70 block">المدفوعات</span>
+              <span className="text-[16px] font-black text-[#1766A6]">
+                {transactions.length}
+              </span>
+            </div>
           </div>
 
-          {/* Stat Cards */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <div className="bg-white p-4 rounded-2xl border border-slate-200 text-center shadow-xs">
-              <span className="text-xs text-slate-500 font-medium">المستخدمون</span>
-              <p className="text-xl font-black text-blue-700 mt-1">
-                {initialUsers.length}
-              </p>
-            </div>
-            <div className="bg-white p-4 rounded-2xl border border-slate-200 text-center shadow-xs">
-              <span className="text-xs text-slate-500 font-medium">إجمالي الطلبات</span>
-              <p className="text-xl font-black text-blue-700 mt-1">
-                {requests.length}
-              </p>
-            </div>
-            <div className="bg-white p-4 rounded-2xl border border-slate-200 text-center shadow-xs">
-              <span className="text-xs text-slate-500 font-medium">المدفوعات الناجحة</span>
-              <p className="text-xl font-black text-emerald-700 mt-1">
-                {transactions.filter((t) => t.status === 'SUCCESSFUL').length}
-              </p>
-            </div>
-            <div className="bg-white p-4 rounded-2xl border border-slate-200 text-center shadow-xs">
-              <span className="text-xs text-slate-500 font-medium">إجمالي الإيرادات</span>
-              <p className="text-xl font-black text-emerald-700 mt-1">
+          <div className="grid grid-cols-2 gap-2">
+            <div className="bg-[#FBFDFC] p-3 rounded-[14px] border border-[#E5ECE9] text-center">
+              <span className="text-[10px] text-[#203945]/70 block">إجمالي الإيرادات</span>
+              <span className="text-[16px] font-black text-[#1766A6]">
                 {transactions
                   .filter((t) => t.status === 'SUCCESSFUL')
                   .reduce((acc, curr) => acc + curr.amountDzd, 0)
                   .toLocaleString()}{' '}
                 دج
-              </p>
+              </span>
+            </div>
+            <div className="bg-[#FBFDFC] p-3 rounded-[14px] border border-[#E5ECE9] text-center">
+              <span className="text-[10px] text-[#203945]/70 block">المواعيد المؤكدة</span>
+              <span className="text-[16px] font-black text-[#1766A6]">
+                {requests.filter((r) => r.status === 'APPOINTMENT_CONFIRMED').length}
+              </span>
             </div>
           </div>
 
           {/* Admin Tabs */}
-          <div className="flex items-center gap-2 border-b border-slate-200 pb-2">
+          <div className="grid grid-cols-2 gap-2 pt-1">
             <button
               onClick={() => setAdminTab('requests')}
-              className={`px-4 py-2 rounded-xl text-xs font-bold transition-colors ${
+              className={`py-2 px-3 rounded-[10px] text-[11px] font-bold transition-colors ${
                 adminTab === 'requests'
-                  ? 'bg-blue-700 text-white shadow-xs'
-                  : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                  ? 'bg-[#1766A6] text-white'
+                  : 'bg-[#E5ECE9] text-[#203945]'
               }`}
             >
-              إدارة الطلبات ({requests.length})
+              إدارة الطلبات
             </button>
             <button
               onClick={() => setAdminTab('payments')}
-              className={`px-4 py-2 rounded-xl text-xs font-bold transition-colors ${
+              className={`py-2 px-3 rounded-[10px] text-[11px] font-bold transition-colors ${
                 adminTab === 'payments'
-                  ? 'bg-blue-700 text-white shadow-xs'
-                  : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                  ? 'bg-[#1766A6] text-white'
+                  : 'bg-[#E5ECE9] text-[#203945]'
               }`}
             >
-              إدارة المدفوعات والبطاقات ({transactions.length})
+              إدارة المدفوعات
             </button>
           </div>
 
           {adminTab === 'requests' ? (
-            <div className="space-y-3">
+            <div className="space-y-2 pt-1">
+              <h4 className="text-[14px] font-bold text-[#203945]">جميع طلبات المنصة</h4>
               {requests.map((req) => (
                 <div
                   key={req.id}
                   onClick={() => onSelectRequest(req)}
-                  className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs hover:border-blue-300 cursor-pointer space-y-1.5"
+                  className="bg-[#FBFDFC] p-3 rounded-[14px] border border-[#E5ECE9] cursor-pointer space-y-1"
                 >
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="font-extrabold text-blue-700">{req.caseNumber}</span>
-                    <span className="font-bold text-slate-700">الحالة: {req.status}</span>
+                  <div className="flex items-center justify-between text-[11px]">
+                    <span className="font-bold text-[#1766A6]">{req.caseNumber}</span>
+                    <span className="text-[#203945] font-semibold">{req.status}</span>
                   </div>
-                  <h4 className="font-bold text-sm text-slate-900">{req.serviceTitle}</h4>
-                  <p className="text-xs text-slate-500">
-                    العميل: {req.clientName} | المزود: {req.providerName} | المبلغ: {req.amountDzd} دج
+                  <p className="font-bold text-[13px] text-[#203945]">{req.serviceTitle}</p>
+                  <p className="text-[11px] text-[#203945]/70">
+                    العميل: {req.clientName} | مقدم الخدمة: {req.providerName}
                   </p>
                 </div>
               ))}
             </div>
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-2 pt-1">
+              <h4 className="text-[14px] font-bold text-[#203945]">
+                سجل المعاملات والمدفوعات الإلكترونية
+              </h4>
               {transactions.map((txn) => (
                 <div
                   key={txn.id}
-                  className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs space-y-1.5"
+                  className="bg-[#FBFDFC] p-3 rounded-[12px] border border-[#E5ECE9] space-y-1"
                 >
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="font-extrabold text-blue-700">{txn.paymentId}</span>
-                    <span className="font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md">
+                  <div className="flex items-center justify-between text-[11px]">
+                    <span className="font-bold text-[#1766A6]">{txn.paymentId}</span>
+                    <span className="bg-[#E8F4EF] text-[#1A5E4D] px-2 py-0.5 rounded-[6px] font-bold text-[10px]">
                       {txn.status}
                     </span>
                   </div>
-                  <p className="text-xs font-bold text-slate-900">{txn.serviceTitle}</p>
-                  <div className="flex items-center justify-between text-xs text-slate-500">
-                    <span>
-                      {txn.clientName} ← {txn.providerName} ({txn.paymentMethod})
+                  <p className="text-[12px] font-semibold text-[#203945]">{txn.serviceTitle}</p>
+                  <p className="text-[11px] text-[#203945]/70">
+                    العميل: {txn.clientName} | مقدم الخدمة: {txn.providerName}
+                  </p>
+                  <div className="flex items-center justify-between text-[11px] pt-1">
+                    <span className="font-bold text-[#25866D]">
+                      المبلغ: {txn.amountDzd} دج ({txn.paymentMethod})
                     </span>
-                    <span className="font-black text-slate-900">
-                      {txn.amountDzd.toLocaleString()} دج
-                    </span>
+                    <span className="text-[#203945]/50 text-[10px]">{txn.createdAt}</span>
                   </div>
                 </div>
               ))}
