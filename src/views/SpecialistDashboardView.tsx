@@ -102,9 +102,9 @@ export const SpecialistDashboardView: React.FC<SpecialistDashboardViewProps> = (
       n.recipientRole === 'ALL'
   );
 
-  // Active sub-tab
+  // Active sub-tab (Dashboard, الحالات الجديدة، الحالات الجارية، المواعيد، كتابة التقرير، متابعة العلاج، الرسائل، الإشعارات، الملف الشخصي)
   const [activeTab, setActiveTab] = useState<
-    'new-cases' | 'in-progress' | 'completed' | 'appointments' | 'write-report' | 'followup' | 'notifications'
+    'new-cases' | 'in-progress' | 'completed' | 'appointments' | 'write-report' | 'followup' | 'notifications' | 'profile'
   >('in-progress');
 
   // Selected case for viewing in-progress details
@@ -395,6 +395,26 @@ export const SpecialistDashboardView: React.FC<SpecialistDashboardViewProps> = (
         >
           <Bell className="w-3.5 h-3.5" />
           <span>الإشعارات {unreadNotifsCount > 0 && `(${unreadNotifsCount})`}</span>
+        </button>
+
+        <button
+          onClick={() => onOpenChat(1)}
+          className="px-3.5 py-2 rounded-[10px] transition-colors shrink-0 flex items-center gap-1.5 bg-[#FBFDFC] text-[#203945]/70 hover:bg-[#EAF3F8]"
+        >
+          <MessageSquare className="w-3.5 h-3.5" />
+          <span>الرسائل</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('profile')}
+          className={`px-3.5 py-2 rounded-[10px] transition-colors shrink-0 flex items-center gap-1.5 ${
+            activeTab === 'profile'
+              ? 'bg-[#1766A6] text-white shadow-xs'
+              : 'bg-[#FBFDFC] text-[#203945]/70 hover:bg-[#EAF3F8]'
+          }`}
+        >
+          <UserIcon className="w-3.5 h-3.5" />
+          <span>الملف الشخصي</span>
         </button>
       </div>
 
@@ -1046,6 +1066,61 @@ export const SpecialistDashboardView: React.FC<SpecialistDashboardViewProps> = (
             {myNotifications.length === 0 && (
               <p className="text-xs text-center text-[#203945]/60 py-6">لا توجد إشعارات حالياً.</p>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* ===================== TAB 8: SPECIALIST PROFILE (الملف الشخصي) ===================== */}
+      {activeTab === 'profile' && (
+        <div className="bg-[#FBFDFC] border border-[#E0E8E6] rounded-[22px] p-6 shadow-xs space-y-4 max-w-2xl mx-auto text-xs">
+          <div className="flex items-center gap-3 pb-3 border-b border-[#E0E8E6]">
+            <div className="w-12 h-12 rounded-full bg-[#E8F4EF] text-[#25866D] flex items-center justify-center text-lg font-bold">
+              {currentUser.firstName.charAt(0)}
+            </div>
+            <div>
+              <h3 className="font-black text-base text-[#203945]">
+                {currentUser.firstName} {currentUser.lastName}
+              </h3>
+              <p className="text-[#25866D] font-bold">
+                {currentUser.specialty || (isLawyer ? 'محامٍ ومستشار قانوني معتمد' : 'أخصائي نفسي عيادي وعلاج إدمان')}
+              </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+            <div className="bg-[#F3F7F6] p-3.5 rounded-[12px] space-y-1">
+              <span className="text-[#203945]/70 block font-semibold">البريد المهني:</span>
+              <p className="font-bold text-[#203945]">{currentUser.email}</p>
+            </div>
+
+            <div className="bg-[#F3F7F6] p-3.5 rounded-[12px] space-y-1">
+              <span className="text-[#203945]/70 block font-semibold">رقم الهاتف المهني:</span>
+              <p className="font-bold text-[#203945]">{currentUser.phone || 'غير مسجل'}</p>
+            </div>
+
+            <div className="bg-[#F3F7F6] p-3.5 rounded-[12px] space-y-1">
+              <span className="text-[#203945]/70 block font-semibold">الولاية الجغرافية:</span>
+              <p className="font-bold text-[#203945]">{currentUser.wilayaName || 'الجزائر العاصمة'}</p>
+            </div>
+
+            <div className="bg-[#F3F7F6] p-3.5 rounded-[12px] space-y-1">
+              <span className="text-[#203945]/70 block font-semibold">رقم الاعتماد المهني:</span>
+              <p className="font-bold text-[#1766A6] font-mono">
+                {currentUser.licenseNumber || 'ALG-SPEC-2026-CONF'}
+              </p>
+            </div>
+
+            <div className="bg-[#F3F7F6] p-3.5 rounded-[12px] space-y-1 sm:col-span-2">
+              <span className="text-[#203945]/70 block font-semibold">عنوان العيادة أو المكتب:</span>
+              <p className="font-bold text-[#203945]">{currentUser.address || 'وسط المدينة'}</p>
+            </div>
+          </div>
+
+          <div className="bg-[#EAF3F8] p-3.5 rounded-[14px] border border-[#DCEBF4] text-[11px] text-[#104A78] space-y-1">
+            <strong className="block font-bold">📜 ميثاق السر المهني والأخلاقي:</strong>
+            <p className="leading-relaxed">
+              وفقاً لقانون العقوبات الجزائري، وقانون الصحة، والقانون رقم 18-07 المتعلق بحماية الأشخاص الطبيعيين في مجال معالجة المعطيات ذات الطابع الشخصي، يلتزم المختص بالحفاظ الكامل على سرية ملفات المستفيدين وتقاريرهم.
+            </p>
           </div>
         </div>
       )}

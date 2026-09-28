@@ -69,9 +69,9 @@ export const PortalView: React.FC<PortalViewProps> = ({
   onOpenChat,
   onLogout,
 }) => {
-  // Family & Beneficiary sub-tabs (Requirement 14)
+  // Family & Beneficiary sub-tabs (Requirement: طلباتي، مواعيدي، الحالات الجارية، الرسائل، الإشعارات، إيداع الملفات، التقارير المعتمدة، ملفي الشخصي)
   const [beneficiaryTab, setBeneficiaryTab] = useState<
-    'requests' | 'appointments' | 'cases' | 'messages' | 'notifications' | 'files' | 'reports'
+    'requests' | 'appointments' | 'cases' | 'messages' | 'notifications' | 'files' | 'reports' | 'profile'
   >('requests');
 
   // Filter requests belonging to this beneficiary
@@ -217,7 +217,7 @@ export const PortalView: React.FC<PortalViewProps> = ({
         </div>
       </div>
 
-      {/* Sub Navigation Tabs (Requirement 14) */}
+      {/* Sub Navigation Tabs (Requirement: طلباتي، مواعيدي، الحالات الجارية، الرسائل، الإشعارات، ملفي الشخصي، التقارير) */}
       <div className="flex items-center gap-1.5 overflow-x-auto pb-2 no-scrollbar text-xs font-bold border-b border-[#E0E8E6]">
         <button
           onClick={() => setBeneficiaryTab('requests')}
@@ -228,7 +228,7 @@ export const PortalView: React.FC<PortalViewProps> = ({
           }`}
         >
           <FolderOpen className="w-3.5 h-3.5" />
-          <span>الطلبات ({myRequests.length})</span>
+          <span>طلباتي ({myRequests.length})</span>
         </button>
 
         <button
@@ -240,7 +240,7 @@ export const PortalView: React.FC<PortalViewProps> = ({
           }`}
         >
           <Calendar className="w-3.5 h-3.5" />
-          <span>المواعيد ({myAppointments.length})</span>
+          <span>مواعيدي ({myAppointments.length})</span>
         </button>
 
         <button
@@ -264,7 +264,7 @@ export const PortalView: React.FC<PortalViewProps> = ({
           }`}
         >
           <MessageSquare className="w-3.5 h-3.5" />
-          <span>الرسائل والمحادثة</span>
+          <span>الرسائل</span>
         </button>
 
         <button
@@ -288,7 +288,7 @@ export const PortalView: React.FC<PortalViewProps> = ({
           }`}
         >
           <Paperclip className="w-3.5 h-3.5" />
-          <span>الملفات والوثائق ({myDocuments.length})</span>
+          <span>إيداع الملفات ({myDocuments.length})</span>
         </button>
 
         <button
@@ -300,7 +300,19 @@ export const PortalView: React.FC<PortalViewProps> = ({
           }`}
         >
           <FileText className="w-3.5 h-3.5" />
-          <span>التقارير المسموح برؤيتها ({permittedReports.length})</span>
+          <span>التقارير المعتمدة ({permittedReports.length})</span>
+        </button>
+
+        <button
+          onClick={() => setBeneficiaryTab('profile')}
+          className={`px-3.5 py-2 rounded-[10px] transition-colors shrink-0 flex items-center gap-1.5 ${
+            beneficiaryTab === 'profile'
+              ? 'bg-[#1766A6] text-white shadow-xs'
+              : 'bg-[#FBFDFC] text-[#203945]/70 hover:bg-[#EAF3F8]'
+          }`}
+        >
+          <UserIcon className="w-3.5 h-3.5" />
+          <span>ملفي الشخصي</span>
         </button>
       </div>
 
@@ -620,6 +632,56 @@ export const PortalView: React.FC<PortalViewProps> = ({
               </div>
             ))
           )}
+        </div>
+      )}
+
+      {/* 8. TAB: BENEFICIARY PROFILE (ملفي الشخصي) */}
+      {beneficiaryTab === 'profile' && (
+        <div className="bg-[#FBFDFC] border border-[#E0E8E6] rounded-[20px] p-6 shadow-xs space-y-4 text-xs">
+          <div className="flex items-center gap-3 pb-3 border-b border-[#E0E8E6]">
+            <div className="w-12 h-12 rounded-full bg-[#EAF3F8] text-[#1766A6] flex items-center justify-center text-lg font-bold">
+              {currentUser.firstName.charAt(0)}
+            </div>
+            <div>
+              <h3 className="font-black text-base text-[#203945]">
+                {currentUser.firstName} {currentUser.lastName}
+              </h3>
+              <p className="text-[#1766A6] font-bold">
+                حساب مستفيد / أسرة • الولاية: {currentUser.wilayaName || 'الجزائر العاصمة'}
+              </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+            <div className="bg-[#F3F7F6] p-3.5 rounded-[12px] space-y-1">
+              <span className="text-[#203945]/70 block font-semibold">البريد الإلكتروني:</span>
+              <p className="font-bold text-[#203945]">{currentUser.email}</p>
+            </div>
+
+            <div className="bg-[#F3F7F6] p-3.5 rounded-[12px] space-y-1">
+              <span className="text-[#203945]/70 block font-semibold">رقم الهاتف:</span>
+              <p className="font-bold text-[#203945]">{currentUser.phone || 'غير مسجل'}</p>
+            </div>
+
+            <div className="bg-[#F3F7F6] p-3.5 rounded-[12px] space-y-1">
+              <span className="text-[#203945]/70 block font-semibold">الولاية الجغرافية:</span>
+              <p className="font-bold text-[#203945]">{currentUser.wilayaName || 'الجزائر العاصمة'}</p>
+            </div>
+
+            <div className="bg-[#F3F7F6] p-3.5 rounded-[12px] space-y-1">
+              <span className="text-[#203945]/70 block font-semibold">حالة الحساب:</span>
+              <p className="font-bold text-[#25866D]">
+                {currentUser.status === 'active' ? 'حساب نشط ومحمي' : 'قيد المراجعة'}
+              </p>
+            </div>
+          </div>
+
+          <div className="bg-[#EAF3F8] p-3.5 rounded-[14px] border border-[#DCEBF4] text-[11px] text-[#104A78] space-y-1">
+            <strong className="block font-bold">🔒 الحماية القانونية للبيانات الشخصية:</strong>
+            <p className="leading-relaxed">
+              وفقاً لأحكام القانون رقم 18-07 المؤرخ في 10 يونيو 2018 المتعلق بحماية الأشخاص الطبيعيين في مجال معالجة المعطيات ذات الطابع الشخصي، فإن كافة معلوماتك مشفرة ومصانة ولا يتم مشاركتها إلا مع المختص المعالج بعد موافقتك الصريحة.
+            </p>
+          </div>
         </div>
       )}
     </div>

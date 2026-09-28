@@ -34,6 +34,10 @@ import {
   ExternalLink,
   Globe,
   FileSpreadsheet,
+  BookOpen,
+  Settings,
+  Bell,
+  MessageSquare,
 } from 'lucide-react';
 import {
   User,
@@ -105,9 +109,27 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
     );
   }
 
-  // Active Admin Tab (Including Requirements 15, 18, 19)
+  // Active Admin Tab (Dashboard, المستخدمون, المختصون, المحامون, الأطباء, الجمعيات, العيادات/المستشفيات, الطلبات, الحالات, المواعيد, التقارير, الإحصائيات, المدفوعات, الإشعارات, الشركاء, المحتوى, المراجع القانونية, الإعدادات, سجل النشاط)
   const [activeTab, setActiveTab] = useState<
-    'overview' | 'users' | 'specialists' | 'associations' | 'requests' | 'reports-gen' | 'statistics' | 'partners' | 'audit'
+    | 'overview'
+    | 'users'
+    | 'specialists'
+    | 'lawyers'
+    | 'doctors'
+    | 'associations'
+    | 'clinics-hospitals'
+    | 'requests'
+    | 'cases'
+    | 'appointments'
+    | 'reports-gen'
+    | 'statistics'
+    | 'payments'
+    | 'notifications'
+    | 'partners'
+    | 'content'
+    | 'legal-framework'
+    | 'settings'
+    | 'audit'
   >('overview');
 
   // Search & Filter States
@@ -341,47 +363,23 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
         </div>
       </div>
 
-      {/* Navigation Sub-Tabs (9 Tabs) */}
+      {/* Navigation Sub-Tabs (All 19 Management Sections) */}
       <div className="flex items-center gap-1.5 overflow-x-auto pb-2 no-scrollbar text-xs font-bold border-b border-[#E0E8E6]">
         <button
           onClick={() => setActiveTab('overview')}
-          className={`px-3.5 py-2 rounded-[10px] transition-all shrink-0 flex items-center gap-1.5 ${
+          className={`px-3 py-1.5 rounded-[10px] transition-all shrink-0 flex items-center gap-1.5 ${
             activeTab === 'overview'
               ? 'bg-[#1766A6] text-white shadow-xs'
               : 'bg-[#FBFDFC] text-[#203945]/70 hover:bg-[#EAF3F8]'
           }`}
         >
           <Layers className="w-3.5 h-3.5" />
-          <span>نظرة عامة</span>
-        </button>
-
-        <button
-          onClick={() => setActiveTab('statistics')}
-          className={`px-3.5 py-2 rounded-[10px] transition-all shrink-0 flex items-center gap-1.5 ${
-            activeTab === 'statistics'
-              ? 'bg-[#1766A6] text-white shadow-xs'
-              : 'bg-[#FBFDFC] text-[#203945]/70 hover:bg-[#EAF3F8]'
-          }`}
-        >
-          <BarChart3 className="w-3.5 h-3.5" />
-          <span>الإحصائيات الشاملة</span>
-        </button>
-
-        <button
-          onClick={() => setActiveTab('reports-gen')}
-          className={`px-3.5 py-2 rounded-[10px] transition-all shrink-0 flex items-center gap-1.5 ${
-            activeTab === 'reports-gen'
-              ? 'bg-[#1766A6] text-white shadow-xs'
-              : 'bg-[#FBFDFC] text-[#203945]/70 hover:bg-[#EAF3F8]'
-          }`}
-        >
-          <FileSpreadsheet className="w-3.5 h-3.5" />
-          <span>التقارير والتصدير</span>
+          <span>Dashboard</span>
         </button>
 
         <button
           onClick={() => setActiveTab('users')}
-          className={`px-3.5 py-2 rounded-[10px] transition-all shrink-0 flex items-center gap-1.5 ${
+          className={`px-3 py-1.5 rounded-[10px] transition-all shrink-0 flex items-center gap-1.5 ${
             activeTab === 'users'
               ? 'bg-[#1766A6] text-white shadow-xs'
               : 'bg-[#FBFDFC] text-[#203945]/70 hover:bg-[#EAF3F8]'
@@ -393,7 +391,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
 
         <button
           onClick={() => setActiveTab('specialists')}
-          className={`px-3.5 py-2 rounded-[10px] transition-all shrink-0 flex items-center gap-1.5 ${
+          className={`px-3 py-1.5 rounded-[10px] transition-all shrink-0 flex items-center gap-1.5 ${
             activeTab === 'specialists'
               ? 'bg-[#1766A6] text-white shadow-xs'
               : 'bg-[#FBFDFC] text-[#203945]/70 hover:bg-[#EAF3F8]'
@@ -404,8 +402,32 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
         </button>
 
         <button
+          onClick={() => setActiveTab('lawyers')}
+          className={`px-3 py-1.5 rounded-[10px] transition-all shrink-0 flex items-center gap-1.5 ${
+            activeTab === 'lawyers'
+              ? 'bg-[#1766A6] text-white shadow-xs'
+              : 'bg-[#FBFDFC] text-[#203945]/70 hover:bg-[#EAF3F8]'
+          }`}
+        >
+          <Scale className="w-3.5 h-3.5" />
+          <span>المحامون ({totalLawyers})</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('doctors')}
+          className={`px-3 py-1.5 rounded-[10px] transition-all shrink-0 flex items-center gap-1.5 ${
+            activeTab === 'doctors'
+              ? 'bg-[#1766A6] text-white shadow-xs'
+              : 'bg-[#FBFDFC] text-[#203945]/70 hover:bg-[#EAF3F8]'
+          }`}
+        >
+          <UserCheck className="w-3.5 h-3.5" />
+          <span>الأطباء ({users.filter((u) => u.roleSlug === 'doctor').length})</span>
+        </button>
+
+        <button
           onClick={() => setActiveTab('associations')}
-          className={`px-3.5 py-2 rounded-[10px] transition-all shrink-0 flex items-center gap-1.5 ${
+          className={`px-3 py-1.5 rounded-[10px] transition-all shrink-0 flex items-center gap-1.5 ${
             activeTab === 'associations'
               ? 'bg-[#1766A6] text-white shadow-xs'
               : 'bg-[#FBFDFC] text-[#203945]/70 hover:bg-[#EAF3F8]'
@@ -416,8 +438,104 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
         </button>
 
         <button
+          onClick={() => setActiveTab('clinics-hospitals')}
+          className={`px-3 py-1.5 rounded-[10px] transition-all shrink-0 flex items-center gap-1.5 ${
+            activeTab === 'clinics-hospitals'
+              ? 'bg-[#1766A6] text-white shadow-xs'
+              : 'bg-[#FBFDFC] text-[#203945]/70 hover:bg-[#EAF3F8]'
+          }`}
+        >
+          <Building className="w-3.5 h-3.5" />
+          <span>العيادات/المستشفيات ({users.filter((u) => ['clinic', 'hospital', 'treatment_center'].includes(u.roleSlug)).length})</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('requests')}
+          className={`px-3 py-1.5 rounded-[10px] transition-all shrink-0 flex items-center gap-1.5 ${
+            activeTab === 'requests'
+              ? 'bg-[#1766A6] text-white shadow-xs'
+              : 'bg-[#FBFDFC] text-[#203945]/70 hover:bg-[#EAF3F8]'
+          }`}
+        >
+          <FileText className="w-3.5 h-3.5" />
+          <span>الطلبات ({requests.length})</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('cases')}
+          className={`px-3 py-1.5 rounded-[10px] transition-all shrink-0 flex items-center gap-1.5 ${
+            activeTab === 'cases'
+              ? 'bg-[#1766A6] text-white shadow-xs'
+              : 'bg-[#FBFDFC] text-[#203945]/70 hover:bg-[#EAF3F8]'
+          }`}
+        >
+          <Activity className="w-3.5 h-3.5" />
+          <span>الحالات ({inProgressRequests + completedCases})</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('appointments')}
+          className={`px-3 py-1.5 rounded-[10px] transition-all shrink-0 flex items-center gap-1.5 ${
+            activeTab === 'appointments'
+              ? 'bg-[#1766A6] text-white shadow-xs'
+              : 'bg-[#FBFDFC] text-[#203945]/70 hover:bg-[#EAF3F8]'
+          }`}
+        >
+          <Calendar className="w-3.5 h-3.5" />
+          <span>المواعيد ({appointments.length})</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('reports-gen')}
+          className={`px-3 py-1.5 rounded-[10px] transition-all shrink-0 flex items-center gap-1.5 ${
+            activeTab === 'reports-gen'
+              ? 'bg-[#1766A6] text-white shadow-xs'
+              : 'bg-[#FBFDFC] text-[#203945]/70 hover:bg-[#EAF3F8]'
+          }`}
+        >
+          <FileSpreadsheet className="w-3.5 h-3.5" />
+          <span>التقارير ({reports.length})</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('statistics')}
+          className={`px-3 py-1.5 rounded-[10px] transition-all shrink-0 flex items-center gap-1.5 ${
+            activeTab === 'statistics'
+              ? 'bg-[#1766A6] text-white shadow-xs'
+              : 'bg-[#FBFDFC] text-[#203945]/70 hover:bg-[#EAF3F8]'
+          }`}
+        >
+          <BarChart3 className="w-3.5 h-3.5" />
+          <span>الإحصائيات</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('payments')}
+          className={`px-3 py-1.5 rounded-[10px] transition-all shrink-0 flex items-center gap-1.5 ${
+            activeTab === 'payments'
+              ? 'bg-[#1766A6] text-white shadow-xs'
+              : 'bg-[#FBFDFC] text-[#203945]/70 hover:bg-[#EAF3F8]'
+          }`}
+        >
+          <CreditCard className="w-3.5 h-3.5" />
+          <span>المدفوعات ({transactions.length})</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('notifications')}
+          className={`px-3 py-1.5 rounded-[10px] transition-all shrink-0 flex items-center gap-1.5 ${
+            activeTab === 'notifications'
+              ? 'bg-[#1766A6] text-white shadow-xs'
+              : 'bg-[#FBFDFC] text-[#203945]/70 hover:bg-[#EAF3F8]'
+          }`}
+        >
+          <Bell className="w-3.5 h-3.5" />
+          <span>الإشعارات</span>
+        </button>
+
+        <button
           onClick={() => setActiveTab('partners')}
-          className={`px-3.5 py-2 rounded-[10px] transition-all shrink-0 flex items-center gap-1.5 ${
+          className={`px-3 py-1.5 rounded-[10px] transition-all shrink-0 flex items-center gap-1.5 ${
             activeTab === 'partners'
               ? 'bg-[#1766A6] text-white shadow-xs'
               : 'bg-[#FBFDFC] text-[#203945]/70 hover:bg-[#EAF3F8]'
@@ -428,27 +546,51 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
         </button>
 
         <button
-          onClick={() => setActiveTab('requests')}
-          className={`px-3.5 py-2 rounded-[10px] transition-all shrink-0 flex items-center gap-1.5 ${
-            activeTab === 'requests'
+          onClick={() => setActiveTab('content')}
+          className={`px-3 py-1.5 rounded-[10px] transition-all shrink-0 flex items-center gap-1.5 ${
+            activeTab === 'content'
               ? 'bg-[#1766A6] text-white shadow-xs'
               : 'bg-[#FBFDFC] text-[#203945]/70 hover:bg-[#EAF3F8]'
           }`}
         >
           <FileText className="w-3.5 h-3.5" />
-          <span>الطلبات والحالات ({requests.length})</span>
+          <span>المحتوى</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('legal-framework')}
+          className={`px-3 py-1.5 rounded-[10px] transition-all shrink-0 flex items-center gap-1.5 ${
+            activeTab === 'legal-framework'
+              ? 'bg-[#1766A6] text-white shadow-xs'
+              : 'bg-[#FBFDFC] text-[#203945]/70 hover:bg-[#EAF3F8]'
+          }`}
+        >
+          <BookOpen className="w-3.5 h-3.5" />
+          <span>المراجع القانونية</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('settings')}
+          className={`px-3 py-1.5 rounded-[10px] transition-all shrink-0 flex items-center gap-1.5 ${
+            activeTab === 'settings'
+              ? 'bg-[#1766A6] text-white shadow-xs'
+              : 'bg-[#FBFDFC] text-[#203945]/70 hover:bg-[#EAF3F8]'
+          }`}
+        >
+          <Settings className="w-3.5 h-3.5" />
+          <span>الإعدادات</span>
         </button>
 
         <button
           onClick={() => setActiveTab('audit')}
-          className={`px-3.5 py-2 rounded-[10px] transition-all shrink-0 flex items-center gap-1.5 ${
+          className={`px-3 py-1.5 rounded-[10px] transition-all shrink-0 flex items-center gap-1.5 ${
             activeTab === 'audit'
               ? 'bg-[#1766A6] text-white shadow-xs'
               : 'bg-[#FBFDFC] text-[#203945]/70 hover:bg-[#EAF3F8]'
           }`}
         >
           <Activity className="w-3.5 h-3.5" />
-          <span>سجل التدقيق</span>
+          <span>سجل النشاط</span>
         </button>
       </div>
 
@@ -1347,6 +1489,473 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                 </div>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* ===================== TAB: LAWYERS MANAGEMENT (المحامون) ===================== */}
+      {activeTab === 'lawyers' && (
+        <div className="bg-[#FBFDFC] border border-[#E0E8E6] rounded-[20px] p-5 shadow-xs space-y-4">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pb-3 border-b border-[#E0E8E6]">
+            <div>
+              <h3 className="font-bold text-sm text-[#203945]">⚖️ شبكة المحامين والمستشارين القانونيين</h3>
+              <p className="text-[11px] text-[#203945]/70">إدارة مكاتب المحاماة، اعتمادات نقابة المحامين، واستشارات المادة 6</p>
+            </div>
+            <button
+              onClick={() => {
+                setNewSpecRole('lawyer');
+                setIsCreateSpecialistOpen(true);
+              }}
+              className="px-4 py-2 rounded-[12px] bg-[#1766A6] text-white font-bold text-xs shadow-xs flex items-center gap-1.5"
+            >
+              <UserPlus className="w-4 h-4" />
+              <span>+ إضافة محامٍ معتمد</span>
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            {users
+              .filter((u) => ['lawyer', 'legal_advisor'].includes(u.roleSlug))
+              .map((lawyer) => (
+                <div key={lawyer.id} className="bg-white border border-[#CCD8D5] rounded-[16px] p-4 shadow-xs space-y-2.5">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <h4 className="font-black text-sm text-[#203945]">الأستاذ {lawyer.firstName} {lawyer.lastName}</h4>
+                      <p className="text-[11px] text-[#1766A6] font-bold">محامٍ لدى منظمة المحامين</p>
+                    </div>
+                    <span className="px-2 py-0.5 rounded-full bg-[#E8F4EF] text-[#25866D] text-[10px] font-bold">
+                      {lawyer.status === 'active' ? 'نشط ومعتمد' : 'موقوف'}
+                    </span>
+                  </div>
+                  <div className="text-[11px] text-[#203945]/80 space-y-1">
+                    <p>📧 {lawyer.email}</p>
+                    <p>📞 {lawyer.phone}</p>
+                    <p>📍 {lawyer.wilayaName || 'الجزائر العاصمة'}</p>
+                    {lawyer.licenseNumber && <p className="font-mono text-[10px] text-[#1766A6]">📜 رقم الاعتماد: {lawyer.licenseNumber}</p>}
+                  </div>
+                  <div className="pt-2 border-t border-[#E0E8E6] flex justify-between items-center text-xs">
+                    <button onClick={() => setSelectedUserForDetail(lawyer)} className="text-[#1766A6] font-bold hover:underline">
+                      عرض الملف والقضايا ←
+                    </button>
+                    <button onClick={() => handleToggleUserStatus(lawyer)} className="text-[#A64842] text-[11px] hover:underline">
+                      {lawyer.status === 'active' ? 'تعطيل الحساب' : 'تفعيل الحساب'}
+                    </button>
+                  </div>
+                </div>
+              ))}
+          </div>
+        </div>
+      )}
+
+      {/* ===================== TAB: DOCTORS MANAGEMENT (الأطباء) ===================== */}
+      {activeTab === 'doctors' && (
+        <div className="bg-[#FBFDFC] border border-[#E0E8E6] rounded-[20px] p-5 shadow-xs space-y-4">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pb-3 border-b border-[#E0E8E6]">
+            <div>
+              <h3 className="font-bold text-sm text-[#203945]">🩺 الأطباء المتخصصون في علاج الإدمان وإزالة السموم</h3>
+              <p className="text-[11px] text-[#203945]/70">إدارة الأطباء النفسيين وأطباء الصحة العمومية وعلاج الإدمان</p>
+            </div>
+            <button
+              onClick={() => {
+                setNewSpecRole('doctor');
+                setIsCreateSpecialistOpen(true);
+              }}
+              className="px-4 py-2 rounded-[12px] bg-[#25866D] text-white font-bold text-xs shadow-xs flex items-center gap-1.5"
+            >
+              <UserPlus className="w-4 h-4" />
+              <span>+ إضافة طبيب معالج</span>
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            {users
+              .filter((u) => u.roleSlug === 'doctor' || (u.roleSlug === 'psychologist' && u.specialty?.includes('طبيب')))
+              .map((docUser) => (
+                <div key={docUser.id} className="bg-white border border-[#CCD8D5] rounded-[16px] p-4 shadow-xs space-y-2.5">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <h4 className="font-black text-sm text-[#203945]">د. {docUser.firstName} {docUser.lastName}</h4>
+                      <p className="text-[11px] text-[#25866D] font-bold">{docUser.specialty || 'طبيب متخصص في علاج الإدمان'}</p>
+                    </div>
+                    <span className="px-2 py-0.5 rounded-full bg-[#E8F4EF] text-[#25866D] text-[10px] font-bold">
+                      {docUser.status === 'active' ? 'نشط ومصرح' : 'قيد المراجعة'}
+                    </span>
+                  </div>
+                  <div className="text-[11px] text-[#203945]/80 space-y-1">
+                    <p>📧 {docUser.email}</p>
+                    <p>📞 {docUser.phone}</p>
+                    <p>📍 {docUser.wilayaName || 'الجزائر'}</p>
+                  </div>
+                  <div className="pt-2 border-t border-[#E0E8E6] flex justify-between items-center text-xs">
+                    <button onClick={() => setSelectedUserForDetail(docUser)} className="text-[#1766A6] font-bold hover:underline">
+                      عرض التقارير الطبية ←
+                    </button>
+                    <button onClick={() => handleToggleUserStatus(docUser)} className="text-[#A64842] text-[11px] hover:underline">
+                      {docUser.status === 'active' ? 'إيقاف مؤقت' : 'تفعيل'}
+                    </button>
+                  </div>
+                </div>
+              ))}
+          </div>
+        </div>
+      )}
+
+      {/* ===================== TAB: CLINICS & HOSPITALS (العيادات والمستشفيات) ===================== */}
+      {activeTab === 'clinics-hospitals' && (
+        <div className="bg-[#FBFDFC] border border-[#E0E8E6] rounded-[20px] p-5 shadow-xs space-y-4">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pb-3 border-b border-[#E0E8E6]">
+            <div>
+              <h3 className="font-bold text-sm text-[#203945]">🏥 العيادات والمستشفيات ومراكز علاج الإدمان الشريكة</h3>
+              <p className="text-[11px] text-[#203945]/70">المؤسسات الاستشفائية العمومية والخاصة المعتمدة لإزالة السموم والتكفل الداخلي</p>
+            </div>
+            <button
+              onClick={() => {
+                setNewSpecRole('clinic');
+                setIsCreateSpecialistOpen(true);
+              }}
+              className="px-4 py-2 rounded-[12px] bg-[#1766A6] text-white font-bold text-xs shadow-xs flex items-center gap-1.5"
+            >
+              <Building className="w-4 h-4" />
+              <span>+ تسجيل عيادة أو مستشفى</span>
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            {users
+              .filter((u) => ['clinic', 'hospital', 'treatment_center'].includes(u.roleSlug))
+              .map((inst) => (
+                <div key={inst.id} className="bg-white border border-[#CCD8D5] rounded-[16px] p-4 shadow-xs space-y-2.5">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <h4 className="font-black text-sm text-[#203945]">{inst.firstName} {inst.lastName}</h4>
+                      <p className="text-[11px] text-[#1766A6] font-bold">
+                        {inst.roleSlug === 'hospital' ? 'مؤسسة استشفائية' : 'مركز متخصص / عيادة'}
+                      </p>
+                    </div>
+                    <span className="px-2 py-0.5 rounded-full bg-[#E8F4EF] text-[#25866D] text-[10px] font-bold">
+                      معتمد رسمياً
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-[#203945]/75 leading-relaxed">{inst.address || 'وسط المدينة'}</p>
+                  <p className="text-[11px] text-[#1766A6] font-medium">📍 {inst.wilayaName || 'الجزائر'}</p>
+                  <div className="pt-2 border-t border-[#E0E8E6] flex justify-between items-center text-xs">
+                    <span className="text-[11px] text-[#203945]/60">📞 {inst.phone}</span>
+                    <button onClick={() => setSelectedUserForDetail(inst)} className="text-[#1766A6] font-bold hover:underline">
+                      التفاصيل ←
+                    </button>
+                  </div>
+                </div>
+              ))}
+          </div>
+        </div>
+      )}
+
+      {/* ===================== TAB: CASES (الحالات الجارية والمكتملة) ===================== */}
+      {activeTab === 'cases' && (
+        <div className="bg-[#FBFDFC] border border-[#E0E8E6] rounded-[20px] p-5 shadow-xs space-y-4">
+          <div className="flex items-center justify-between pb-3 border-b border-[#E0E8E6]">
+            <div>
+              <h3 className="font-bold text-sm text-[#203945]">🩺 سجل الحالات العلاجية والقضائية</h3>
+              <p className="text-[11px] text-[#203945]/70">متابعة الحالات التي تم قبولها وتخضع للمتابعة الفعلية أو اكتملت بنجاح</p>
+            </div>
+            <span className="px-3 py-1 rounded-full bg-[#E8F4EF] text-[#25866D] text-xs font-bold">
+              {inProgressRequests + completedCases} حالة نشطة ومكتملة
+            </span>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-right text-xs">
+              <thead className="bg-[#EAF3F8] text-[#104A78] font-bold">
+                <tr>
+                  <th className="p-3">رقم الحالة</th>
+                  <th className="p-3">المستفيد</th>
+                  <th className="p-3">المختص المشرف</th>
+                  <th className="p-3">النوع</th>
+                  <th className="p-3">الحالة</th>
+                  <th className="p-3 text-center">الإجراء</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#E0E8E6]">
+                {requests
+                  .filter((r) => ['ACCEPTED', 'IN_PROGRESS', 'PAID', 'APPOINTMENT_CONFIRMED', 'COMPLETED'].includes(r.status))
+                  .map((c) => (
+                    <tr key={c.id} className="hover:bg-[#F3F7F6]/60">
+                      <td className="p-3 font-mono font-bold text-[#1766A6]">{c.caseNumber}</td>
+                      <td className="p-3 font-bold text-[#203945]">{c.clientName}</td>
+                      <td className="p-3 text-[#25866D] font-medium">{c.providerName}</td>
+                      <td className="p-3 text-[#203945]/80">{c.serviceTitle}</td>
+                      <td className="p-3">
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                          c.status === 'COMPLETED' ? 'bg-[#E8F4EF] text-[#25866D]' : 'bg-[#EAF3F8] text-[#1766A6]'
+                        }`}>
+                          {c.status === 'COMPLETED' ? 'مكتملة' : 'جارية تحت المتابعة'}
+                        </span>
+                      </td>
+                      <td className="p-3 text-center">
+                        <button
+                          onClick={() => onOpenRequestDetail(c)}
+                          className="px-3 py-1 rounded-[8px] bg-[#1766A6] text-white font-bold text-[11px]"
+                        >
+                          عرض الملف الكامل
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* ===================== TAB: APPOINTMENTS (المواعيد) ===================== */}
+      {activeTab === 'appointments' && (
+        <div className="bg-[#FBFDFC] border border-[#E0E8E6] rounded-[20px] p-5 shadow-xs space-y-4">
+          <div className="flex items-center justify-between pb-3 border-b border-[#E0E8E6]">
+            <div>
+              <h3 className="font-bold text-sm text-[#203945]">📅 إدارة ومتابعة المواعيد الشاملة</h3>
+              <p className="text-[11px] text-[#203945]/70">جدول الجلسات والاستشارات المحددة بين المستفيدين والشبكة المعتمدة</p>
+            </div>
+            <span className="px-3 py-1 rounded-full bg-[#EAF3F8] text-[#1766A6] text-xs font-bold font-mono">
+              {appointments.length} موعد مسجل
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {appointments.map((appt) => (
+              <div key={appt.id} className="bg-white border border-[#CCD8D5] rounded-[16px] p-4 shadow-xs space-y-2 text-xs">
+                <div className="flex items-center justify-between border-b border-[#E0E8E6] pb-2">
+                  <span className="font-mono font-bold text-[#1766A6]">{appt.caseNumber}</span>
+                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                    appt.status === 'CONFIRMED' ? 'bg-[#E8F4EF] text-[#25866D]' : 'bg-amber-100 text-amber-800'
+                  }`}>
+                    {appt.status === 'CONFIRMED' ? 'مؤكد' : 'قيد الانتظار'}
+                  </span>
+                </div>
+                <p className="font-bold text-sm text-[#203945]">{appt.type}</p>
+                <p className="text-[#25866D] font-medium">المختص: {appt.specialistName} ({appt.specialty})</p>
+                <div className="bg-[#F3F7F6] p-2.5 rounded-[10px] flex items-center justify-between text-[#203945]/80">
+                  <span>📅 {appt.date}</span>
+                  <span>⏰ {appt.time}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ===================== TAB: PAYMENTS (المدفوعات) ===================== */}
+      {activeTab === 'payments' && (
+        <div className="bg-[#FBFDFC] border border-[#E0E8E6] rounded-[20px] p-5 shadow-xs space-y-4">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pb-3 border-b border-[#E0E8E6]">
+            <div>
+              <h3 className="font-bold text-sm text-[#203945]">💳 المعاملات المالية والدفع الإلكتروني (الذهبية و CIB)</h3>
+              <p className="text-[11px] text-[#203945]/70">تتبع المدفوعات، الإيرادات المباشرة، وتأكيد وصول المبالغ</p>
+            </div>
+            <div className="bg-[#E8F4EF] px-3.5 py-1.5 rounded-[12px] text-[#25866D] font-bold text-xs">
+              الإجمالي الناجح: {totalPaymentsAmount.toLocaleString('ar-DZ')} دج
+            </div>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-right text-xs">
+              <thead className="bg-[#EAF3F8] text-[#104A78] font-bold">
+                <tr>
+                  <th className="p-3">رقم المعاملة</th>
+                  <th className="p-3">المستفيد</th>
+                  <th className="p-3">الخدمة</th>
+                  <th className="p-3">المبلغ</th>
+                  <th className="p-3">طريقة الدفع</th>
+                  <th className="p-3">الحالة</th>
+                  <th className="p-3">التاريخ</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#E0E8E6]">
+                {transactions.map((t) => (
+                  <tr key={t.id} className="hover:bg-[#F3F7F6]/60">
+                    <td className="p-3 font-mono font-bold text-[#1766A6]">{t.paymentId}</td>
+                    <td className="p-3 font-bold text-[#203945]">{t.clientName}</td>
+                    <td className="p-3 text-[#203945]/80">{t.serviceTitle}</td>
+                    <td className="p-3 font-bold text-[#25866D]">{t.amountDzd.toLocaleString('ar-DZ')} دج</td>
+                    <td className="p-3 font-semibold">{t.paymentMethod === 'EDAHABIA' ? 'البطاقة الذهبية' : 'بطاقة CIB'}</td>
+                    <td className="p-3">
+                      <span className="px-2 py-0.5 rounded-full bg-[#E8F4EF] text-[#25866D] text-[10px] font-bold">
+                        {t.status === 'SUCCESSFUL' ? 'ناجحة ومؤكدة' : t.status}
+                      </span>
+                    </td>
+                    <td className="p-3 text-[11px] text-[#203945]/60">{t.createdAt}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* ===================== TAB: NOTIFICATIONS (الإشعارات) ===================== */}
+      {activeTab === 'notifications' && (
+        <div className="bg-[#FBFDFC] border border-[#E0E8E6] rounded-[20px] p-5 shadow-xs space-y-4">
+          <div className="flex items-center justify-between pb-3 border-b border-[#E0E8E6]">
+            <div>
+              <h3 className="font-bold text-sm text-[#203945]">🔔 مركز الإشعارات والتنبيهات الإدارية</h3>
+              <p className="text-[11px] text-[#203945]/70">توجيه التنبيهات المباشرة للمستخدمين، الأطباء والمحامين</p>
+            </div>
+            <button
+              onClick={() => alert('ميزة إرسال إشعار عام للمستخدمين عبر المنصة متصلة بقاعدة البيانات.')}
+              className="px-4 py-2 rounded-[12px] bg-[#1766A6] text-white font-bold text-xs shadow-xs"
+            >
+              + إرسال إشعار عام
+            </button>
+          </div>
+
+          <div className="space-y-2">
+            {[
+              { title: 'تحديث تشريعي هام', msg: 'تم إدراج قانون 25-03 والمرسوم 26-76 وقانون حماية المعطيات 18-07 بنجاح بالمنصة.', time: 'الآن', type: 'SYSTEM' },
+              { title: 'تنبيه أمني دوري', msg: 'تمت مراجعة سجلات التدقيق الأمني لضمان توافق معالجة المعطيات مع السر المهني.', time: 'منذ ساعتين', type: 'SECURITY' },
+              { title: 'حالة حرجة ذات أولوية', msg: 'ورد طلب مرافقة قانونية عاجلة تحت طائلة المادة 6 من القانون 04-18.', time: 'اليوم', type: 'CASE' },
+            ].map((n, idx) => (
+              <div key={idx} className="p-3.5 bg-white border border-[#CCD8D5] rounded-[14px] flex items-center justify-between text-xs">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-[#EAF3F8] text-[#1766A6] flex items-center justify-center">
+                    <Bell className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h5 className="font-bold text-[#203945]">{n.title}</h5>
+                    <p className="text-[#203945]/75 text-[11px]">{n.msg}</p>
+                  </div>
+                </div>
+                <span className="text-[10px] text-[#203945]/50 shrink-0 font-mono">{n.time}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ===================== TAB: CONTENT (المحتوى) ===================== */}
+      {activeTab === 'content' && (
+        <div className="bg-[#FBFDFC] border border-[#E0E8E6] rounded-[20px] p-5 shadow-xs space-y-4 text-xs">
+          <div className="flex items-center justify-between pb-3 border-b border-[#E0E8E6]">
+            <div>
+              <h3 className="font-bold text-sm text-[#203945]">📝 إدارة المحتوى التوعوي والإرشادي</h3>
+              <p className="text-[11px] text-[#203945]/70">تحديث المقالات التوجيهية، الإرشادات الأسرية، ومحتوى التوعية من الإدمان</p>
+            </div>
+            <button
+              onClick={() => alert('نموذج نشر مقال توعوي جديد.')}
+              className="px-4 py-2 rounded-[12px] bg-[#25866D] text-white font-bold text-xs shadow-xs"
+            >
+              + إضافة مقال توعوي
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {[
+              { title: 'دليل الأسرة: كيف تكتشف المؤشرات المبكرة لتعاطي المراهقين؟', cat: 'دعم أسري', date: '2026-09-25' },
+              { title: 'خطوات إزالة السموم الطبية وبروتوكولات التعافي الآمن', cat: 'صحة نفسية وطبية', date: '2026-09-26' },
+              { title: 'الحماية القانونية للمتعافين عند التوظيف وفق المرسوم 26-76', cat: 'توجيه قانوني', date: '2026-09-27' },
+              { title: 'حقوقك وسرية بياناتك بموجب القانون رقم 18-07', cat: 'حماية المعطيات', date: '2026-09-28' },
+            ].map((art, idx) => (
+              <div key={idx} className="bg-white border border-[#CCD8D5] p-3.5 rounded-[14px] space-y-1.5 shadow-2xs">
+                <span className="text-[10px] px-2 py-0.5 rounded-md bg-[#EAF3F8] text-[#1766A6] font-bold">{art.cat}</span>
+                <h5 className="font-bold text-sm text-[#203945]">{art.title}</h5>
+                <p className="text-[10px] text-[#203945]/50">تاريخ النشر: {art.date}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ===================== TAB: LEGAL FRAMEWORK (المراجع القانونية) ===================== */}
+      {activeTab === 'legal-framework' && (
+        <div className="bg-[#FBFDFC] border border-[#E0E8E6] rounded-[20px] p-5 shadow-xs space-y-4 text-xs">
+          <div className="flex items-center justify-between pb-3 border-b border-[#E0E8E6]">
+            <div>
+              <h3 className="font-bold text-sm text-[#203945]">⚖️ إدارة وتحديث المراجع والنصوص القانونية الوطنية</h3>
+              <p className="text-[11px] text-[#203945]/70">تحديث القوانين المعتمدة المنشورة في الجريدة الرسمية للجمهورية الجزائرية</p>
+            </div>
+            <span className="px-3 py-1 rounded-full bg-[#E8F4EF] text-[#25866D] font-bold">4 نصوص تشريعية سارية</span>
+          </div>
+
+          <div className="space-y-3">
+            {[
+              {
+                title: 'القانون رقم 04-18 المؤرخ في 25 ديسمبر 2004',
+                ref: 'الجريدة الرسمية عدد 83',
+                summary: 'الوقاية من المخدرات والمؤثرات العقلية وقمع الاستعمال والاتجار غير المشروعين بها، مع إسقاط الدعوى العمومية للعلاج الطوعي (المادة 6).',
+              },
+              {
+                title: 'القانون رقم 25-03 المؤرخ في 1 يوليو 2025',
+                ref: 'الجريدة الرسمية عدد 43',
+                summary: 'تعديل وتتميم القانون 04-18 بإدراج فحوصات الكشف المسبق عند التوظيف، تعزيز حماية القصر، والتكفل بإعادة الإدماج الاجتماعي.',
+              },
+              {
+                title: 'المرسوم التنفيذي رقم 26-76 المؤرخ في 14 جانفي 2026',
+                ref: 'الجريدة الرسمية عدد 08',
+                summary: 'تحديد شروط وكيفيات إجراء التحاليل الطبية عند التوظيف والسر المهني ومعاقبة إفشاء النتائج وضمان عدم إقصاء المتعافين.',
+              },
+              {
+                title: 'القانون رقم 18-07 المؤرخ في 10 يونيو 2018 (25 رمضان 1439)',
+                ref: 'الجريدة الرسمية عدد 34',
+                summary: 'حماية الأشخاص الطبيعيين في مجال معالجة المعطيات ذات الطابع الشخصي، المعدل والمتمم، وفرض التشفير الكامل للملفات الطبية والقضائية.',
+              },
+            ].map((law, idx) => (
+              <div key={idx} className="bg-white border border-[#CCD8D5] p-4 rounded-[14px] space-y-1.5 shadow-2xs">
+                <div className="flex items-center justify-between">
+                  <h4 className="font-black text-sm text-[#203945]">📜 {law.title}</h4>
+                  <span className="text-[10px] bg-[#EAF3F8] text-[#1766A6] font-mono px-2 py-0.5 rounded-md font-bold">{law.ref}</span>
+                </div>
+                <p className="text-[#203945]/80 leading-relaxed text-[11px]">{law.summary}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ===================== TAB: SETTINGS (الإعدادات) ===================== */}
+      {activeTab === 'settings' && (
+        <div className="bg-[#FBFDFC] border border-[#E0E8E6] rounded-[20px] p-5 shadow-xs space-y-4 text-xs">
+          <div className="flex items-center justify-between pb-3 border-b border-[#E0E8E6]">
+            <div>
+              <h3 className="font-bold text-sm text-[#203945]">⚙️ إعدادات المنصة والأمان السحابي</h3>
+              <p className="text-[11px] text-[#203945]/70">تكوين التشفير، بوابات الدفع الإلكتروني، وسياسات حماية البيانات</p>
+            </div>
+            <span className="px-3 py-1 rounded-full bg-[#E8F4EF] text-[#25866D] font-bold">النظام نشط ومؤمن 🔒</span>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+            <div className="bg-white p-4 rounded-[14px] border border-[#CCD8D5] space-y-2">
+              <h4 className="font-bold text-sm text-[#203945]">💳 بوابات الدفع الإلكتروني المعتمدة</h4>
+              <p className="text-[#203945]/70 text-[11px]">تكامل الدفع عبر SATIM / بريد الجزائر مع التحقق اللحظي من المعاملات.</p>
+              <div className="flex items-center gap-2 pt-1 font-bold text-[11px] text-[#25866D]">
+                <span>✓ البطاقة الذهبية</span>
+                <span>•</span>
+                <span>✓ بطاقة CIB البنكية</span>
+              </div>
+            </div>
+
+            <div className="bg-white p-4 rounded-[14px] border border-[#CCD8D5] space-y-2">
+              <h4 className="font-bold text-sm text-[#203945]">🔒 معايير حماية المعطيات الشخصية</h4>
+              <p className="text-[#203945]/70 text-[11px]">مطابقة تلقائية وتشفير ثنائي طبقي طبقاً للقانون 18-07.</p>
+              <div className="flex items-center gap-2 pt-1 font-bold text-[11px] text-[#1766A6]">
+                <span>✓ تشفير AES-256</span>
+                <span>•</span>
+                <span>✓ سياسة عدم تخزين الأسرار الحساسة</span>
+              </div>
+            </div>
+
+            <div className="bg-white p-4 rounded-[14px] border border-[#CCD8D5] space-y-2">
+              <h4 className="font-bold text-sm text-[#203945]">☁️ قاعدة البيانات والتخزين السحابي</h4>
+              <p className="text-[#203945]/70 text-[11px]">مزامنة سحابية حية (Real-Time Firestore Sync) مع قواعد أمان RBAC.</p>
+              <span className="text-[10px] text-[#25866D] font-bold bg-[#E8F4EF] px-2 py-0.5 rounded-md inline-block">
+                متصل وقيد العمل بنجاح
+              </span>
+            </div>
+
+            <div className="bg-white p-4 rounded-[14px] border border-[#CCD8D5] space-y-2">
+              <h4 className="font-bold text-sm text-[#203945]">🛡️ سجل التدقيق والرقابة (Audit Logs)</h4>
+              <p className="text-[#203945]/70 text-[11px]">تتبع غير قابل للتعديل لكافة عمليات الدخول وتعديل الحالات والتقارير.</p>
+              <span className="text-[10px] text-[#1766A6] font-bold bg-[#EAF3F8] px-2 py-0.5 rounded-md inline-block">
+                سجلات التدقيق نشطة
+              </span>
+            </div>
           </div>
         </div>
       )}

@@ -372,22 +372,28 @@ export const LandingView: React.FC<LandingViewProps> = ({
 
           {/* Col 3: Legal Links */}
           <div className="space-y-2">
-            <h4 className="font-bold text-sm text-[#EAF3F8]">الجانب القانوني والسرية</h4>
+            <h4 className="font-bold text-sm text-[#EAF3F8]">الجانب التشريعي والسرية</h4>
             <ul className="space-y-1.5 text-white/70">
               <li>
-                <span className="hover:text-white cursor-pointer">سياسة الخصوصية وحماية المعطيات</span>
+                <button onClick={() => onNavigate('awareness')} className="hover:text-white text-right">
+                  قانون حماية المعطيات الشخصية (القانون 18-07)
+                </button>
               </li>
               <li>
-                <span className="hover:text-white cursor-pointer">الشروط والأحكام العامة</span>
+                <button onClick={() => onNavigate('awareness')} className="hover:text-white text-right">
+                  قانون مكافحة المخدرات 04-18 والمادة 6
+                </button>
               </li>
               <li>
-                <span className="hover:text-white cursor-pointer">ميثاق السر المهني والأخلاقي</span>
+                <button onClick={() => onNavigate('awareness')} className="hover:text-white text-right">
+                  تعديلات القانون 25-03 والمرسوم التنفيذي 26-76
+                </button>
               </li>
               <li>
-                <span className="hover:text-white cursor-pointer">إخلاء المسؤولية الطبية العاجلة</span>
+                <span className="hover:text-white cursor-pointer">ميثاق السر المهني والأخلاقي الطبي</span>
               </li>
               <li>
-                <span className="hover:text-white cursor-pointer">التشريع: القانون رقم 04-18 المعدل</span>
+                <span className="hover:text-white cursor-pointer">إخلاء المسؤولية وسياسة الخصوصية</span>
               </li>
             </ul>
           </div>
