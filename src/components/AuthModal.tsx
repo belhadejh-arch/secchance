@@ -241,14 +241,19 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               className="w-11 h-11 object-contain rounded-full border border-[#CCD8D5] bg-white p-0.5 shadow-xs shrink-0"
             />
             <div>
-              <h3 className="text-[17px] sm:text-[19px] font-black text-[#203945]">
-                {mode === 'login' && 'تسجيل الدخول إلى المنصة'}
-                {mode === 'register' && 'إنشاء حساب مستفيد جديد'}
-                {mode === 'forgot' && 'استعادة كلمة المرور'}
-                {mode === 'reset-code' && 'تعيين كلمة المرور الجديدة'}
-              </h3>
+              <div className="flex items-center gap-2">
+                <h3 className="text-[17px] sm:text-[19px] font-black text-[#203945]">
+                  الفرصة الثانية
+                </h3>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#EAF3F8] text-[#1766A6]">
+                  {mode === 'login' && 'تسجيل الدخول'}
+                  {mode === 'register' && 'حساب مستفيد جديد'}
+                  {mode === 'forgot' && 'استعادة المرور'}
+                  {mode === 'reset-code' && 'تعيين كلمة المرور'}
+                </span>
+              </div>
               <p className="text-[11px] text-[#1766A6] font-semibold mt-0.5">
-                منصة الفرصة الثانية — نظام الدخول الموحد والصلاحيات
+                منصة رقمية موحدة للمرافقة القانونية والاجتماعية والعلاجية واعادة الادماج
               </p>
             </div>
           </div>

@@ -63,10 +63,10 @@ export const Navbar: React.FC<NavbarProps> = ({
           />
           <div className="flex flex-col">
             <span className="font-bold text-[15px] sm:text-[16px] text-[#203945] leading-tight">
-              منصة الفرصة الثانية
+              الفرصة الثانية
             </span>
             <span className="text-[10px] font-semibold text-[#1766A6]">
-              الدعم النفسي والقانوني ومحاربة الإدمان
+              منصة رقمية موحدة للمرافقة القانونية والاجتماعية والعلاجية واعادة الادماج
             </span>
           </div>
         </div>

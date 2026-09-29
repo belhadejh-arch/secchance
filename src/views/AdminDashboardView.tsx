@@ -336,10 +336,10 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
             </span>
           </div>
           <h1 className="text-xl sm:text-2xl font-black text-[#203945] mt-1.5">
-            الإدارة المركزية لمنصة الفرصة الثانية
+            الإدارة المركزية — «الفرصة الثانية»
           </h1>
-          <p className="text-xs text-[#203945]/70 mt-1">
-            مرحباً {currentUser.firstName} {currentUser.lastName}. تحكم كامل بالمستخدمين، المختصين، الجمعيات، الشركاء، والتقارير.
+          <p className="text-xs text-[#1766A6] font-bold mt-1">
+            منصة رقمية موحدة للمرافقة القانونية والاجتماعية والعلاجية واعادة الادماج
           </p>
         </div>
 
@@ -1879,30 +1879,37 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
               {
                 title: 'القانون رقم 04-18 المؤرخ في 25 ديسمبر 2004',
                 ref: 'الجريدة الرسمية عدد 83',
+                file: '/18-04.pdf',
                 summary: 'الوقاية من المخدرات والمؤثرات العقلية وقمع الاستعمال والاتجار غير المشروعين بها، مع إسقاط الدعوى العمومية للعلاج الطوعي (المادة 6).',
               },
               {
                 title: 'القانون رقم 25-03 المؤرخ في 1 يوليو 2025',
                 ref: 'الجريدة الرسمية عدد 43',
+                file: '/25-03.pdf',
                 summary: 'تعديل وتتميم القانون 04-18 بإدراج فحوصات الكشف المسبق عند التوظيف، تعزيز حماية القصر، والتكفل بإعادة الإدماج الاجتماعي.',
               },
               {
                 title: 'المرسوم التنفيذي رقم 26-76 المؤرخ في 14 جانفي 2026',
                 ref: 'الجريدة الرسمية عدد 08',
+                file: '/76-26-ar-1.pdf',
                 summary: 'تحديد شروط وكيفيات إجراء التحاليل الطبية عند التوظيف والسر المهني ومعاقبة إفشاء النتائج وضمان عدم إقصاء المتعافين.',
               },
-              {
-                title: 'القانون رقم 18-07 المؤرخ في 10 يونيو 2018 (25 رمضان 1439)',
-                ref: 'الجريدة الرسمية عدد 34',
-                summary: 'حماية الأشخاص الطبيعيين في مجال معالجة المعطيات ذات الطابع الشخصي، المعدل والمتمم، وفرض التشفير الكامل للملفات الطبية والقضائية.',
-              },
             ].map((law, idx) => (
-              <div key={idx} className="bg-white border border-[#CCD8D5] p-4 rounded-[14px] space-y-1.5 shadow-2xs">
+              <div key={idx} className="bg-white border border-[#CCD8D5] p-4 rounded-[14px] space-y-2 shadow-2xs">
                 <div className="flex items-center justify-between">
                   <h4 className="font-black text-sm text-[#203945]">📜 {law.title}</h4>
                   <span className="text-[10px] bg-[#EAF3F8] text-[#1766A6] font-mono px-2 py-0.5 rounded-md font-bold">{law.ref}</span>
                 </div>
                 <p className="text-[#203945]/80 leading-relaxed text-[11px]">{law.summary}</p>
+                <div className="pt-1.5 flex justify-end">
+                  <a
+                    href={law.file}
+                    download={law.file.replace('/', '')}
+                    className="inline-flex items-center gap-1.5 bg-[#EAF3F8] hover:bg-[#DCEBF4] text-[#104A78] text-xs font-bold px-3 py-1.5 rounded-[8px] transition-colors"
+                  >
+                    <span>تحميل نسخة PDF ({law.file.replace('/', '')})</span>
+                  </a>
+                </div>
               </div>
             ))}
           </div>

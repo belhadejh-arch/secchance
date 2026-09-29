@@ -69,11 +69,11 @@ export const LandingView: React.FC<LandingViewProps> = ({
             </div>
 
             <h1 className="text-xl sm:text-2xl font-black text-[#104A78] leading-snug">
-              منصة الفرصة الثانية — مرافقة نفسية، قانونية وعلاجية بسرية تامة
+              الفرصة الثانية
             </h1>
 
-            <p className="text-xs sm:text-sm text-[#104A78]/80 leading-relaxed font-medium">
-              بوابة رقمية وطنية تربط الأسر والمستفيدين بشبكة معتمدة من الأخصائيين النفسيين، الأطباء، المحامين، ومراكز علاج الإدمان والجمعيات عبر ولايات الجزائر، مع نظام دفع إلكتروني بالبطاقة الذهبية و CIB.
+            <p className="text-sm sm:text-base text-[#1766A6] font-bold leading-relaxed">
+              منصة رقمية موحدة للمرافقة القانونية والاجتماعية والعلاجية واعادة الادماج
             </p>
 
             {/* CTAs */}
@@ -226,7 +226,7 @@ export const LandingView: React.FC<LandingViewProps> = ({
       {/* 4. How the platform works (Requirement 16) */}
       <section className="bg-[#FBFDFC] border border-[#E0E8E6] rounded-[22px] p-6 shadow-xs space-y-4">
         <div className="text-center space-y-1">
-          <h2 className="text-base sm:text-lg font-black text-[#203945]">كيفية عمل منصة الفرصة الثانية</h2>
+          <h2 className="text-base sm:text-lg font-black text-[#203945]">كيفية عمل «الفرصة الثانية»</h2>
           <p className="text-xs text-[#203945]/70">أربع خطوات مبسطة وسرية تبدأ بها رحلة التعافي والمرافقة</p>
         </div>
 
@@ -326,10 +326,10 @@ export const LandingView: React.FC<LandingViewProps> = ({
                 alt="Logo"
                 className="w-10 h-10 object-contain rounded-full bg-white p-0.5"
               />
-              <span className="font-black text-sm text-white">منصة الفرصة الثانية</span>
+              <span className="font-black text-sm text-white">الفرصة الثانية</span>
             </div>
-            <p className="text-white/70 leading-relaxed text-[11px]">
-              المنصة الرقمية الوطنية المتكاملة للدعم النفسي، الاستشارات القانونية ومرافقة الأسر وعلاج الإدمان وفق التشريع الجزائري.
+            <p className="text-white/80 leading-relaxed text-[11px] font-medium">
+              منصة رقمية موحدة للمرافقة القانونية والاجتماعية والعلاجية واعادة الادماج
             </p>
           </div>
 
@@ -372,31 +372,36 @@ export const LandingView: React.FC<LandingViewProps> = ({
 
           {/* Col 3: Legal Links */}
           <div className="space-y-2">
-            <h4 className="font-bold text-sm text-[#EAF3F8]">الجانب التشريعي والسرية</h4>
-            <ul className="space-y-1.5 text-white/70">
+            <h4 className="font-bold text-sm text-[#EAF3F8]">المراجع القانونية المعتمدة</h4>
+            <ul className="space-y-1.5 text-white/70 text-xs">
               <li>
-                <button onClick={() => onNavigate('awareness')} className="hover:text-white text-right">
-                  قانون حماية المعطيات الشخصية (القانون 18-07)
+                <button onClick={() => onNavigate('awareness')} className="hover:text-white text-right transition-colors">
+                  القانون 04-18 (الوقاية وإسقاط المتابعة)
                 </button>
               </li>
               <li>
-                <button onClick={() => onNavigate('awareness')} className="hover:text-white text-right">
-                  قانون مكافحة المخدرات 04-18 والمادة 6
+                <button onClick={() => onNavigate('awareness')} className="hover:text-white text-right transition-colors">
+                  القانون 25-03 (التعديلات وإعادة الإدماج)
                 </button>
               </li>
               <li>
-                <button onClick={() => onNavigate('awareness')} className="hover:text-white text-right">
-                  تعديلات القانون 25-03 والمرسوم التنفيذي 26-76
+                <button onClick={() => onNavigate('awareness')} className="hover:text-white text-right transition-colors">
+                  المرسوم التنفيذي 26-76 (فحوصات التوظيف والسرية)
                 </button>
               </li>
-              <li>
-                <a href="/18-04.pdf" download className="hover:text-white block text-right">
-                  تحميل قانون 04-18 مباشرة (PDF)
+              <li className="pt-1 border-t border-white/10">
+                <a href="/18-04.pdf" download="18-04.pdf" className="hover:text-[#83C5BE] block text-right font-medium">
+                  📥 تحميل قانون 04-18 (PDF)
                 </a>
               </li>
               <li>
-                <a href="/18-07.pdf" download className="hover:text-white block text-right">
-                  تحميل قانون حماية المعطيات 18-07 (PDF)
+                <a href="/25-03.pdf" download="25-03.pdf" className="hover:text-[#83C5BE] block text-right font-medium">
+                  📥 تحميل قانون 25-03 (PDF)
+                </a>
+              </li>
+              <li>
+                <a href="/76-26-ar-1.pdf" download="76-26-ar-1.pdf" className="hover:text-[#83C5BE] block text-right font-medium">
+                  📥 تحميل مرسوم 26-76 (PDF)
                 </a>
               </li>
             </ul>
