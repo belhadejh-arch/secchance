@@ -114,6 +114,17 @@ export const initialUsers: User[] = [
     status: 'ACTIVE',
   },
   {
+    id: 99,
+    firstName: 'المدير العام',
+    lastName: 'الأدمن',
+    email: 'adramatv@gmail.com',
+    phone: '0673362606',
+    roleSlug: 'admin',
+    accountType: 'admin',
+    wilayaName: 'الجزائر العاصمة',
+    status: 'ACTIVE',
+  },
+  {
     id: 8,
     firstName: 'د. سارة',
     lastName: 'لعموري',

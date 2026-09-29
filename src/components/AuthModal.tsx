@@ -5,16 +5,22 @@ import {
   EyeOff,
   Lock,
   Mail,
-  User as UserIcon,
-  Phone,
-  MapPin,
   CheckCircle2,
   AlertCircle,
   KeyRound,
   Shield,
   ArrowRight,
+  UserPlus,
+  LogIn,
+  Crown,
+  Brain,
+  Scale,
+  Stethoscope,
+  Building2,
+  Hotel,
+  Users,
 } from 'lucide-react';
-import { User, ALGERIA_WILAYAS } from '../types';
+import { User } from '../types';
 import {
   authenticateUser,
   createUserInDb,
@@ -22,19 +28,24 @@ import {
   verifyAndResetPassword,
   DEFAULT_ADMIN_EMAIL,
   DEFAULT_ADMIN_PASSWORD,
+  OWNER_ADMIN_EMAIL,
 } from '../services/dbService';
+import { RegistrationFlow } from './RegistrationFlow';
 
 interface AuthModalProps {
   isOpen: boolean;
   onClose: () => void;
   onLogin: (user: User) => void;
+  onRegisterUser?: (user: User) => void;
   initialMode?: 'login' | 'register';
+  availableUsers?: User[];
 }
 
 export const AuthModal: React.FC<AuthModalProps> = ({
   isOpen,
   onClose,
   onLogin,
+  onRegisterUser,
   initialMode = 'login',
 }) => {
   const [mode, setMode] = useState<'login' | 'register' | 'forgot' | 'reset-code'>(initialMode);
@@ -44,17 +55,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [loginPassword, setLoginPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
-
-  // Register form state
-  const [regFirstName, setRegFirstName] = useState('');
-  const [regLastName, setRegLastName] = useState('');
-  const [regEmail, setRegEmail] = useState('');
-  const [regPhone, setRegPhone] = useState('');
-  const [regWilaya, setRegWilaya] = useState(ALGERIA_WILAYAS[15]); // الجزائر العاصمة
-  const [regPassword, setRegPassword] = useState('');
-  const [regConfirmPassword, setRegConfirmPassword] = useState('');
-  const [showRegPassword, setShowRegPassword] = useState(false);
-  const [agreeTerms, setAgreeTerms] = useState(false);
 
   // Forgot password state
   const [forgotEmail, setForgotEmail] = useState('');
@@ -105,57 +105,61 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     }
   };
 
-  // 2. Handle Register (Beneficiary / User)
-  const handleRegisterSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  // 2. Direct Quick Login Role Selector
+  const handleQuickRoleLogin = async (email: string, password = 'password123') => {
     resetMessages();
-
-    if (!regFirstName.trim() || !regLastName.trim() || !regEmail.trim() || !regPhone.trim()) {
-      setErrorMsg('يرجى استكمال جميع بيانات الحساب.');
-      return;
-    }
-
-    if (regPassword.length < 6) {
-      setErrorMsg('يجب أن تتكون كلمة المرور من 6 أحرف على الأقل.');
-      return;
-    }
-
-    if (regPassword !== regConfirmPassword) {
-      setErrorMsg('كلمتا المرور غير متطابقتين.');
-      return;
-    }
-
-    if (!agreeTerms) {
-      setErrorMsg('يجب الموافقة على الشروط وسياسة الخصوصية للمتابعة.');
-      return;
-    }
-
+    setLoginEmail(email);
+    setLoginPassword(password);
     setLoading(true);
     try {
-      const newUser = await createUserInDb({
-        firstName: regFirstName.trim(),
-        lastName: regLastName.trim(),
-        email: regEmail.trim().toLowerCase(),
-        phone: regPhone.trim(),
-        wilayaName: regWilaya,
-        roleSlug: 'user', // Public registration is strictly for beneficiaries
-        status: 'active',
-        password: regPassword,
-      });
-
-      setSuccessMsg('تم إنشاء الحساب بنجاح! جاري تسجيل الدخول...');
-      setTimeout(() => {
-        onLogin(newUser);
+      const result = await authenticateUser(email, password);
+      if ('error' in result) {
+        setErrorMsg(result.error);
+      } else {
+        if (rememberMe) {
+          localStorage.setItem('secchance_user_id', String(result.user.id));
+        }
+        onLogin(result.user);
         onClose();
-      }, 1000);
+      }
     } catch (err: any) {
-      setErrorMsg(err.message || 'حدث خطأ أثناء حفظ البيانات في قاعدة البيانات.');
+      setErrorMsg(err.message || 'حدث خطأ أثناء الدخول السريع.');
     } finally {
       setLoading(false);
     }
   };
 
-  // 3. Handle Request Reset Code
+  // 3. Handle Registration Success from RegistrationFlow
+  const handleRegistrationFlowSuccess = async (newUser: User, isDirectActive: boolean) => {
+    resetMessages();
+    setLoading(true);
+    try {
+      const savedUser = await createUserInDb({
+        ...newUser,
+        password: loginPassword || 'password123',
+      });
+
+      if (onRegisterUser) {
+        onRegisterUser(savedUser);
+      }
+
+      if (isDirectActive) {
+        setSuccessMsg('تم إنشاء حسابك بنجاح! جاري تسجيل الدخول...');
+        setTimeout(() => {
+          onLogin(savedUser);
+          onClose();
+        }, 800);
+      } else {
+        setSuccessMsg('تم إرسال ملف التسجيل بنجاح، وهو قيد مراجعة واعتماد الإدارة.');
+      }
+    } catch (err: any) {
+      setErrorMsg('تعذر حفظ الحساب. يرجى المحاولة مرة أخرى.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 4. Handle Password Reset Request
   const handleForgotSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     resetMessages();
@@ -170,35 +174,37 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       const res = await requestPasswordReset(forgotEmail);
       if (res.success) {
         setSuccessMsg(res.message);
-        setGeneratedCodeHint(res.resetCode || null);
+        if (res.resetCode) {
+          setGeneratedCodeHint(res.resetCode);
+        }
         setMode('reset-code');
       } else {
         setErrorMsg(res.message);
       }
     } catch (err: any) {
-      setErrorMsg(err.message || 'فشلت عملية إرسال رمز الاستعادة.');
+      setErrorMsg(err.message || 'حدث خطأ أثناء معالجة الطلب.');
     } finally {
       setLoading(false);
     }
   };
 
-  // 4. Handle Verify & Reset Password
-  const handleResetSubmit = async (e: React.FormEvent) => {
+  // 5. Handle Reset Password Confirmation
+  const handleResetCodeSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     resetMessages();
 
     if (!resetCode.trim() || !newPassword.trim()) {
-      setErrorMsg('يرجى إدخال رمز التحقق وكلمة المرور الجديدة.');
+      setErrorMsg('يرجى ملء جميع الحقول.');
       return;
     }
 
     if (newPassword.length < 6) {
-      setErrorMsg('كلمة المرور يجب أن لا تقل عن 6 أحرف.');
+      setErrorMsg('يجب أن تتكون كلمة المرور من 6 أحرف على الأقل.');
       return;
     }
 
     if (newPassword !== confirmNewPassword) {
-      setErrorMsg('كلمة المرور وتأكيدها غير متطابقين.');
+      setErrorMsg('كلمتا المرور غير متطابقتين.');
       return;
     }
 
@@ -208,32 +214,26 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       if (res.success) {
         setSuccessMsg(res.message);
         setTimeout(() => {
-          setMode('login');
-          setLoginEmail(forgotEmail);
-          setLoginPassword('');
           resetMessages();
-        }, 1500);
+          setLoginEmail(forgotEmail);
+          setLoginPassword(newPassword);
+          setMode('login');
+        }, 1200);
       } else {
         setErrorMsg(res.message);
       }
     } catch (err: any) {
-      setErrorMsg(err.message || 'فشل التحقق من الرمز.');
+      setErrorMsg(err.message || 'فشلت عملية تعيين كلمة المرور.');
     } finally {
       setLoading(false);
     }
   };
 
-  // Quick fill helper for testing/evaluation
-  const fillQuickAdmin = () => {
-    setLoginEmail(DEFAULT_ADMIN_EMAIL);
-    setLoginPassword(DEFAULT_ADMIN_PASSWORD);
-  };
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs overflow-y-auto">
-      <div className="bg-[#FBFDFC] rounded-[24px] max-w-lg w-full shadow-2xl border border-[#E0E8E6] overflow-hidden my-6">
+    <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-3 sm:p-4 backdrop-blur-xs overflow-y-auto">
+      <div className="bg-white rounded-[24px] max-w-xl w-full shadow-2xl overflow-hidden border border-[#E0E8E6] my-6 animate-in fade-in zoom-in-95 duration-150 max-h-[92vh] flex flex-col">
         {/* Header */}
-        <div className="bg-gradient-to-l from-[#1766A6]/10 to-transparent p-5 border-b border-[#E0E8E6] flex items-center justify-between">
+        <div className="bg-gradient-to-l from-[#1766A6]/10 to-transparent p-5 border-b border-[#E0E8E6] flex items-center justify-between shrink-0">
           <div className="flex items-center gap-3">
             <img
               src="/logo.png"
@@ -247,7 +247,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 </h3>
                 <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#EAF3F8] text-[#1766A6]">
                   {mode === 'login' && 'تسجيل الدخول'}
-                  {mode === 'register' && 'حساب مستفيد جديد'}
+                  {mode === 'register' && 'إنشاء حساب جديد'}
                   {mode === 'forgot' && 'استعادة المرور'}
                   {mode === 'reset-code' && 'تعيين كلمة المرور'}
                 </span>
@@ -259,369 +259,315 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           </div>
           <button
             onClick={onClose}
-            className="text-[#203945]/60 hover:text-[#203945] p-1.5 rounded-full hover:bg-slate-200/50 transition-colors"
+            className="text-[#203945]/60 hover:text-[#203945] p-1.5 rounded-full hover:bg-slate-200/50 transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Alerts */}
-        {errorMsg && (
-          <div className="mx-6 mt-4 p-3 bg-[#FBECEB] border border-[#F5D4D2] text-[#5F1D1A] rounded-[12px] text-xs flex items-center gap-2">
-            <AlertCircle className="w-4 h-4 shrink-0 text-[#A64842]" />
-            <span>{errorMsg}</span>
-          </div>
-        )}
-
-        {successMsg && (
-          <div className="mx-6 mt-4 p-3 bg-[#E8F4EF] border border-[#C5E4D8] text-[#1A5E4D] rounded-[12px] text-xs flex items-center gap-2">
-            <CheckCircle2 className="w-4 h-4 shrink-0 text-[#25866D]" />
-            <span>{successMsg}</span>
-          </div>
-        )}
-
-        {/* 1. LOGIN FORM */}
-        {mode === 'login' && (
-          <form onSubmit={handleLoginSubmit} className="p-6 space-y-4">
-            <div className="space-y-1.5">
-              <label className="block text-xs font-bold text-[#203945]">
-                البريد الإلكتروني / اسم المستخدم
-              </label>
-              <div className="relative">
-                <input
-                  type="text"
-                  required
-                  value={loginEmail}
-                  onChange={(e) => setLoginEmail(e.target.value)}
-                  placeholder="name@example.com أو اسم المستخدم"
-                  className="w-full h-11 pr-10 pl-3 text-xs sm:text-sm bg-white border border-[#CCD8D5] rounded-[12px] outline-hidden focus:border-[#1766A6] shadow-xs text-[#203945]"
-                />
-                <Mail className="w-4 h-4 text-[#203945]/40 absolute right-3.5 top-3.5" />
-              </div>
-            </div>
-
-            <div className="space-y-1.5">
-              <div className="flex items-center justify-between">
-                <label className="block text-xs font-bold text-[#203945]">كلمة المرور</label>
-                <button
-                  type="button"
-                  onClick={() => {
-                    resetMessages();
-                    setForgotEmail(loginEmail);
-                    setMode('forgot');
-                  }}
-                  className="text-[11px] font-bold text-[#1766A6] hover:underline"
-                >
-                  نسيت كلمة المرور؟
-                </button>
-              </div>
-              <div className="relative">
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  required
-                  value={loginPassword}
-                  onChange={(e) => setLoginPassword(e.target.value)}
-                  placeholder="••••••••"
-                  className="w-full h-11 pr-10 pl-10 text-xs sm:text-sm bg-white border border-[#CCD8D5] rounded-[12px] outline-hidden focus:border-[#1766A6] shadow-xs text-[#203945]"
-                />
-                <Lock className="w-4 h-4 text-[#203945]/40 absolute right-3.5 top-3.5" />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute left-3 top-3 text-[#203945]/40 hover:text-[#203945]"
-                >
-                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </button>
-              </div>
-            </div>
-
-            {/* Remember Me */}
-            <div className="flex items-center justify-between text-xs pt-1">
-              <label className="flex items-center gap-2 cursor-pointer select-none text-[#203945]">
-                <input
-                  type="checkbox"
-                  checked={rememberMe}
-                  onChange={(e) => setRememberMe(e.target.checked)}
-                  className="w-4 h-4 rounded-sm border-[#CCD8D5] text-[#1766A6] focus:ring-0"
-                />
-                <span>تذكرني على هذا الجهاز</span>
-              </label>
-
-              <button
-                type="button"
-                onClick={fillQuickAdmin}
-                className="text-[10px] text-[#1766A6] font-bold hover:underline bg-[#EAF3F8] px-2 py-0.5 rounded-md"
-                title="تعبئة حساب الأدمن العام للتجربة السريعة"
-              >
-                حساب الأدمن التجريبي
-              </button>
-            </div>
-
-            {/* Submit button */}
+        {/* Mode Switcher Tabs */}
+        {(mode === 'login' || mode === 'register') && (
+          <div className="flex border-b border-[#E0E8E6] bg-[#F8FAF9] shrink-0">
             <button
-              type="submit"
-              disabled={loading}
-              className="w-full h-11 rounded-[12px] bg-[#1766A6] hover:bg-[#125386] disabled:opacity-50 text-white font-bold text-sm shadow-xs transition-colors flex items-center justify-center gap-2 mt-2"
+              onClick={() => {
+                resetMessages();
+                setMode('login');
+              }}
+              className={`flex-1 py-3 text-xs sm:text-sm font-bold flex items-center justify-center gap-2 border-b-2 transition-colors cursor-pointer ${
+                mode === 'login'
+                  ? 'border-[#1766A6] text-[#1766A6] bg-white'
+                  : 'border-transparent text-[#203945]/60 hover:text-[#203945]'
+              }`}
             >
-              {loading ? 'جاري التحقق...' : 'تسجيل الدخول'}
+              <LogIn className="w-4 h-4" />
+              <span>تسجيل الدخول</span>
             </button>
-
-            {/* Switch to Register */}
-            <div className="text-center pt-3 border-t border-[#E0E8E6]">
-              <p className="text-xs text-[#203945]">
-                ليس لديك حساب؟{' '}
-                <button
-                  type="button"
-                  onClick={() => {
-                    resetMessages();
-                    setMode('register');
-                  }}
-                  className="font-bold text-[#1766A6] hover:underline"
-                >
-                  إنشاء حساب مستفيد
-                </button>
-              </p>
-            </div>
-          </form>
+            <button
+              onClick={() => {
+                resetMessages();
+                setMode('register');
+              }}
+              className={`flex-1 py-3 text-xs sm:text-sm font-bold flex items-center justify-center gap-2 border-b-2 transition-colors cursor-pointer ${
+                mode === 'register'
+                  ? 'border-[#1766A6] text-[#1766A6] bg-white'
+                  : 'border-transparent text-[#203945]/60 hover:text-[#203945]'
+              }`}
+            >
+              <UserPlus className="w-4 h-4" />
+              <span>إنشاء حساب جديد (المسجل كـ؟)</span>
+            </button>
+          </div>
         )}
 
-        {/* 2. REGISTER FORM */}
-        {mode === 'register' && (
-          <form onSubmit={handleRegisterSubmit} className="p-6 space-y-3.5 max-h-[75vh] overflow-y-auto">
-            {/* Notice regarding specialist accounts */}
-            <div className="bg-[#EAF3F8] border border-[#DCEBF4] p-3 rounded-[12px] text-[11px] text-[#104A78] flex items-start gap-2">
-              <Shield className="w-4 h-4 text-[#1766A6] shrink-0 mt-0.5" />
-              <p>
-                <strong>ملاحظة للمهنيين والمختصين:</strong> التسجيل العام مخصص للمستفيدين وأسرهم. حسابات الأخصائيين النفسيين، الأطباء، المحامين، الجمعيات والمستشفيات يتم إنشاؤها واعتمادها حصرياً من قبل إدارة المنصة.
-              </p>
+        {/* Scrollable Container */}
+        <div className="overflow-y-auto flex-1">
+          {/* Alerts */}
+          {errorMsg && (
+            <div className="mx-6 mt-4 p-3 bg-[#FBECEB] border border-[#F5D4D2] text-[#5F1D1A] rounded-[12px] text-xs flex items-center gap-2 animate-in fade-in">
+              <AlertCircle className="w-4 h-4 shrink-0 text-[#A64842]" />
+              <span>{errorMsg}</span>
             </div>
+          )}
 
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <label className="block text-[11px] font-bold text-[#203945]">الاسم الأول</label>
-                <div className="relative">
-                  <input
-                    type="text"
-                    required
-                    value={regFirstName}
-                    onChange={(e) => setRegFirstName(e.target.value)}
-                    placeholder="مثال: يوسف"
-                    className="w-full h-10 pr-9 pl-2 text-xs bg-white border border-[#CCD8D5] rounded-[10px] outline-hidden focus:border-[#1766A6] text-[#203945]"
-                  />
-                  <UserIcon className="w-3.5 h-3.5 text-[#203945]/40 absolute right-3 top-3" />
-                </div>
-              </div>
-
-              <div className="space-y-1">
-                <label className="block text-[11px] font-bold text-[#203945]">اللقب</label>
-                <div className="relative">
-                  <input
-                    type="text"
-                    required
-                    value={regLastName}
-                    onChange={(e) => setRegLastName(e.target.value)}
-                    placeholder="مثال: منصوري"
-                    className="w-full h-10 pr-9 pl-2 text-xs bg-white border border-[#CCD8D5] rounded-[10px] outline-hidden focus:border-[#1766A6] text-[#203945]"
-                  />
-                  <UserIcon className="w-3.5 h-3.5 text-[#203945]/40 absolute right-3 top-3" />
-                </div>
-              </div>
+          {successMsg && (
+            <div className="mx-6 mt-4 p-3 bg-[#E8F4EF] border border-[#C5E4D8] text-[#1A5E4D] rounded-[12px] text-xs flex items-center gap-2 animate-in fade-in">
+              <CheckCircle2 className="w-4 h-4 shrink-0 text-[#25866D]" />
+              <span>{successMsg}</span>
             </div>
+          )}
 
-            <div className="space-y-1">
-              <label className="block text-[11px] font-bold text-[#203945]">البريد الإلكتروني</label>
-              <div className="relative">
-                <input
-                  type="email"
-                  required
-                  value={regEmail}
-                  onChange={(e) => setRegEmail(e.target.value)}
-                  placeholder="user@example.com"
-                  className="w-full h-10 pr-9 pl-2 text-xs bg-white border border-[#CCD8D5] rounded-[10px] outline-hidden focus:border-[#1766A6] text-[#203945]"
-                />
-                <Mail className="w-3.5 h-3.5 text-[#203945]/40 absolute right-3 top-3" />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <label className="block text-[11px] font-bold text-[#203945]">رقم الهاتف</label>
-                <div className="relative">
-                  <input
-                    type="tel"
-                    required
-                    value={regPhone}
-                    onChange={(e) => setRegPhone(e.target.value)}
-                    placeholder="05 / 06 / 07..."
-                    className="w-full h-10 pr-9 pl-2 text-xs bg-white border border-[#CCD8D5] rounded-[10px] outline-hidden focus:border-[#1766A6] text-[#203945]"
-                  />
-                  <Phone className="w-3.5 h-3.5 text-[#203945]/40 absolute right-3 top-3" />
+          {/* 1. LOGIN FORM */}
+          {mode === 'login' && (
+            <div className="p-6 space-y-5">
+              <form onSubmit={handleLoginSubmit} className="space-y-4">
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-bold text-[#203945]">
+                    البريد الإلكتروني / اسم المستخدم
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      required
+                      value={loginEmail}
+                      onChange={(e) => setLoginEmail(e.target.value)}
+                      placeholder="adramatv@gmail.com أو admin@secchance.dz"
+                      className="w-full h-11 pr-10 pl-3 text-xs sm:text-sm bg-white border border-[#CCD8D5] rounded-[12px] outline-hidden focus:border-[#1766A6] shadow-xs text-[#203945]"
+                    />
+                    <Mail className="w-4 h-4 text-[#203945]/40 absolute right-3.5 top-3.5" />
+                  </div>
                 </div>
-              </div>
 
-              <div className="space-y-1">
-                <label className="block text-[11px] font-bold text-[#203945]">الولاية</label>
-                <div className="relative">
-                  <select
-                    value={regWilaya}
-                    onChange={(e) => setRegWilaya(e.target.value)}
-                    className="w-full h-10 pr-9 pl-2 text-xs bg-white border border-[#CCD8D5] rounded-[10px] outline-hidden focus:border-[#1766A6] text-[#203945]"
-                  >
-                    {ALGERIA_WILAYAS.map((w) => (
-                      <option key={w} value={w}>
-                        {w}
-                      </option>
-                    ))}
-                  </select>
-                  <MapPin className="w-3.5 h-3.5 text-[#203945]/40 absolute right-3 top-3" />
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <label className="block text-xs font-bold text-[#203945]">كلمة المرور</label>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        resetMessages();
+                        setForgotEmail(loginEmail);
+                        setMode('forgot');
+                      }}
+                      className="text-[11px] font-bold text-[#1766A6] hover:underline cursor-pointer"
+                    >
+                      نسيت كلمة المرور؟
+                    </button>
+                  </div>
+                  <div className="relative">
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      required
+                      value={loginPassword}
+                      onChange={(e) => setLoginPassword(e.target.value)}
+                      placeholder="••••••••"
+                      className="w-full h-11 pr-10 pl-10 text-xs sm:text-sm bg-white border border-[#CCD8D5] rounded-[12px] outline-hidden focus:border-[#1766A6] shadow-xs text-[#203945]"
+                    />
+                    <Lock className="w-4 h-4 text-[#203945]/40 absolute right-3.5 top-3.5" />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute left-3.5 top-3.5 text-[#203945]/50 hover:text-[#203945] cursor-pointer"
+                    >
+                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
                 </div>
-              </div>
-            </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <label className="block text-[11px] font-bold text-[#203945]">كلمة المرور</label>
-                <div className="relative">
-                  <input
-                    type={showRegPassword ? 'text' : 'password'}
-                    required
-                    value={regPassword}
-                    onChange={(e) => setRegPassword(e.target.value)}
-                    placeholder="••••••••"
-                    className="w-full h-10 pr-9 pl-8 text-xs bg-white border border-[#CCD8D5] rounded-[10px] outline-hidden focus:border-[#1766A6] text-[#203945]"
-                  />
-                  <Lock className="w-3.5 h-3.5 text-[#203945]/40 absolute right-3 top-3" />
+                <div className="flex items-center justify-between pt-1">
+                  <label className="flex items-center gap-2 cursor-pointer text-xs text-[#203945]">
+                    <input
+                      type="checkbox"
+                      checked={rememberMe}
+                      onChange={(e) => setRememberMe(e.target.checked)}
+                      className="rounded-sm text-[#1766A6] focus:ring-[#1766A6]"
+                    />
+                    <span>تذكرني على هذا الجهاز</span>
+                  </label>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full h-11 rounded-[12px] bg-[#1766A6] hover:bg-[#125386] text-white font-bold text-xs sm:text-sm shadow-xs transition-colors flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
+                >
+                  <LogIn className="w-4 h-4" />
+                  <span>{loading ? 'جاري التحقق...' : 'تسجيل الدخول'}</span>
+                </button>
+              </form>
+
+              {/* Direct Quick Demo Role Selector */}
+              <div className="pt-3 border-t border-[#E0E8E6] space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold text-[#203945]/70">
+                    ⚡ الدخول السريع المعتمد (اختر حساباً للتجربة المباشرة):
+                  </span>
+                </div>
+
+                {/* Primary Admin Button */}
+                <button
+                  type="button"
+                  onClick={() => handleQuickRoleLogin(OWNER_ADMIN_EMAIL, DEFAULT_ADMIN_PASSWORD)}
+                  className="w-full p-2.5 rounded-[12px] bg-[#FDF7E7] border-2 border-[#D4A373] text-[#78350F] hover:bg-[#FBEED1] transition-all flex items-center justify-between text-xs font-bold shadow-2xs cursor-pointer"
+                >
+                  <div className="flex items-center gap-2">
+                    <Crown className="w-4 h-4 text-[#D97706]" />
+                    <span>👑 حساب الأدمن العام ({OWNER_ADMIN_EMAIL})</span>
+                  </div>
+                  <span className="text-[10px] bg-white/80 px-2 py-0.5 rounded-md border border-[#D4A373]/30">
+                    دخول فوري كمدير للنظام ←
+                  </span>
+                </button>
+
+                {/* Other Specialist Roles Grid */}
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs">
                   <button
                     type="button"
-                    onClick={() => setShowRegPassword(!showRegPassword)}
-                    className="absolute left-2 top-2.5 text-[#203945]/40 hover:text-[#203945]"
+                    onClick={() => handleQuickRoleLogin('admin@secchance.dz', DEFAULT_ADMIN_PASSWORD)}
+                    className="p-2 rounded-[10px] bg-[#F0F7F4] hover:bg-[#E2F0EB] text-[#1A5E4D] border border-[#CCD8D5] flex items-center gap-1.5 font-bold transition-colors cursor-pointer"
                   >
-                    {showRegPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                    <Crown className="w-3.5 h-3.5" />
+                    <span>أدمن النظام</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleQuickRoleLogin('psy@secchance.dz', 'password123')}
+                    className="p-2 rounded-[10px] bg-white hover:bg-[#EAF3F8] text-[#1766A6] border border-[#CCD8D5] flex items-center gap-1.5 font-bold transition-colors cursor-pointer"
+                  >
+                    <Brain className="w-3.5 h-3.5" />
+                    <span>أخصائي نفسي</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleQuickRoleLogin('lawyer@secchance.dz', 'password123')}
+                    className="p-2 rounded-[10px] bg-white hover:bg-[#EAF3F8] text-[#1766A6] border border-[#CCD8D5] flex items-center gap-1.5 font-bold transition-colors cursor-pointer"
+                  >
+                    <Scale className="w-3.5 h-3.5" />
+                    <span>محامٍ معتمد</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleQuickRoleLogin('doctor@secchance.dz', 'password123')}
+                    className="p-2 rounded-[10px] bg-white hover:bg-[#EAF3F8] text-[#1766A6] border border-[#CCD8D5] flex items-center gap-1.5 font-bold transition-colors cursor-pointer"
+                  >
+                    <Stethoscope className="w-3.5 h-3.5" />
+                    <span>طبيب سموم</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleQuickRoleLogin('clinic@secchance.dz', 'password123')}
+                    className="p-2 rounded-[10px] bg-white hover:bg-[#EAF3F8] text-[#1766A6] border border-[#CCD8D5] flex items-center gap-1.5 font-bold transition-colors cursor-pointer"
+                  >
+                    <Building2 className="w-3.5 h-3.5" />
+                    <span>عيادة خاصة</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleQuickRoleLogin('hospital@secchance.dz', 'password123')}
+                    className="p-2 rounded-[10px] bg-white hover:bg-[#EAF3F8] text-[#1766A6] border border-[#CCD8D5] flex items-center gap-1.5 font-bold transition-colors cursor-pointer"
+                  >
+                    <Hotel className="w-3.5 h-3.5" />
+                    <span>مستشفى خاص</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleQuickRoleLogin('assoc@secchance.dz', 'password123')}
+                    className="p-2 rounded-[10px] bg-white hover:bg-[#EAF3F8] text-[#1766A6] border border-[#CCD8D5] flex items-center gap-1.5 font-bold transition-colors cursor-pointer"
+                  >
+                    <Users className="w-3.5 h-3.5" />
+                    <span>جمعية ناشطة</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleQuickRoleLogin('family@secchance.dz', 'password123')}
+                    className="p-2 rounded-[10px] bg-white hover:bg-[#EAF3F8] text-[#1766A6] border border-[#CCD8D5] flex items-center gap-1.5 font-bold transition-colors cursor-pointer col-span-2 sm:col-span-2"
+                  >
+                    <span>👤 مستفيد / أسرة (محمد بن خالد)</span>
                   </button>
                 </div>
               </div>
+            </div>
+          )}
 
-              <div className="space-y-1">
-                <label className="block text-[11px] font-bold text-[#203945]">تأكيد كلمة المرور</label>
+          {/* 2. REGISTRATION FLOW (All 7 Roles) */}
+          {mode === 'register' && (
+            <div className="p-4 sm:p-6">
+              <RegistrationFlow
+                onSuccess={handleRegistrationFlowSuccess}
+                onCancel={() => setMode('login')}
+              />
+            </div>
+          )}
+
+          {/* 3. FORGOT PASSWORD */}
+          {mode === 'forgot' && (
+            <form onSubmit={handleForgotSubmit} className="p-6 space-y-4">
+              <div className="bg-[#EAF3F8] p-3.5 rounded-[14px] border border-[#DCEBF4] flex items-start gap-2.5">
+                <Shield className="w-5 h-5 text-[#1766A6] shrink-0 mt-0.5" />
+                <p className="text-xs text-[#104A78] leading-relaxed">
+                  أدخل بريدك الإلكتروني المسجل وسنقوم بإصدار رمز تحقق آمن ومؤقت لإعادة تعيين كلمة المرور فوراً.
+                </p>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="block text-xs font-bold text-[#203945]">البريد الإلكتروني</label>
                 <div className="relative">
                   <input
-                    type={showRegPassword ? 'text' : 'password'}
+                    type="email"
                     required
-                    value={regConfirmPassword}
-                    onChange={(e) => setRegConfirmPassword(e.target.value)}
-                    placeholder="••••••••"
-                    className="w-full h-10 pr-9 pl-2 text-xs bg-white border border-[#CCD8D5] rounded-[10px] outline-hidden focus:border-[#1766A6] text-[#203945]"
+                    value={forgotEmail}
+                    onChange={(e) => setForgotEmail(e.target.value)}
+                    placeholder="name@example.com"
+                    className="w-full h-11 pr-10 pl-3 text-xs sm:text-sm bg-white border border-[#CCD8D5] rounded-[12px] outline-hidden focus:border-[#1766A6] shadow-xs text-[#203945]"
                   />
-                  <Lock className="w-3.5 h-3.5 text-[#203945]/40 absolute right-3 top-3" />
+                  <Mail className="w-4 h-4 text-[#203945]/40 absolute right-3.5 top-3.5" />
                 </div>
               </div>
-            </div>
 
-            {/* Terms checkbox */}
-            <div className="pt-1">
-              <label className="flex items-start gap-2 cursor-pointer select-none text-[11px] text-[#203945]">
-                <input
-                  type="checkbox"
-                  required
-                  checked={agreeTerms}
-                  onChange={(e) => setAgreeTerms(e.target.checked)}
-                  className="w-4 h-4 mt-0.5 rounded-sm border-[#CCD8D5] text-[#1766A6] focus:ring-0"
-                />
-                <span>
-                  أوافق على{' '}
-                  <span className="font-bold text-[#1766A6]">شروط الاستخدام</span> و{' '}
-                  <span className="font-bold text-[#1766A6]">سياسة الخصوصية وحماية السرية الطبية</span>.
-                </span>
-              </label>
-            </div>
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full h-11 rounded-[12px] bg-[#1766A6] hover:bg-[#125386] text-white font-bold text-xs sm:text-sm shadow-xs transition-colors flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <KeyRound className="w-4 h-4" />
+                <span>{loading ? 'جاري المعالجة...' : 'إرسال رمز التحقق'}</span>
+              </button>
 
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full h-11 rounded-[12px] bg-[#1766A6] hover:bg-[#125386] disabled:opacity-50 text-white font-bold text-sm shadow-xs transition-colors mt-2"
-            >
-              {loading ? 'جاري إنشاء الحساب...' : 'إنشاء الحساب الآن'}
-            </button>
-
-            <div className="text-center pt-2 border-t border-[#E0E8E6]">
-              <p className="text-xs text-[#203945]">
-                لديك حساب بالفعل؟{' '}
-                <button
-                  type="button"
-                  onClick={() => {
-                    resetMessages();
-                    setMode('login');
-                  }}
-                  className="font-bold text-[#1766A6] hover:underline"
-                >
-                  تسجيل الدخول
-                </button>
-              </p>
-            </div>
-          </form>
-        )}
-
-        {/* 3. FORGOT PASSWORD (STEP 1: REQUEST CODE) */}
-        {mode === 'forgot' && (
-          <form onSubmit={handleForgotSubmit} className="p-6 space-y-4">
-            <p className="text-xs text-[#203945] leading-relaxed">
-              أدخل بريدك الإلكتروني المسجل في المنصة لإرسال رمز تحقق آمن وموثق لإعادة تعيين كلمة المرور الخاصة بك.
-            </p>
-
-            <div className="space-y-1.5">
-              <label className="block text-xs font-bold text-[#203945]">البريد الإلكتروني</label>
-              <div className="relative">
-                <input
-                  type="email"
-                  required
-                  value={forgotEmail}
-                  onChange={(e) => setForgotEmail(e.target.value)}
-                  placeholder="name@example.com"
-                  className="w-full h-11 pr-10 pl-3 text-xs sm:text-sm bg-white border border-[#CCD8D5] rounded-[12px] outline-hidden focus:border-[#1766A6] text-[#203945]"
-                />
-                <Mail className="w-4 h-4 text-[#203945]/40 absolute right-3.5 top-3.5" />
-              </div>
-            </div>
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full h-11 rounded-[12px] bg-[#1766A6] hover:bg-[#125386] disabled:opacity-50 text-white font-bold text-sm shadow-xs transition-colors flex items-center justify-center gap-2"
-            >
-              {loading ? 'جاري التحقق وإصدار الرمز...' : 'إرسال رمز استعادة كلمة المرور'}
-            </button>
-
-            <div className="text-center pt-2 border-t border-[#E0E8E6]">
               <button
                 type="button"
                 onClick={() => {
                   resetMessages();
                   setMode('login');
                 }}
-                className="text-xs font-bold text-[#1766A6] hover:underline flex items-center justify-center gap-1 mx-auto"
+                className="w-full text-xs font-bold text-[#203945]/70 hover:text-[#203945] flex items-center justify-center gap-1.5 pt-2 cursor-pointer"
               >
                 <ArrowRight className="w-3.5 h-3.5" />
-                <span>العودة لصفحة تسجيل الدخول</span>
+                <span>العودة لتسجيل الدخول</span>
               </button>
-            </div>
-          </form>
-        )}
+            </form>
+          )}
 
-        {/* 4. FORGOT PASSWORD (STEP 2: ENTER CODE & SET NEW PASSWORD) */}
-        {mode === 'reset-code' && (
-          <form onSubmit={handleResetSubmit} className="p-6 space-y-4">
-            <div className="bg-[#EAF3F8] p-3 rounded-[12px] text-xs text-[#104A78] space-y-1">
-              <p>تم إرسال رمز التحقق إلى: <strong>{forgotEmail}</strong></p>
+          {/* 4. RESET PASSWORD WITH CODE */}
+          {mode === 'reset-code' && (
+            <form onSubmit={handleResetCodeSubmit} className="p-6 space-y-4">
               {generatedCodeHint && (
-                <p className="font-mono bg-white/80 p-1.5 rounded border border-[#CCD8D5] text-center font-bold text-sm text-[#1766A6]">
-                  رمز التحقق السحابي: {generatedCodeHint}
-                </p>
+                <div className="p-3 bg-[#EAF3F8] border border-[#DCEBF4] rounded-[12px] text-xs text-[#104A78] flex items-center justify-between">
+                  <span>رمز التحقق المستلم:</span>
+                  <span className="font-mono font-bold text-sm bg-white px-2 py-0.5 rounded-sm border border-[#1766A6]/30">
+                    {generatedCodeHint}
+                  </span>
+                </div>
               )}
-            </div>
 
-            <div className="space-y-1.5">
-              <label className="block text-xs font-bold text-[#203945]">رمز التحقق (6 أرقام)</label>
-              <div className="relative">
+              <div className="space-y-1.5">
+                <label className="block text-xs font-bold text-[#203945]">
+                  رمز التحقق (6 أرقام)
+                </label>
                 <input
                   type="text"
                   required
@@ -629,71 +575,58 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   value={resetCode}
                   onChange={(e) => setResetCode(e.target.value)}
                   placeholder="123456"
-                  className="w-full h-11 pr-10 pl-3 text-center tracking-widest font-mono text-base font-bold bg-white border border-[#CCD8D5] rounded-[12px] outline-hidden focus:border-[#1766A6] text-[#203945]"
+                  className="w-full h-11 px-3 text-center tracking-widest text-base font-mono font-bold bg-white border border-[#CCD8D5] rounded-[12px] outline-hidden focus:border-[#1766A6]"
                 />
-                <KeyRound className="w-4 h-4 text-[#203945]/40 absolute right-3.5 top-3.5" />
               </div>
-            </div>
 
-            <div className="space-y-1.5">
-              <label className="block text-xs font-bold text-[#203945]">كلمة المرور الجديدة</label>
-              <div className="relative">
-                <input
-                  type={showNewPassword ? 'text' : 'password'}
-                  required
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  placeholder="••••••••"
-                  className="w-full h-11 pr-10 pl-10 text-xs sm:text-sm bg-white border border-[#CCD8D5] rounded-[12px] outline-hidden focus:border-[#1766A6] text-[#203945]"
-                />
-                <Lock className="w-4 h-4 text-[#203945]/40 absolute right-3.5 top-3.5" />
-                <button
-                  type="button"
-                  onClick={() => setShowNewPassword(!showNewPassword)}
-                  className="absolute left-3 top-3 text-[#203945]/40 hover:text-[#203945]"
-                >
-                  {showNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </button>
+              <div className="space-y-1.5">
+                <label className="block text-xs font-bold text-[#203945]">كلمة المرور الجديدة</label>
+                <div className="relative">
+                  <input
+                    type={showNewPassword ? 'text' : 'password'}
+                    required
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    placeholder="••••••••"
+                    className="w-full h-11 pr-10 pl-10 text-xs sm:text-sm bg-white border border-[#CCD8D5] rounded-[12px] outline-hidden focus:border-[#1766A6]"
+                  />
+                  <Lock className="w-4 h-4 text-[#203945]/40 absolute right-3.5 top-3.5" />
+                  <button
+                    type="button"
+                    onClick={() => setShowNewPassword(!showNewPassword)}
+                    className="absolute left-3.5 top-3.5 text-[#203945]/50 hover:text-[#203945] cursor-pointer"
+                  >
+                    {showNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
               </div>
-            </div>
 
-            <div className="space-y-1.5">
-              <label className="block text-xs font-bold text-[#203945]">تأكيد كلمة المرور الجديدة</label>
-              <div className="relative">
-                <input
-                  type={showNewPassword ? 'text' : 'password'}
-                  required
-                  value={confirmNewPassword}
-                  onChange={(e) => setConfirmNewPassword(e.target.value)}
-                  placeholder="••••••••"
-                  className="w-full h-11 pr-10 pl-3 text-xs sm:text-sm bg-white border border-[#CCD8D5] rounded-[12px] outline-hidden focus:border-[#1766A6] text-[#203945]"
-                />
-                <Lock className="w-4 h-4 text-[#203945]/40 absolute right-3.5 top-3.5" />
+              <div className="space-y-1.5">
+                <label className="block text-xs font-bold text-[#203945]">تأكيد كلمة المرور</label>
+                <div className="relative">
+                  <input
+                    type={showNewPassword ? 'text' : 'password'}
+                    required
+                    value={confirmNewPassword}
+                    onChange={(e) => setConfirmNewPassword(e.target.value)}
+                    placeholder="••••••••"
+                    className="w-full h-11 pr-10 pl-3 text-xs sm:text-sm bg-white border border-[#CCD8D5] rounded-[12px] outline-hidden focus:border-[#1766A6]"
+                  />
+                  <Lock className="w-4 h-4 text-[#203945]/40 absolute right-3.5 top-3.5" />
+                </div>
               </div>
-            </div>
 
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full h-11 rounded-[12px] bg-[#25866D] hover:bg-[#1E6F5A] disabled:opacity-50 text-white font-bold text-sm shadow-xs transition-colors"
-            >
-              {loading ? 'جاري التحديث...' : 'تأكيد وحفظ كلمة المرور الجديدة'}
-            </button>
-
-            <div className="text-center pt-2 border-t border-[#E0E8E6]">
               <button
-                type="button"
-                onClick={() => {
-                  resetMessages();
-                  setMode('login');
-                }}
-                className="text-xs font-bold text-[#1766A6] hover:underline"
+                type="submit"
+                disabled={loading}
+                className="w-full h-11 rounded-[12px] bg-[#25866D] hover:bg-[#1E6F5A] text-white font-bold text-xs sm:text-sm shadow-xs transition-colors flex items-center justify-center gap-2 cursor-pointer"
               >
-                العودة لصفحة تسجيل الدخول
+                <CheckCircle2 className="w-4 h-4" />
+                <span>{loading ? 'جاري الحفظ...' : 'تأكيد كلمة المرور الجديدة'}</span>
               </button>
-            </div>
-          </form>
-        )}
+            </form>
+          )}
+        </div>
       </div>
     </div>
   );

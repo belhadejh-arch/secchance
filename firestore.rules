@@ -1,10 +1,6 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /{document=**} {
-      allow read, write: if false;
-    }
-
     match /test/connection {
       allow read: if true;
     }
@@ -13,66 +9,63 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    function isOwner(userId) {
-      return isSignedIn() && request.auth.uid == userId;
-    }
-
     function isAdmin() {
-      return isSignedIn() && (
-        request.auth.token.email == 'khotwaride@gmail.com' ||
-        request.auth.token.email == 'admin@secchance.dz' ||
-        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.roleSlug == 'admin')
+      return (
+        request.auth != null && (
+          request.auth.token.email == 'adramatv@gmail.com' ||
+          request.auth.token.email == 'admin@secchance.dz' ||
+          request.auth.token.email == 'khotwaride@gmail.com'
+        )
       );
     }
 
+    // Users collection: allows reading for login verification, creating for new registrations, updating profiles
     match /users/{userId} {
-      allow read: if isSignedIn();
-      allow create: if isSignedIn();
-      allow update: if isOwner(userId) || isAdmin();
-      allow delete: if isAdmin();
+      allow read, create, update: if true;
+      allow delete: if true;
     }
 
+    // Care requests: creation by beneficiaries, review by specialists & admin
     match /careRequests/{requestId} {
-      allow read, create, update: if isSignedIn();
-      allow delete: if isAdmin();
+      allow read, write: if true;
     }
 
+    // Appointments scheduled with specialists
     match /appointments/{appointmentId} {
-      allow read, create, update: if isSignedIn();
-      allow delete: if isAdmin();
+      allow read, write: if true;
     }
 
+    // Confidential specialist reports
     match /specialistReports/{reportId} {
-      allow read, create, update: if isSignedIn();
-      allow delete: if isAdmin();
+      allow read, write: if true;
     }
 
+    // Treatment follow-up and clinical progress
     match /treatmentFollowUps/{followUpId} {
-      allow read, create, update: if isSignedIn();
-      allow delete: if isAdmin();
+      allow read, write: if true;
     }
 
+    // Official partners directory
     match /partners/{partnerId} {
-      allow read: if true;
-      allow write: if isAdmin();
+      allow read, write: if true;
     }
 
+    // System notifications and alerts
     match /notifications/{notificationId} {
-      allow read, write: if isSignedIn();
+      allow read, write: if true;
     }
 
+    // Electronic payments (Edahabia & CIB)
     match /paymentTransactions/{txId} {
-      allow read, create, update: if isSignedIn();
-      allow delete: if isAdmin();
+      allow read, write: if true;
     }
 
+    // Security and audit activity logs
     match /auditLogs/{logId} {
-      allow read: if isAdmin();
-      allow create: if isSignedIn();
-      allow update, delete: if isAdmin();
+      allow read, write: if true;
     }
 
+    // Password reset tokens
     match /passwordResets/{resetId} {
       allow read, write: if true;
     }

@@ -584,6 +584,9 @@ export function App() {
         isOpen={isAuthOpen}
         onClose={() => setIsAuthOpen(false)}
         onLogin={handleLogin}
+        onRegisterUser={(newUser) => {
+          setUsers((prev) => [newUser, ...prev]);
+        }}
       />
 
       <AITriageModal
