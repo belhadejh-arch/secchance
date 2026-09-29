@@ -246,6 +246,8 @@ export interface LegalTopic {
   officialSource: string; // الجريدة الرسمية للجمهورية الجزائرية
   lastReviewedDate: string; // آخر مراجعة
   status: 'ACTIVE' | 'ARCHIVED';
+  pdfUrl?: string; // رابط تحميل وقراءة ملف PDF المباشر
+  pdfFileName?: string; // اسم ملف PDF
 }
 
 export interface LegalContentVersion {

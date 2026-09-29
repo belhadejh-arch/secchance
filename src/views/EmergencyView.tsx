@@ -14,7 +14,7 @@ export const EmergencyView: React.FC = () => {
           دليل أرقام الطوارئ والمساعدة الفورية 🚨
         </h1>
         <p className="text-[12px] text-[#203945]/70 mt-0.5">
-          أرقام النجدة والإسعاف الرسمية في الجزائر والمراكز الوطنية المعتمدة للسموم
+          أرقام النجدة والإسعاف الرسمية ومراكز معالجة الإدمان المعتمدة
         </p>
       </div>
 
@@ -27,36 +27,36 @@ export const EmergencyView: React.FC = () => {
           </h2>
         </div>
         <p className="text-[12px] sm:text-[13px] text-[#5F1D1A] font-bold leading-[22px]">
-          إذا كانت هناك حالة تهدد الحياة أو تسمم حاد أو فقدان وعي أو صعوبة شديدة في التنفس، لا تنتظر رد المنصة، وتوجه فوراً إلى خدمات الطوارئ أو أقرب مؤسسة صحية.
+          إذا كانت هناك حالة تهدد الحياة أو جرعة زائدة أو فقدان وعي أو صعوبة شديدة في التنفس، لا تنتظر رد المنصة، وتوجه فوراً إلى خدمات الطوارئ أو أقرب مؤسسة صحية.
         </p>
         <p className="text-[11px] text-[#5F1D1A]/80 font-medium">
           المنصة ليست بديلاً عن الطوارئ الطبية أو الإسعاف الفوري للحالات الخطرة.
         </p>
       </div>
 
-      {/* Dedicated Poison Control Center Card (Requirement 18) */}
+      {/* Dedicated Addiction Treatment Center Card */}
       {poisonCenter && (
-        <div className="bg-[#FFF3E0] border border-[#FFB74D] rounded-[18px] p-5 shadow-xs space-y-3">
+        <div className="bg-[#EBF5FB] border border-[#7FB3D5] rounded-[18px] p-5 shadow-xs space-y-3">
           <div className="flex items-start justify-between gap-3">
             <div className="space-y-1">
               <div className="flex items-center gap-2">
-                <span className="text-xl">☠️</span>
-                <h3 className="font-black text-[16px] sm:text-[17px] text-[#E65100]">
+                <span className="text-xl">🏥</span>
+                <h3 className="font-black text-[16px] sm:text-[17px] text-[#1B4F72]">
                   {poisonCenter.title}
                 </h3>
               </div>
-              <p className="text-[12px] text-[#E65100]/90 leading-relaxed font-medium">
+              <p className="text-[12px] text-[#1B4F72]/90 leading-relaxed font-medium">
                 {poisonCenter.description}
               </p>
             </div>
 
             <div className="text-left shrink-0">
-              <span className="block text-[10px] font-bold text-[#E65100]/80 mb-1">
-                الرقم الرسمي المعروض حالياً:
+              <span className="block text-[10px] font-bold text-[#1B4F72]/80 mb-1">
+                الرقم الرسمي المعتمد:
               </span>
               <a
                 href={`tel:${poisonCenter.phoneNumber.replace(/\s+/g, '')}`}
-                className="inline-flex items-center gap-2 bg-[#E65100] hover:bg-[#d84315] text-white font-black text-[15px] px-4 py-2 rounded-[10px] transition-colors shadow-xs"
+                className="inline-flex items-center gap-2 bg-[#1B4F72] hover:bg-[#154360] text-white font-black text-[15px] px-4 py-2 rounded-[10px] transition-colors shadow-xs"
               >
                 <PhoneCall className="w-4 h-4" />
                 <span dir="ltr">{poisonCenter.phoneNumber}</span>
@@ -64,8 +64,8 @@ export const EmergencyView: React.FC = () => {
             </div>
           </div>
 
-          <div className="pt-2 border-t border-[#FFE0B2] flex items-center justify-between text-[11px] text-[#E65100]">
-            <span>✓ التكفل بحالات التسمم الدوائي والكيميائي والجرعات الزائدة</span>
+          <div className="pt-2 border-t border-[#D4E6F1] flex items-center justify-between text-[11px] text-[#1B4F72]">
+            <span>✓ التكفل بحالات الإدمان والرعاية الطبية والنفسية المتخصصة والعلاج المزيل للسموم</span>
             <a
               href={`tel:${poisonCenter.phoneNumber.replace(/\s+/g, '')}`}
               className="font-bold underline hover:opacity-80"

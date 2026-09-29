@@ -125,7 +125,7 @@ export const LandingView: React.FC<LandingViewProps> = ({
           </div>
           <div>
             <h2 className="text-xs sm:text-sm font-bold text-[#5F1D1A]">
-              طوارئ السموم والإسعاف الطبي: مركز مكافحة التسمم الوطني (020 39 59 59)
+              طوارئ وإسعاف طبي: مركز معالجة الإدمان (020 39 59 59)
             </h2>
             <p className="text-[11px] text-[#5F1D1A]/80">
               الدرك الوطني: 1055 • الشرطة: 1548 • الحماية المدنية: 14 • المساعدة الفورية السرية
@@ -137,7 +137,7 @@ export const LandingView: React.FC<LandingViewProps> = ({
           onClick={() => onNavigate('emergency')}
           className="w-full sm:w-auto px-4 py-2 rounded-[10px] bg-[#A64842] hover:bg-[#8A3A35] text-white text-xs font-bold shadow-xs transition-colors shrink-0"
         >
-          دليل الطوارئ والسموم
+          دليل الطوارئ ومراكز علاج الإدمان
         </button>
       </section>
 
@@ -215,9 +215,9 @@ export const LandingView: React.FC<LandingViewProps> = ({
             <div className="w-10 h-10 rounded-[12px] bg-[#E8F4EF] text-[#25866D] flex items-center justify-center">
               <Hospital className="w-5 h-5" />
             </div>
-            <h3 className="font-bold text-sm text-[#203945]">مراكز العلاج والسموم (40 مركزاً)</h3>
+            <h3 className="font-bold text-sm text-[#203945]">مراكز علاج الإدمان (40 مركزاً)</h3>
             <p className="text-xs text-[#203945]/75 leading-relaxed">
-              دليل المؤسسات الاستشفائية المتخصصة في إزالة السموم والوسيط لعلاج الإدمان (CPA).
+              دليل المؤسسات الاستشفائية المتخصصة ومراكز الوسيط لعلاج الإدمان (CPA).
             </p>
           </div>
         </div>
@@ -359,12 +359,12 @@ export const LandingView: React.FC<LandingViewProps> = ({
               </li>
               <li>
                 <button onClick={() => onNavigate('awareness')} className="hover:text-white transition-colors">
-                  المراجع والمواد القانونية
+                  المراجع والمواد القانونية (PDF)
                 </button>
               </li>
               <li>
                 <button onClick={() => onNavigate('emergency')} className="hover:text-white transition-colors">
-                  دليل الطوارئ والسموم
+                  دليل الطوارئ ومراكز علاج الإدمان
                 </button>
               </li>
             </ul>
@@ -390,10 +390,14 @@ export const LandingView: React.FC<LandingViewProps> = ({
                 </button>
               </li>
               <li>
-                <span className="hover:text-white cursor-pointer">ميثاق السر المهني والأخلاقي الطبي</span>
+                <a href="/18-04.pdf" download className="hover:text-white block text-right">
+                  تحميل قانون 04-18 مباشرة (PDF)
+                </a>
               </li>
               <li>
-                <span className="hover:text-white cursor-pointer">إخلاء المسؤولية وسياسة الخصوصية</span>
+                <a href="/18-07.pdf" download className="hover:text-white block text-right">
+                  تحميل قانون حماية المعطيات 18-07 (PDF)
+                </a>
               </li>
             </ul>
           </div>
@@ -408,18 +412,18 @@ export const LandingView: React.FC<LandingViewProps> = ({
               </p>
               <p className="flex items-center gap-1.5">
                 <Phone className="w-3.5 h-3.5 text-[#25866D]" />
-                <span dir="ltr">+213 (0) 23 50 50 50</span>
+                <span dir="ltr">0673362606</span>
               </p>
               <p className="flex items-center gap-1.5">
                 <MapPin className="w-3.5 h-3.5 text-[#25866D]" />
-                <span>الجزائر العاصمة، الجمهورية الجزائرية</span>
+                <span>قسنطينة</span>
               </p>
             </div>
           </div>
         </div>
 
         <div className="flex flex-col sm:flex-row items-center justify-between gap-2 text-[11px] text-white/60">
-          <p>© 2026 منصة الفرصة الثانية (Second Chance Platform). جميع الحقوق محفوظة.</p>
+          <p>جميع الحقوق محفوظة لمنصة فرصة ثانية</p>
           <p>نظام رقمي وطني آمن ومحمي بأعلى معايير التشفير والسرية.</p>
         </div>
       </footer>

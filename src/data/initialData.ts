@@ -692,10 +692,10 @@ export const initialAwarenessArticles: AwarenessArticle[] = [
 export const initialEmergencyResources: EmergencyResource[] = [
   {
     id: 1,
-    title: '☠️ مركز مكافحة السموم',
+    title: '🏥 مركز معالجة الإدمان',
     phoneNumber: '020 39 59 59',
     description:
-      'الرقم الرسمي المعروض حالياً لمركز مكافحة السموم الوطني للتكفل بحالات التسمم الحاد والجرعات الزائدة.',
+      'الرقم الرسمي المعتمد للتواصل المباشر مع مركز معالجة الإدمان الوطني للتكفل بحالات الإدمان والعلاج والمتابعة الطبية والنفسية المتخصصة.',
     is247: true,
     isPoisonCenter: true,
   },
@@ -747,6 +747,8 @@ export const initialLegalTopics: LegalTopic[] = [
       'الجريدة الرسمية للجمهورية الجزائرية الديمقراطية الشعبية — العدد 83 (26 ديسمبر 2004).',
     lastReviewedDate: '2026-09-28',
     status: 'ACTIVE',
+    pdfUrl: '/18-04.pdf',
+    pdfFileName: '18-04.pdf',
   },
   {
     id: 2,
@@ -770,6 +772,8 @@ export const initialLegalTopics: LegalTopic[] = [
       'الجريدة الرسمية للجمهورية الجزائرية الديمقراطية الشعبية — العدد 43 (13 يوليو 2025).',
     lastReviewedDate: '2026-09-28',
     status: 'ACTIVE',
+    pdfUrl: '/25-03.pdf',
+    pdfFileName: '25-03.pdf',
   },
   {
     id: 3,
@@ -793,6 +797,8 @@ export const initialLegalTopics: LegalTopic[] = [
       'الجريدة الرسمية للجمهورية الجزائرية الديمقراطية الشعبية — العدد 08 (27 جانفي 2026).',
     lastReviewedDate: '2026-09-28',
     status: 'ACTIVE',
+    pdfUrl: '/76-26-ar-1.pdf',
+    pdfFileName: '76-26-ar-1.pdf',
   },
   {
     id: 4,
@@ -816,6 +822,8 @@ export const initialLegalTopics: LegalTopic[] = [
       'الجريدة الرسمية للجمهورية الجزائرية الديمقراطية الشعبية — العدد 34 (10 يونيو 2018).',
     lastReviewedDate: '2026-09-28',
     status: 'ACTIVE',
+    pdfUrl: '/18-07.pdf',
+    pdfFileName: '18-07.pdf',
   },
 ];
 

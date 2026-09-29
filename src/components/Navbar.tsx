@@ -86,7 +86,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           <button
             onClick={() => onNavigate('emergency')}
             className="p-2 rounded-lg text-[#A64842] hover:bg-[#FBECEB] transition-colors"
-            title="الطوارئ ومركز السموم"
+            title="الطوارئ ومركز معالجة الإدمان"
           >
             <PhoneCall className="w-5 h-5" />
           </button>
