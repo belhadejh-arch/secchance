@@ -1,6 +1,7 @@
 import {
   collection,
   doc,
+  getDoc,
   getDocs,
   setDoc,
   updateDoc,
@@ -8,6 +9,7 @@ import {
   onSnapshot,
   query,
   where,
+  orderBy,
 } from 'firebase/firestore';
 import { db, testFirestoreConnection } from '../lib/firebase';
 import {
@@ -27,8 +29,6 @@ import {
   initialAppointments,
   initialSpecialistReports,
   initialPaymentTransactions,
-  initialAuditLogs,
-  initialNotifications,
 } from '../data/initialData';
 
 const USERS_COL = 'users';
@@ -46,7 +46,6 @@ const NOTIFICATIONS_COL = 'notifications';
 export const DEFAULT_ADMIN_EMAIL = 'admin@secchance.dz';
 export const DEFAULT_ADMIN_PASSWORD = 'admin123456';
 export const SECONDARY_ADMIN_EMAIL = 'khotwaride@gmail.com';
-export const OWNER_ADMIN_EMAIL = 'adramatv@gmail.com';
 
 // Default Partners
 export const initialPartners: PartnerOrganization[] = [
@@ -100,20 +99,11 @@ export const initialPartners: PartnerOrganization[] = [
   },
 ];
 
-// Helper to get local saved users
-export function getLocalSavedUsers(): User[] {
-  try {
-    const raw = localStorage.getItem('secchance_registered_users');
-    return raw ? JSON.parse(raw) : [];
-  } catch {
-    return [];
-  }
-}
-
 // Setup and seed Firestore if empty
 export async function initializeDatabase(): Promise<void> {
+  await testFirestoreConnection();
+
   try {
-    await testFirestoreConnection();
     const usersSnap = await getDocs(collection(db, USERS_COL));
     if (usersSnap.empty) {
       console.log('Bootstrapping Firestore with initial data...');
@@ -126,28 +116,26 @@ export async function initializeDatabase(): Promise<void> {
         lastName: 'العام',
         phone: '0550000000',
         roleSlug: 'admin',
-        accountType: 'admin',
-        wilayaName: 'الجزائر العاصمة',
+        wilayaName: '16. الجزائر العاصمة',
         status: 'active',
         password: DEFAULT_ADMIN_PASSWORD,
         createdAt: new Date().toISOString(),
       };
       await setDoc(doc(db, USERS_COL, 'admin-1'), defaultAdmin);
 
-      const ownerAdmin: User = {
-        id: 'admin-owner',
-        email: OWNER_ADMIN_EMAIL,
-        firstName: 'المدير العام',
-        lastName: 'الأدمن',
-        phone: '0673362606',
+      const secondaryAdmin: User = {
+        id: 'admin-2',
+        email: SECONDARY_ADMIN_EMAIL,
+        firstName: 'مدير',
+        lastName: 'النظام',
+        phone: '0551112233',
         roleSlug: 'admin',
-        accountType: 'admin',
-        wilayaName: 'الجزائر العاصمة',
+        wilayaName: '16. الجزائر العاصمة',
         status: 'active',
         password: DEFAULT_ADMIN_PASSWORD,
         createdAt: new Date().toISOString(),
       };
-      await setDoc(doc(db, USERS_COL, 'admin-owner'), ownerAdmin);
+      await setDoc(doc(db, USERS_COL, 'admin-2'), secondaryAdmin);
 
       // 2. Seed initial users from initialData
       for (const u of initialUsers) {
@@ -200,9 +188,74 @@ export async function initializeDatabase(): Promise<void> {
       for (const part of initialPartners) {
         await setDoc(doc(db, PARTNERS_COL, String(part.id)), part);
       }
+
+      // 8. Seed sample notifications (Requirement 20)
+      const sampleNotifs: PlatformNotification[] = [
+        {
+          id: 'notif-1',
+          userId: 'user-1',
+          recipientRole: 'user',
+          title: 'قبول طلب الاستشارة',
+          message: 'تم قبول طلبك برقم SC-2026-1042 من طرف د. أمين منصوري. يرجى تأكيد الموعد.',
+          timestamp: 'منذ ساعتين',
+          isRead: false,
+          type: 'REQUEST',
+          caseNumber: 'SC-2026-1042',
+        },
+        {
+          id: 'notif-2',
+          userId: 'user-2',
+          recipientRole: 'psychologist',
+          title: 'طلب رعاية نفسي جديد',
+          message: 'وردك طلب رعاية جديد ذو أولوية عالية من الجزائر العاصمة.',
+          timestamp: 'منذ 30 دقيقة',
+          isRead: false,
+          type: 'URGENT',
+          caseNumber: 'SC-2026-8841',
+        },
+        {
+          id: 'notif-3',
+          userId: 'admin-1',
+          recipientRole: 'admin',
+          title: 'تسجيل مستفيد جديد',
+          message: 'قام مستفيد جديد بالتسجيل من ولاية وهران بانتظار التوجيه.',
+          timestamp: 'منذ 15 دقيقة',
+          isRead: false,
+          type: 'SYSTEM',
+        },
+      ];
+      for (const n of sampleNotifs) {
+        await setDoc(doc(db, NOTIFICATIONS_COL, String(n.id)), n);
+      }
+
+      // 9. Seed follow-up
+      const sampleFollowUp: TreatmentFollowUp = {
+        id: 'follow-1',
+        caseNumber: 'SC-2026-1042',
+        clientId: 'user-1',
+        clientName: 'محمد بن خالد',
+        specialistId: 'user-2',
+        specialistName: 'د. أمين منصوري',
+        date: '2026-09-27',
+        notes: 'استجابة إيجابية لبروتوكول العلاج السلوكي وتراجع أعراض القلق والانسحاب.',
+        progress: 'متحسن',
+        currentPlan: 'جلسة دعم نفسي أسبوعية مع تمارين الاسترخاء',
+        recommendations: 'الاستمرار في المتابعة العيادية ومرافقة الأسرة',
+        nextAppointment: '2026-10-05',
+        createdAt: new Date().toISOString(),
+      };
+      await setDoc(doc(db, FOLLOW_UPS_COL, 'follow-1'), sampleFollowUp);
+
+      // 10. Seed initial audit log
+      await logAuditAction(
+        'admin-1',
+        'الأدمن العام',
+        'INITIALIZE_SYSTEM',
+        'تمت تهيئة قاعدة البيانات السحابية Firestore وتفعيل حسابات النظام والصلاحيات والشركاء'
+      );
     }
   } catch (error) {
-    console.warn('Database initialization warning (using local fallback if needed):', error);
+    console.warn('Database initialization warning:', error);
   }
 }
 
@@ -213,100 +266,51 @@ export async function logAuditAction(
   action: string,
   details: string
 ): Promise<void> {
-  const logId = `log-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
-  const logEntry: AuditLogEntry = {
-    id: logId as any,
-    timestamp: new Date().toLocaleString('ar-DZ', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    }),
-    userId: userId as any,
-    userName,
-    action,
-    details,
-    ipAddress: '127.0.0.1 (Web Secure)',
-  };
-
   try {
+    const logId = `log-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+    const logEntry: AuditLogEntry = {
+      id: logId as any,
+      timestamp: new Date().toLocaleString('ar-DZ', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      }),
+      userId: userId as any,
+      userName,
+      action,
+      details,
+      ipAddress: '127.0.0.1 (Web Secure)',
+    };
     await setDoc(doc(db, AUDIT_LOGS_COL, logId), logEntry);
   } catch (e) {
-    // Save to local session log
-    try {
-      const localLogs = JSON.parse(localStorage.getItem('secchance_local_audit') || '[]');
-      localLogs.unshift(logEntry);
-      localStorage.setItem('secchance_local_audit', JSON.stringify(localLogs.slice(0, 50)));
-    } catch {}
+    console.warn('Failed to log audit action:', e);
   }
 }
 
 export function subscribeToAuditLogs(callback: (logs: AuditLogEntry[]) => void) {
-  try {
-    return onSnapshot(
-      collection(db, AUDIT_LOGS_COL),
-      (snap) => {
-        if (!snap.empty) {
-          const logs = snap.docs.map((d) => d.data() as AuditLogEntry);
-          logs.sort((a, b) => (b.timestamp > a.timestamp ? 1 : -1));
-          callback(logs);
-        } else {
-          callback(initialAuditLogs);
-        }
-      },
-      (err) => {
-        console.warn('Audit logs subscription fallback:', err);
-        try {
-          const localLogs = JSON.parse(localStorage.getItem('secchance_local_audit') || '[]');
-          callback([...localLogs, ...initialAuditLogs]);
-        } catch {
-          callback(initialAuditLogs);
-        }
-      }
-    );
-  } catch (e) {
-    callback(initialAuditLogs);
-    return () => {};
-  }
+  return onSnapshot(
+    collection(db, AUDIT_LOGS_COL),
+    (snap) => {
+      const logs = snap.docs.map((d) => d.data() as AuditLogEntry);
+      logs.sort((a, b) => (b.timestamp > a.timestamp ? 1 : -1));
+      callback(logs);
+    },
+    (err) => console.warn('Audit logs subscription error:', err)
+  );
 }
 
 // ==================== USER MANAGEMENT ====================
 export function subscribeToUsers(callback: (users: User[]) => void) {
-  try {
-    return onSnapshot(
-      collection(db, USERS_COL),
-      (snap) => {
-        if (!snap.empty) {
-          const remoteUsers = snap.docs.map((d) => d.data() as User);
-          const localUsers = getLocalSavedUsers();
-          // Merge avoiding duplicates
-          const seen = new Set<string>();
-          const merged: User[] = [];
-          for (const u of [...remoteUsers, ...localUsers, ...initialUsers]) {
-            const key = String(u.email || u.id).toLowerCase();
-            if (!seen.has(key)) {
-              seen.add(key);
-              merged.push(u);
-            }
-          }
-          callback(merged);
-        } else {
-          const localUsers = getLocalSavedUsers();
-          callback([...localUsers, ...initialUsers]);
-        }
-      },
-      (err) => {
-        console.warn('Users subscription fallback:', err);
-        const localUsers = getLocalSavedUsers();
-        callback([...localUsers, ...initialUsers]);
-      }
-    );
-  } catch (e) {
-    const localUsers = getLocalSavedUsers();
-    callback([...localUsers, ...initialUsers]);
-    return () => {};
-  }
+  return onSnapshot(
+    collection(db, USERS_COL),
+    (snap) => {
+      const users = snap.docs.map((d) => d.data() as User);
+      callback(users);
+    },
+    (err) => console.warn('Users subscription error:', err)
+  );
 }
 
 export async function createUserInDb(user: Omit<User, 'id'> & { password?: string }): Promise<User> {
@@ -316,52 +320,19 @@ export async function createUserInDb(user: Omit<User, 'id'> & { password?: strin
     id: newId,
     createdAt: new Date().toISOString(),
   };
-
-  // 1. Always save to localStorage immediately to guarantee persistence
-  try {
-    const localUsers = getLocalSavedUsers();
-    localUsers.unshift(fullUser);
-    localStorage.setItem('secchance_registered_users', JSON.stringify(localUsers));
-  } catch (e) {
-    console.warn('localStorage save warning:', e);
-  }
-
-  // 2. Attempt Firestore save
-  try {
-    await setDoc(doc(db, USERS_COL, newId), fullUser);
-  } catch (fsErr) {
-    console.warn('Firestore setDoc user warning (safely stored locally):', fsErr);
-  }
-
+  await setDoc(doc(db, USERS_COL, newId), fullUser);
   await logAuditAction(
     'system',
     'النظام',
     'CREATE_USER',
     `تم إنشاء حساب جديد: ${user.firstName} ${user.lastName} (${user.email}) بالدور ${user.roleSlug}`
   );
-
   return fullUser;
 }
 
 export async function updateUserInDb(id: string | number, updates: Partial<User>): Promise<void> {
-  // Update local storage first
-  try {
-    const localUsers = getLocalSavedUsers();
-    const idx = localUsers.findIndex((u) => String(u.id) === String(id));
-    if (idx !== -1) {
-      localUsers[idx] = { ...localUsers[idx], ...updates };
-      localStorage.setItem('secchance_registered_users', JSON.stringify(localUsers));
-    }
-  } catch {}
-
-  // Update Firestore
-  try {
-    const docRef = doc(db, USERS_COL, String(id));
-    await updateDoc(docRef, updates);
-  } catch (fsErr) {
-    console.warn('Firestore updateDoc user warning:', fsErr);
-  }
-
+  const docRef = doc(db, USERS_COL, String(id));
+  await updateDoc(docRef, updates);
   await logAuditAction(
     'admin',
     'لوحة الإدارة',
@@ -371,20 +342,7 @@ export async function updateUserInDb(id: string | number, updates: Partial<User>
 }
 
 export async function deleteUserFromDb(id: string | number, adminName = 'الأدمن'): Promise<void> {
-  // Remove from local storage
-  try {
-    const localUsers = getLocalSavedUsers();
-    const filtered = localUsers.filter((u) => String(u.id) !== String(id));
-    localStorage.setItem('secchance_registered_users', JSON.stringify(filtered));
-  } catch {}
-
-  // Delete from Firestore
-  try {
-    await deleteDoc(doc(db, USERS_COL, String(id)));
-  } catch (fsErr) {
-    console.warn('Firestore deleteDoc user warning:', fsErr);
-  }
-
+  await deleteDoc(doc(db, USERS_COL, String(id)));
   await logAuditAction(
     'admin',
     adminName,
@@ -401,67 +359,14 @@ export async function authenticateUser(
   try {
     const cleanInput = emailOrUsername.trim().toLowerCase();
 
-    // 1. Direct Admin Access Gate (ensures adramatv@gmail.com and admin@secchance.dz ALWAYS work without permission errors)
-    const isAdminEmail =
-      cleanInput === 'admin@secchance.dz' ||
-      cleanInput === 'adramatv@gmail.com' ||
-      cleanInput === 'khotwaride@gmail.com' ||
-      cleanInput === 'admin';
-
-    if (isAdminEmail) {
-      const allowedAdminPasswords = [
-        DEFAULT_ADMIN_PASSWORD,
-        'admin123',
-        'admin123456',
-        'password123',
-        'admin',
-        '123456',
-      ];
-
-      if (allowedAdminPasswords.includes(passwordInput) || passwordInput.length >= 4) {
-        const adminUser: User = {
-          id: cleanInput === 'adramatv@gmail.com' ? 99 : 7,
-          email: cleanInput.includes('@') ? cleanInput : 'admin@secchance.dz',
-          firstName: cleanInput === 'adramatv@gmail.com' ? 'المدير العام' : 'المشرف العام',
-          lastName: 'الإدارة',
-          phone: '0673362606',
-          roleSlug: 'admin',
-          accountType: 'admin',
-          wilayaName: 'الجزائر العاصمة',
-          status: 'ACTIVE',
-        };
-
-        await logAuditAction(
-          adminUser.id,
-          `${adminUser.firstName} ${adminUser.lastName}`,
-          'LOGIN_SUCCESS',
-          'تسجيل دخول حساب الأدمن العام بنجاح'
-        );
-
-        return { user: adminUser };
-      }
-    }
-
-    // 2. Fetch from Firestore (with non-blocking fallback)
-    let remoteUsers: User[] = [];
-    try {
-      const usersSnap = await getDocs(collection(db, USERS_COL));
-      if (!usersSnap.empty) {
-        remoteUsers = usersSnap.docs.map((d) => d.data() as User);
-      }
-    } catch (fsErr) {
-      console.warn('Firestore read error in auth (falling back to local memory):', fsErr);
-    }
-
-    // 3. Combine with local saved users and initial users
-    const localUsers = getLocalSavedUsers();
-    const allUsers = [...remoteUsers, ...localUsers, ...initialUsers];
+    // Check by email
+    const usersSnap = await getDocs(collection(db, USERS_COL));
+    const allUsers = usersSnap.docs.map((d) => d.data() as User);
 
     const matched = allUsers.find(
       (u) =>
         u.email.toLowerCase() === cleanInput ||
         `${u.firstName} ${u.lastName}`.toLowerCase() === cleanInput ||
-        u.firstName.toLowerCase() === cleanInput ||
         cleanInput.includes(u.email.toLowerCase().split('@')[0])
     );
 
@@ -473,18 +378,24 @@ export async function authenticateUser(
       return { error: 'تم تعليق هذا الحساب من قبل إدارة المنصة. يرجى التواصل مع الدعم الفني.' };
     }
 
-    if (matched.status === 'inactive') {
-      return { error: 'هذا الحساب غير نشط حالياً. يرجى انتظار اعتماد الإدارة.' };
+    if (matched.status === 'pending' || matched.status === 'inactive') {
+      return {
+        error:
+          'هذا الحساب ما زال «قيد المراجعة والتدقيق» من قبل إدارة المنصة. سيتم التحقق من الوثائق والاعتمادات وتفعيله قريباً.',
+      };
     }
 
-    // 4. Verify password
+    if (matched.status === 'rejected') {
+      return {
+        error: `تم رفض طلب اعتماد هذا الحساب. سبب الرفض: ${
+          matched.rejectionReason || 'عدم استيفاء الشروط أو الوثائق المطلوبة'
+        }.`,
+      };
+    }
+
+    // Verify password (supports default password for demo/seeded, or actual user password)
     const validPassword = matched.password || 'password123';
-    if (
-      passwordInput !== validPassword &&
-      passwordInput !== DEFAULT_ADMIN_PASSWORD &&
-      passwordInput !== 'password123' &&
-      passwordInput !== 'admin123456'
-    ) {
+    if (passwordInput !== validPassword && passwordInput !== DEFAULT_ADMIN_PASSWORD) {
       return { error: 'كلمة المرور غير صحيحة. يرجى التأكد وإعادة المحاولة.' };
     }
 
@@ -497,32 +408,72 @@ export async function authenticateUser(
 
     return { user: matched };
   } catch (error: any) {
-    console.error('Authentication error:', error);
     return { error: error.message || 'حدث خطأ أثناء تسجيل الدخول.' };
   }
+}
+
+export async function approveUserInDb(id: string | number, adminName = 'الأدمن'): Promise<void> {
+  await updateUserInDb(id, { status: 'active', rejectionReason: undefined });
+  await logAuditAction(
+    'admin',
+    adminName,
+    'APPROVE_USER',
+    `تمت الموافقة على الحساب واعتماده رسمياً ID: ${id}`
+  );
+}
+
+export async function rejectUserInDb(id: string | number, reason: string, adminName = 'الأدمن'): Promise<void> {
+  await updateUserInDb(id, { status: 'rejected', rejectionReason: reason });
+  await logAuditAction(
+    'admin',
+    adminName,
+    'REJECT_USER',
+    `تم رفض الحساب ID ${id} مع تسجيل السبب: ${reason}`
+  );
 }
 
 // ==================== PASSWORD RESET ====================
 export async function requestPasswordReset(email: string): Promise<{ success: boolean; message: string; resetCode?: string }> {
   try {
     const cleanEmail = email.trim().toLowerCase();
+    const usersSnap = await getDocs(
+      query(collection(db, USERS_COL), where('email', '==', cleanEmail))
+    );
+
+    if (usersSnap.empty) {
+      // Also search case-insensitively
+      const allUsersSnap = await getDocs(collection(db, USERS_COL));
+      const found = allUsersSnap.docs.find(
+        (d) => (d.data() as User).email.toLowerCase() === cleanEmail
+      );
+      if (!found) {
+        return { success: false, message: 'البريد الإلكتروني المدخل غير مسجل في قاعدة البيانات.' };
+      }
+    }
+
+    // Generate 6-digit verification code
     const resetCode = String(Math.floor(100000 + Math.random() * 900000));
     const tokenDocId = `reset-${Date.now()}`;
-    const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString();
+    const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString(); // 15 mins
 
-    try {
-      await setDoc(doc(db, RESETS_COL, tokenDocId), {
-        email: cleanEmail,
-        code: resetCode,
-        used: false,
-        expiresAt,
-        createdAt: new Date().toISOString(),
-      });
-    } catch {}
+    await setDoc(doc(db, RESETS_COL, tokenDocId), {
+      email: cleanEmail,
+      code: resetCode,
+      expiresAt,
+      used: false,
+      createdAt: new Date().toISOString(),
+    });
+
+    await logAuditAction(
+      cleanEmail,
+      cleanEmail,
+      'PASSWORD_RESET_REQUESTED',
+      `تم طلب استعادة كلمة المرور وإصدار رمز تحقق ساري لمدة 15 دقيقة`
+    );
 
     return {
       success: true,
-      message: `تم إرسال رمز استعادة كلمة المرور بنجاح إلى ${cleanEmail}. (الرمز التجريبي: ${resetCode})`,
+      message: `تم إرسال رمز استعادة كلمة المرور بنجاح إلى ${cleanEmail}. (الرمز: ${resetCode})`,
       resetCode,
     };
   } catch (error: any) {
@@ -537,25 +488,49 @@ export async function verifyAndResetPassword(
 ): Promise<{ success: boolean; message: string }> {
   try {
     const cleanEmail = email.trim().toLowerCase();
+    const cleanCode = code.trim();
 
-    // Update in local storage
-    const localUsers = getLocalSavedUsers();
-    const idx = localUsers.findIndex((u) => u.email.toLowerCase() === cleanEmail);
-    if (idx !== -1) {
-      localUsers[idx].password = newPassword;
-      localStorage.setItem('secchance_registered_users', JSON.stringify(localUsers));
+    const resetsSnap = await getDocs(
+      query(
+        collection(db, RESETS_COL),
+        where('email', '==', cleanEmail),
+        where('code', '==', cleanCode),
+        where('used', '==', false)
+      )
+    );
+
+    if (resetsSnap.empty) {
+      return { success: false, message: 'رمز التحقق غير صحيح أو تم استخدامه مسبقاً.' };
     }
 
-    // Update in Firestore if accessible
-    try {
-      const allUsersSnap = await getDocs(collection(db, USERS_COL));
-      const userDoc = allUsersSnap.docs.find(
-        (d) => (d.data() as User).email.toLowerCase() === cleanEmail
-      );
-      if (userDoc) {
-        await updateDoc(userDoc.ref, { password: newPassword });
-      }
-    } catch {}
+    const resetDoc = resetsSnap.docs[0];
+    const resetData = resetDoc.data();
+
+    if (new Date() > new Date(resetData.expiresAt)) {
+      return { success: false, message: 'انتهت صلاحية رمز التحقق (أكثر من 15 دقيقة). يرجى طلب رمز جديد.' };
+    }
+
+    // Mark reset code as used
+    await updateDoc(resetDoc.ref, { used: true, usedAt: new Date().toISOString() });
+
+    // Find and update user password
+    const allUsersSnap = await getDocs(collection(db, USERS_COL));
+    const userDoc = allUsersSnap.docs.find(
+      (d) => (d.data() as User).email.toLowerCase() === cleanEmail
+    );
+
+    if (!userDoc) {
+      return { success: false, message: 'تعذر العثور على الحساب المرتبط بهذا البريد.' };
+    }
+
+    await updateDoc(userDoc.ref, { password: newPassword });
+
+    await logAuditAction(
+      userDoc.id,
+      cleanEmail,
+      'PASSWORD_RESET_COMPLETED',
+      'تم تغيير كلمة المرور بنجاح عبر رمز الاستعادة المؤكد'
+    );
 
     return { success: true, message: 'تم تحديث كلمة المرور بنجاح! يمكنك الآن تسجيل الدخول بكلمة المرور الجديدة.' };
   } catch (error: any) {
@@ -565,27 +540,15 @@ export async function verifyAndResetPassword(
 
 // ==================== CARE REQUESTS ====================
 export function subscribeToCareRequests(callback: (requests: CareRequest[]) => void) {
-  try {
-    return onSnapshot(
-      collection(db, REQUESTS_COL),
-      (snap) => {
-        if (!snap.empty) {
-          const requests = snap.docs.map((d) => d.data() as CareRequest);
-          requests.sort((a, b) => (b.createdAt > a.createdAt ? 1 : -1));
-          callback(requests);
-        } else {
-          callback(initialCareRequests);
-        }
-      },
-      (err) => {
-        console.warn('Requests subscription fallback:', err);
-        callback(initialCareRequests);
-      }
-    );
-  } catch (e) {
-    callback(initialCareRequests);
-    return () => {};
-  }
+  return onSnapshot(
+    collection(db, REQUESTS_COL),
+    (snap) => {
+      const requests = snap.docs.map((d) => d.data() as CareRequest);
+      requests.sort((a, b) => (b.createdAt > a.createdAt ? 1 : -1));
+      callback(requests);
+    },
+    (err) => console.warn('Requests subscription error:', err)
+  );
 }
 
 export async function createCareRequestInDb(request: Omit<CareRequest, 'id'>): Promise<CareRequest> {
@@ -594,11 +557,7 @@ export async function createCareRequestInDb(request: Omit<CareRequest, 'id'>): P
     ...request,
     id: newId,
   };
-  try {
-    await setDoc(doc(db, REQUESTS_COL, newId), fullReq);
-  } catch (fsErr) {
-    console.warn('Firestore createCareRequest warning:', fsErr);
-  }
+  await setDoc(doc(db, REQUESTS_COL, newId), fullReq);
   await logAuditAction(
     fullReq.clientId,
     fullReq.clientName,
@@ -613,11 +572,7 @@ export async function updateCareRequestInDb(
   updates: Partial<CareRequest>,
   actorName = 'النظام'
 ): Promise<void> {
-  try {
-    await updateDoc(doc(db, REQUESTS_COL, String(id)), updates);
-  } catch (fsErr) {
-    console.warn('Firestore updateCareRequest warning:', fsErr);
-  }
+  await updateDoc(doc(db, REQUESTS_COL, String(id)), updates);
   await logAuditAction(
     'system',
     actorName,
@@ -628,26 +583,14 @@ export async function updateCareRequestInDb(
 
 // ==================== APPOINTMENTS ====================
 export function subscribeToAppointments(callback: (appts: Appointment[]) => void) {
-  try {
-    return onSnapshot(
-      collection(db, APPOINTMENTS_COL),
-      (snap) => {
-        if (!snap.empty) {
-          const appts = snap.docs.map((d) => d.data() as Appointment);
-          callback(appts);
-        } else {
-          callback(initialAppointments);
-        }
-      },
-      (err) => {
-        console.warn('Appointments subscription fallback:', err);
-        callback(initialAppointments);
-      }
-    );
-  } catch (e) {
-    callback(initialAppointments);
-    return () => {};
-  }
+  return onSnapshot(
+    collection(db, APPOINTMENTS_COL),
+    (snap) => {
+      const appts = snap.docs.map((d) => d.data() as Appointment);
+      callback(appts);
+    },
+    (err) => console.warn('Appointments subscription error:', err)
+  );
 }
 
 export async function createAppointmentInDb(appt: Omit<Appointment, 'id'>): Promise<Appointment> {
@@ -656,11 +599,7 @@ export async function createAppointmentInDb(appt: Omit<Appointment, 'id'>): Prom
     ...appt,
     id: newId,
   };
-  try {
-    await setDoc(doc(db, APPOINTMENTS_COL, newId), fullAppt);
-  } catch (fsErr) {
-    console.warn('Firestore createAppointment warning:', fsErr);
-  }
+  await setDoc(doc(db, APPOINTMENTS_COL, newId), fullAppt);
   await logAuditAction(
     'system',
     fullAppt.specialistName,
@@ -675,11 +614,7 @@ export async function updateAppointmentStatusInDb(
   status: Appointment['status'],
   specialistName = 'المختص'
 ): Promise<void> {
-  try {
-    await updateDoc(doc(db, APPOINTMENTS_COL, String(id)), { status });
-  } catch (fsErr) {
-    console.warn('Firestore updateAppointment warning:', fsErr);
-  }
+  await updateDoc(doc(db, APPOINTMENTS_COL, String(id)), { status });
   await logAuditAction(
     'system',
     specialistName,
@@ -690,26 +625,14 @@ export async function updateAppointmentStatusInDb(
 
 // ==================== SPECIALIST REPORTS ====================
 export function subscribeToSpecialistReports(callback: (reports: SpecialistReport[]) => void) {
-  try {
-    return onSnapshot(
-      collection(db, REPORTS_COL),
-      (snap) => {
-        if (!snap.empty) {
-          const reports = snap.docs.map((d) => d.data() as SpecialistReport);
-          callback(reports);
-        } else {
-          callback(initialSpecialistReports);
-        }
-      },
-      (err) => {
-        console.warn('Reports subscription fallback:', err);
-        callback(initialSpecialistReports);
-      }
-    );
-  } catch (e) {
-    callback(initialSpecialistReports);
-    return () => {};
-  }
+  return onSnapshot(
+    collection(db, REPORTS_COL),
+    (snap) => {
+      const reports = snap.docs.map((d) => d.data() as SpecialistReport);
+      callback(reports);
+    },
+    (err) => console.warn('Reports subscription error:', err)
+  );
 }
 
 export async function addSpecialistReportInDb(report: Omit<SpecialistReport, 'id'>): Promise<SpecialistReport> {
@@ -718,11 +641,7 @@ export async function addSpecialistReportInDb(report: Omit<SpecialistReport, 'id
     ...report,
     id: newId,
   };
-  try {
-    await setDoc(doc(db, REPORTS_COL, newId), fullReport);
-  } catch (fsErr) {
-    console.warn('Firestore addSpecialistReport warning:', fsErr);
-  }
+  await setDoc(doc(db, REPORTS_COL, newId), fullReport);
   await logAuditAction(
     'specialist',
     fullReport.specialistName,
@@ -734,26 +653,14 @@ export async function addSpecialistReportInDb(report: Omit<SpecialistReport, 'id
 
 // ==================== PAYMENTS ====================
 export function subscribeToPaymentTransactions(callback: (txs: PaymentTransaction[]) => void) {
-  try {
-    return onSnapshot(
-      collection(db, PAYMENTS_COL),
-      (snap) => {
-        if (!snap.empty) {
-          const txs = snap.docs.map((d) => d.data() as PaymentTransaction);
-          callback(txs);
-        } else {
-          callback(initialPaymentTransactions);
-        }
-      },
-      (err) => {
-        console.warn('Payments subscription fallback:', err);
-        callback(initialPaymentTransactions);
-      }
-    );
-  } catch (e) {
-    callback(initialPaymentTransactions);
-    return () => {};
-  }
+  return onSnapshot(
+    collection(db, PAYMENTS_COL),
+    (snap) => {
+      const txs = snap.docs.map((d) => d.data() as PaymentTransaction);
+      callback(txs);
+    },
+    (err) => console.warn('Payments subscription error:', err)
+  );
 }
 
 export async function createPaymentTransactionInDb(tx: Omit<PaymentTransaction, 'id'>): Promise<PaymentTransaction> {
@@ -762,11 +669,7 @@ export async function createPaymentTransactionInDb(tx: Omit<PaymentTransaction, 
     ...tx,
     id: newId,
   };
-  try {
-    await setDoc(doc(db, PAYMENTS_COL, newId), fullTx);
-  } catch (fsErr) {
-    console.warn('Firestore createPayment warning:', fsErr);
-  }
+  await setDoc(doc(db, PAYMENTS_COL, newId), fullTx);
   await logAuditAction(
     fullTx.clientId,
     fullTx.clientName,
@@ -776,25 +679,17 @@ export async function createPaymentTransactionInDb(tx: Omit<PaymentTransaction, 
   return fullTx;
 }
 
-// ==================== TREATMENT FOLLOW-UPS ====================
+// ==================== TREATMENT FOLLOW-UPS (Requirement 13) ====================
 export function subscribeToTreatmentFollowUps(callback: (list: TreatmentFollowUp[]) => void) {
-  try {
-    return onSnapshot(
-      collection(db, FOLLOW_UPS_COL),
-      (snap) => {
-        const list = snap.docs.map((d) => d.data() as TreatmentFollowUp);
-        list.sort((a, b) => (b.date > a.date ? 1 : -1));
-        callback(list);
-      },
-      (err) => {
-        console.warn('Follow-ups subscription fallback:', err);
-        callback([]);
-      }
-    );
-  } catch (e) {
-    callback([]);
-    return () => {};
-  }
+  return onSnapshot(
+    collection(db, FOLLOW_UPS_COL),
+    (snap) => {
+      const list = snap.docs.map((d) => d.data() as TreatmentFollowUp);
+      list.sort((a, b) => (b.date > a.date ? 1 : -1));
+      callback(list);
+    },
+    (err) => console.warn('Follow-ups subscription error:', err)
+  );
 }
 
 export async function addTreatmentFollowUpInDb(followUp: Omit<TreatmentFollowUp, 'id'>): Promise<TreatmentFollowUp> {
@@ -803,11 +698,7 @@ export async function addTreatmentFollowUpInDb(followUp: Omit<TreatmentFollowUp,
     ...followUp,
     id: newId,
   };
-  try {
-    await setDoc(doc(db, FOLLOW_UPS_COL, newId), fullItem);
-  } catch (fsErr) {
-    console.warn('Firestore addFollowUp warning:', fsErr);
-  }
+  await setDoc(doc(db, FOLLOW_UPS_COL, newId), fullItem);
   await logAuditAction(
     fullItem.specialistId,
     fullItem.specialistName,
@@ -817,28 +708,20 @@ export async function addTreatmentFollowUpInDb(followUp: Omit<TreatmentFollowUp,
   return fullItem;
 }
 
-// ==================== PARTNERS ====================
+// ==================== PARTNERS (Requirement 15) ====================
 export function subscribeToPartners(callback: (partners: PartnerOrganization[]) => void) {
-  try {
-    return onSnapshot(
-      collection(db, PARTNERS_COL),
-      (snap) => {
-        if (!snap.empty) {
-          const list = snap.docs.map((d) => d.data() as PartnerOrganization);
-          callback(list);
-        } else {
-          callback(initialPartners);
-        }
-      },
-      (err) => {
-        console.warn('Partners subscription fallback:', err);
+  return onSnapshot(
+    collection(db, PARTNERS_COL),
+    (snap) => {
+      if (snap.empty) {
         callback(initialPartners);
+      } else {
+        const list = snap.docs.map((d) => d.data() as PartnerOrganization);
+        callback(list);
       }
-    );
-  } catch (e) {
-    callback(initialPartners);
-    return () => {};
-  }
+    },
+    (err) => console.warn('Partners subscription error:', err)
+  );
 }
 
 export async function createPartnerInDb(partner: Omit<PartnerOrganization, 'id'>): Promise<PartnerOrganization> {
@@ -847,11 +730,7 @@ export async function createPartnerInDb(partner: Omit<PartnerOrganization, 'id'>
     ...partner,
     id: newId,
   };
-  try {
-    await setDoc(doc(db, PARTNERS_COL, newId), fullItem);
-  } catch (fsErr) {
-    console.warn('Firestore createPartner warning:', fsErr);
-  }
+  await setDoc(doc(db, PARTNERS_COL, newId), fullItem);
   await logAuditAction(
     'admin',
     'الأدمن',
@@ -862,46 +741,26 @@ export async function createPartnerInDb(partner: Omit<PartnerOrganization, 'id'>
 }
 
 export async function updatePartnerInDb(id: string | number, updates: Partial<PartnerOrganization>): Promise<void> {
-  try {
-    await updateDoc(doc(db, PARTNERS_COL, String(id)), updates);
-  } catch (fsErr) {
-    console.warn('Firestore updatePartner warning:', fsErr);
-  }
+  await updateDoc(doc(db, PARTNERS_COL, String(id)), updates);
   await logAuditAction('admin', 'الأدمن', 'UPDATE_PARTNER', `تم تحديث بيانات الشريك ID: ${id}`);
 }
 
 export async function deletePartnerFromDb(id: string | number): Promise<void> {
-  try {
-    await deleteDoc(doc(db, PARTNERS_COL, String(id)));
-  } catch (fsErr) {
-    console.warn('Firestore deletePartner warning:', fsErr);
-  }
+  await deleteDoc(doc(db, PARTNERS_COL, String(id)));
   await logAuditAction('admin', 'الأدمن', 'DELETE_PARTNER', `تم حذف الشريك ID: ${id}`);
 }
 
-// ==================== NOTIFICATIONS ====================
+// ==================== NOTIFICATIONS (Requirement 20) ====================
 export function subscribeToNotifications(callback: (notifs: PlatformNotification[]) => void) {
-  try {
-    return onSnapshot(
-      collection(db, NOTIFICATIONS_COL),
-      (snap) => {
-        if (!snap.empty) {
-          const list = snap.docs.map((d) => d.data() as PlatformNotification);
-          list.sort((a, b) => (b.timestamp > a.timestamp ? 1 : -1));
-          callback(list);
-        } else {
-          callback(initialNotifications);
-        }
-      },
-      (err) => {
-        console.warn('Notifications subscription fallback:', err);
-        callback(initialNotifications);
-      }
-    );
-  } catch (e) {
-    callback(initialNotifications);
-    return () => {};
-  }
+  return onSnapshot(
+    collection(db, NOTIFICATIONS_COL),
+    (snap) => {
+      const list = snap.docs.map((d) => d.data() as PlatformNotification);
+      list.sort((a, b) => (b.timestamp > a.timestamp ? 1 : -1));
+      callback(list);
+    },
+    (err) => console.warn('Notifications subscription error:', err)
+  );
 }
 
 export async function createNotificationInDb(notif: Omit<PlatformNotification, 'id'>): Promise<PlatformNotification> {
@@ -910,18 +769,11 @@ export async function createNotificationInDb(notif: Omit<PlatformNotification, '
     ...notif,
     id: newId,
   };
-  try {
-    await setDoc(doc(db, NOTIFICATIONS_COL, newId), fullItem);
-  } catch (fsErr) {
-    console.warn('Firestore createNotification warning:', fsErr);
-  }
+  await setDoc(doc(db, NOTIFICATIONS_COL, newId), fullItem);
   return fullItem;
 }
 
 export async function markNotificationAsReadInDb(id: string | number): Promise<void> {
-  try {
-    await updateDoc(doc(db, NOTIFICATIONS_COL, String(id)), { isRead: true });
-  } catch (fsErr) {
-    console.warn('Firestore markNotificationAsRead warning:', fsErr);
-  }
+  await updateDoc(doc(db, NOTIFICATIONS_COL, String(id)), { isRead: true });
 }
+

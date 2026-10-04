@@ -15,10 +15,10 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
     <div className="space-y-4 max-w-4xl mx-auto">
       <div>
         <h1 className="text-[18px] font-black text-[#203945]">
-          خدمات «الفرصة الثانية»
+          خدمات منصة الفرصة الثانية
         </h1>
-        <p className="text-[11px] text-[#1766A6] font-semibold mt-0.5">
-          منصة رقمية موحدة للمرافقة القانونية والاجتماعية والعلاجية واعادة الادماج
+        <p className="text-[11px] text-[#203945]/70 mt-0.5">
+          خدمات احترافية معتمدة للدعم النفسي، الاستشارات القانونية، والمرافقة العلاجية
         </p>
       </div>
 

@@ -12,7 +12,7 @@ export type UserRole =
   | 'patient'
   | 'user';
 
-export type UserStatus = 'active' | 'inactive' | 'pending' | 'suspended';
+export type UserStatus = 'active' | 'inactive' | 'pending' | 'suspended' | 'rejected';
 
 export interface User {
   id: number | string;
@@ -22,6 +22,7 @@ export interface User {
   email: string;
   phone: string;
   roleSlug: UserRole;
+  accountType?: 'user' | 'psychologist' | 'lawyer' | 'doctor' | 'clinic' | 'hospital' | 'association';
   wilayaName: string | null;
   status: UserStatus | string;
   specialty?: string;
@@ -31,6 +32,11 @@ export interface User {
   avatarUrl?: string;
   documents?: string[];
   servicesOffered?: string[];
+  organizationName?: string;
+  managerName?: string;
+  birthDate?: string;
+  activityField?: string;
+  rejectionReason?: string;
   createdAt?: string;
   password?: string;
 }

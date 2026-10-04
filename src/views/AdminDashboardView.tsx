@@ -61,6 +61,8 @@ import {
   createPartnerInDb,
   updatePartnerInDb,
   deletePartnerFromDb,
+  approveUserInDb,
+  rejectUserInDb,
 } from '../services/dbService';
 
 interface AdminDashboardViewProps {
@@ -279,9 +281,24 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
     }
   };
 
-  // Approve Specialist
+  // Approve Specialist / Provider
   const handleApproveSpecialist = async (user: User) => {
-    await updateUserInDb(user.id, { status: 'active' });
+    await approveUserInDb(user.id, `${currentUser.firstName} (الأدمن)`);
+  };
+
+  // Rejection modal state
+  const [rejectingUser, setRejectingUser] = useState<User | null>(null);
+  const [rejectionReasonText, setRejectionReasonText] = useState('');
+
+  const handleConfirmReject = async () => {
+    if (!rejectingUser) return;
+    await rejectUserInDb(
+      rejectingUser.id,
+      rejectionReasonText.trim() || 'عدم استيفاء الشروط أو الوثائق المطلوبة',
+      `${currentUser.firstName} (الأدمن)`
+    );
+    setRejectingUser(null);
+    setRejectionReasonText('');
   };
 
   // Export Report to CSV (Requirement 18)
@@ -336,10 +353,10 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
             </span>
           </div>
           <h1 className="text-xl sm:text-2xl font-black text-[#203945] mt-1.5">
-            الإدارة المركزية — «الفرصة الثانية»
+            الإدارة المركزية لمنصة الفرصة الثانية
           </h1>
-          <p className="text-xs text-[#1766A6] font-bold mt-1">
-            منصة رقمية موحدة للمرافقة القانونية والاجتماعية والعلاجية واعادة الادماج
+          <p className="text-xs text-[#203945]/70 mt-1">
+            مرحباً {currentUser.firstName} {currentUser.lastName}. تحكم كامل بالمستخدمين، المختصين، الجمعيات، الشركاء، والتقارير.
           </p>
         </div>
 
@@ -1879,37 +1896,30 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
               {
                 title: 'القانون رقم 04-18 المؤرخ في 25 ديسمبر 2004',
                 ref: 'الجريدة الرسمية عدد 83',
-                file: '/18-04.pdf',
                 summary: 'الوقاية من المخدرات والمؤثرات العقلية وقمع الاستعمال والاتجار غير المشروعين بها، مع إسقاط الدعوى العمومية للعلاج الطوعي (المادة 6).',
               },
               {
                 title: 'القانون رقم 25-03 المؤرخ في 1 يوليو 2025',
                 ref: 'الجريدة الرسمية عدد 43',
-                file: '/25-03.pdf',
                 summary: 'تعديل وتتميم القانون 04-18 بإدراج فحوصات الكشف المسبق عند التوظيف، تعزيز حماية القصر، والتكفل بإعادة الإدماج الاجتماعي.',
               },
               {
                 title: 'المرسوم التنفيذي رقم 26-76 المؤرخ في 14 جانفي 2026',
                 ref: 'الجريدة الرسمية عدد 08',
-                file: '/76-26-ar-1.pdf',
                 summary: 'تحديد شروط وكيفيات إجراء التحاليل الطبية عند التوظيف والسر المهني ومعاقبة إفشاء النتائج وضمان عدم إقصاء المتعافين.',
               },
+              {
+                title: 'القانون رقم 18-07 المؤرخ في 10 يونيو 2018 (25 رمضان 1439)',
+                ref: 'الجريدة الرسمية عدد 34',
+                summary: 'حماية الأشخاص الطبيعيين في مجال معالجة المعطيات ذات الطابع الشخصي، المعدل والمتمم، وفرض التشفير الكامل للملفات الطبية والقضائية.',
+              },
             ].map((law, idx) => (
-              <div key={idx} className="bg-white border border-[#CCD8D5] p-4 rounded-[14px] space-y-2 shadow-2xs">
+              <div key={idx} className="bg-white border border-[#CCD8D5] p-4 rounded-[14px] space-y-1.5 shadow-2xs">
                 <div className="flex items-center justify-between">
                   <h4 className="font-black text-sm text-[#203945]">📜 {law.title}</h4>
                   <span className="text-[10px] bg-[#EAF3F8] text-[#1766A6] font-mono px-2 py-0.5 rounded-md font-bold">{law.ref}</span>
                 </div>
                 <p className="text-[#203945]/80 leading-relaxed text-[11px]">{law.summary}</p>
-                <div className="pt-1.5 flex justify-end">
-                  <a
-                    href={law.file}
-                    download={law.file.replace('/', '')}
-                    className="inline-flex items-center gap-1.5 bg-[#EAF3F8] hover:bg-[#DCEBF4] text-[#104A78] text-xs font-bold px-3 py-1.5 rounded-[8px] transition-colors"
-                  >
-                    <span>تحميل نسخة PDF ({law.file.replace('/', '')})</span>
-                  </a>
-                </div>
               </div>
             ))}
           </div>
@@ -2385,6 +2395,73 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                 className="px-5 py-2 bg-[#1766A6] text-white font-bold text-xs rounded-[10px]"
               >
                 إغلاق الملف
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ===================== MODAL: REJECT PROVIDER / ACCOUNT WITH REASON ===================== */}
+      {rejectingUser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
+          <div className="bg-[#FBFDFC] rounded-[24px] max-w-md w-full shadow-2xl border border-[#E0E8E6] p-6 space-y-4 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between pb-3 border-b border-[#E0E8E6]">
+              <div className="flex items-center gap-2 text-[#A64842]">
+                <ShieldAlert className="w-5 h-5" />
+                <h3 className="font-black text-base">تسجيل سبب رفض اعتماد الحساب</h3>
+              </div>
+              <button
+                onClick={() => {
+                  setRejectingUser(null);
+                  setRejectionReasonText('');
+                }}
+                className="text-[#203945]/50 hover:text-[#203945]"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="bg-[#FBECEB] p-3 rounded-[12px] border border-[#F5D4D2] text-xs text-[#5F1D1A] space-y-1">
+              <p>
+                أنت على وشك رفض طلب اعتماد الحساب: <strong>{rejectingUser.firstName} {rejectingUser.lastName}</strong> ({rejectingUser.email}).
+              </p>
+              <p className="text-[11px] text-[#5F1D1A]/80">
+                سيتم إخطار صاحب الحساب بسبب الرفض المدوّن هنا عند محاولة تسجيل الدخول.
+              </p>
+            </div>
+
+            <div className="space-y-1.5 text-xs">
+              <label className="font-bold text-[#203945] block">
+                سبب الرفض الموثق (إلزامي):
+              </label>
+              <textarea
+                required
+                rows={3}
+                value={rejectionReasonText}
+                onChange={(e) => setRejectionReasonText(e.target.value)}
+                placeholder="مثلاً: رقم الاعتماد غير مطابق للسجلات الرسمية، أو الوثائق المهنية المرفقة غير واضحة..."
+                className="w-full p-3 bg-white border border-[#CCD8D5] rounded-[10px] outline-hidden focus:border-[#A64842] text-xs text-[#203945]"
+              />
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-3 border-t border-[#E0E8E6] text-xs">
+              <button
+                type="button"
+                onClick={() => {
+                  setRejectingUser(null);
+                  setRejectionReasonText('');
+                }}
+                className="px-4 py-2 rounded-[10px] text-[#203945]/70 hover:bg-slate-100 font-bold"
+              >
+                إلغاء
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmReject}
+                className="px-5 py-2 rounded-[10px] bg-[#A64842] hover:bg-[#8e3c37] text-white font-bold shadow-xs transition-colors flex items-center gap-1.5"
+              >
+                <X className="w-4 h-4" />
+                <span>تأكيد الرفض وحفظ السبب</span>
               </button>
             </div>
           </div>
