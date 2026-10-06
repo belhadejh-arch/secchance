@@ -4,9 +4,7 @@ import {
   PlusCircle,
   Bot,
   PhoneCall,
-  Brain,
   Scale,
-  Hospital,
   CreditCard,
   Users,
   CheckCircle2,
@@ -19,7 +17,6 @@ import {
   Phone,
   MapPin,
   Lock,
-  ChevronLeft,
   Activity,
   FileCheck,
   Award,
@@ -170,31 +167,8 @@ export const LandingView: React.FC<LandingViewProps> = ({
 
       {/* 3. Services Cards (Requirement 16) */}
       <section className="space-y-3">
-        <div className="flex items-center justify-between">
-          <h2 className="text-base font-bold text-[#203945]">خدمات المنصة المعتمدة</h2>
-          <button
-            onClick={() => onNavigate('services')}
-            className="text-xs font-bold text-[#1766A6] hover:underline flex items-center gap-1"
-          >
-            <span>استعراض كافة الخدمات</span>
-            <ChevronLeft className="w-4 h-4" />
-          </button>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <div
-            onClick={() => onNavigate('services')}
-            className="bg-[#FBFDFC] p-5 rounded-[18px] border border-[#E0E8E6] shadow-xs hover:border-[#1766A6] transition-all cursor-pointer space-y-2.5"
-          >
-            <div className="w-10 h-10 rounded-[12px] bg-[#E8F4EF] text-[#25866D] flex items-center justify-center">
-              <Brain className="w-5 h-5" />
-            </div>
-            <h3 className="font-bold text-sm text-[#203945]">الدعم النفسي العيادي</h3>
-            <p className="text-xs text-[#203945]/75 leading-relaxed">
-              جلسات علاج سلوكي معرفي، تقييم سريري سري، وبرامج متابعة لحالات الإدمان والاكتئاب.
-            </p>
-          </div>
-
+        <h2 className="text-base font-bold text-[#203945]">المساعدة القانونية</h2>
+        <div className="grid grid-cols-1 gap-3">
           <div
             onClick={() => onNavigate('legal-assistance')}
             className="bg-[#FBFDFC] p-5 rounded-[18px] border border-[#E0E8E6] shadow-xs hover:border-[#1766A6] transition-all cursor-pointer space-y-2.5"
@@ -205,19 +179,6 @@ export const LandingView: React.FC<LandingViewProps> = ({
             <h3 className="font-bold text-sm text-[#203945]">المساعدة القانونية والمادة 6</h3>
             <p className="text-xs text-[#203945]/75 leading-relaxed">
               استشارات قضائية مع محامين معتمدين للاستفادة من الإعفاء القانوني والعلاج الطوعي البديل.
-            </p>
-          </div>
-
-          <div
-            onClick={() => onNavigate('directory')}
-            className="bg-[#FBFDFC] p-5 rounded-[18px] border border-[#E0E8E6] shadow-xs hover:border-[#1766A6] transition-all cursor-pointer space-y-2.5"
-          >
-            <div className="w-10 h-10 rounded-[12px] bg-[#E8F4EF] text-[#25866D] flex items-center justify-center">
-              <Hospital className="w-5 h-5" />
-            </div>
-            <h3 className="font-bold text-sm text-[#203945]">مراكز علاج الإدمان (40 مركزاً)</h3>
-            <p className="text-xs text-[#203945]/75 leading-relaxed">
-              دليل المؤسسات الاستشفائية المتخصصة ومراكز الوسيط لعلاج الإدمان (CPA).
             </p>
           </div>
         </div>
