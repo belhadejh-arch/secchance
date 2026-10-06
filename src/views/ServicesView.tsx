@@ -11,7 +11,13 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
   services,
   onRequestService,
 }) => {
-  const legalServices = services.filter((service) => service.category === 'legal');
+  const categoryLabels: Record<string, string> = {
+    psychological: 'الدعم النفسي',
+    social: 'المرافقة الاجتماعية',
+    legal: 'المساعدة القانونية',
+    treatment: 'العلاج وإعادة الإدماج',
+    medical: 'الدعم الطبي',
+  };
 
   return (
     <div className="space-y-4 max-w-4xl mx-auto">
@@ -34,14 +40,14 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
       </section>
 
       <div className="space-y-3">
-        {legalServices.map((service) => (
+        {services.map((service) => (
           <div
             key={service.id}
             className="bg-[#FBFDFC] rounded-[16px] border border-[#E5ECE9] p-4 shadow-xs space-y-2.5"
           >
             <div className="flex items-center justify-between">
               <span className="text-[11px] font-bold text-[#1766A6]">
-                المساعدة القانونية
+                {categoryLabels[service.category] || service.category}
               </span>
               <span className="text-[13px] font-black text-[#25866D]">
                 {service.amountDzd.toLocaleString()} دج
