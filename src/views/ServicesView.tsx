@@ -41,7 +41,7 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
           >
             <div className="flex items-center justify-between">
               <span className="text-[11px] font-bold text-[#1766A6]">
-                {service.category}
+                المساعدة القانونية
               </span>
               <span className="text-[13px] font-black text-[#25866D]">
                 {service.amountDzd.toLocaleString()} دج

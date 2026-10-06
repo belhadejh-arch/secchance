@@ -83,14 +83,6 @@ export const LandingView: React.FC<LandingViewProps> = ({
                 <span>طلب المساعدة الآن</span>
               </button>
 
-              <button
-                onClick={() => onNavigate('legal-assistance')}
-                className="flex items-center justify-center gap-2 py-2.5 px-4 rounded-[12px] bg-[#25866D] hover:bg-[#1E6F5A] text-white font-bold text-xs sm:text-sm shadow-xs transition-colors"
-              >
-                <Scale className="w-4 h-4" />
-                <span>المساعدة القانونية (المادة 6)</span>
-              </button>
-
               {onOpenAuth && (
                 <button
                   onClick={() => onOpenAuth('login')}
@@ -176,9 +168,9 @@ export const LandingView: React.FC<LandingViewProps> = ({
             <div className="w-10 h-10 rounded-[12px] bg-[#EAF3F8] text-[#1766A6] flex items-center justify-center">
               <Scale className="w-5 h-5" />
             </div>
-            <h3 className="font-bold text-sm text-[#203945]">المساعدة القانونية والمادة 6</h3>
+            <h3 className="font-bold text-sm text-[#203945]">المساعدة القانونية</h3>
             <p className="text-xs text-[#203945]/75 leading-relaxed">
-              استشارات قضائية مع محامين معتمدين للاستفادة من الإعفاء القانوني والعلاج الطوعي البديل.
+              استشارات قانونية مع محامين معتمدين ومستشارين قانونيين.
             </p>
           </div>
         </div>
@@ -342,7 +334,7 @@ export const LandingView: React.FC<LandingViewProps> = ({
               </li>
               <li>
                 <button onClick={() => onNavigate('awareness')} className="hover:text-white text-right">
-                  قانون مكافحة المخدرات 04-18 والمادة 6
+                  قانون مكافحة المخدرات 04-18
                 </button>
               </li>
               <li>

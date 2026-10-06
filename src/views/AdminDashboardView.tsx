@@ -640,7 +640,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                 <Scale className="w-5 h-5" />
               </div>
               <p className="text-2xl font-black text-[#203945]">{totalLawyers}</p>
-              <p className="text-[10px] text-[#203945]/60">استشارات وقضايا المادة 6</p>
+              <p className="text-[10px] text-[#203945]/60">استشارات وقضايا قانونية</p>
             </div>
 
             <div className="bg-[#FBFDFC] border border-[#E0E8E6] p-4 rounded-[18px] shadow-xs space-y-1">
@@ -745,7 +745,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                 <h4 className="font-bold text-xs text-[#203945]">توزيع الطلبات حسب نوع الخدمة:</h4>
                 {[
                   { name: 'الدعم النفسي العيادي', cat: 'نفسي' },
-                  { name: 'المساعدة القانونية والمادة 6', cat: 'قانون' },
+                  { name: 'المساعدة القانونية', cat: 'قانون' },
                   { name: 'علاج الإدمان وإزالة السموم', cat: 'علاج' },
                   { name: 'المرافقة الأسرية والاجتماعية', cat: 'جمعية' },
                 ].map((item, idx) => {
@@ -1516,7 +1516,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
           <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pb-3 border-b border-[#E0E8E6]">
             <div>
               <h3 className="font-bold text-sm text-[#203945]">⚖️ شبكة المحامين والمستشارين القانونيين</h3>
-              <p className="text-[11px] text-[#203945]/70">إدارة مكاتب المحاماة، اعتمادات نقابة المحامين، واستشارات المادة 6</p>
+              <p className="text-[11px] text-[#203945]/70">إدارة مكاتب المحاماة، اعتمادات نقابة المحامين، والاستشارات القانونية</p>
             </div>
             <button
               onClick={() => {
@@ -1828,7 +1828,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
             {[
               { title: 'تحديث تشريعي هام', msg: 'تم إدراج قانون 25-03 والمرسوم 26-76 وقانون حماية المعطيات 18-07 بنجاح بالمنصة.', time: 'الآن', type: 'SYSTEM' },
               { title: 'تنبيه أمني دوري', msg: 'تمت مراجعة سجلات التدقيق الأمني لضمان توافق معالجة المعطيات مع السر المهني.', time: 'منذ ساعتين', type: 'SECURITY' },
-              { title: 'حالة حرجة ذات أولوية', msg: 'ورد طلب مرافقة قانونية عاجلة تحت طائلة المادة 6 من القانون 04-18.', time: 'اليوم', type: 'CASE' },
+              { title: 'حالة حرجة ذات أولوية', msg: 'ورد طلب مرافقة قانونية عاجلة وفق الإجراءات القانونية المعتمدة.', time: 'اليوم', type: 'CASE' },
             ].map((n, idx) => (
               <div key={idx} className="p-3.5 bg-white border border-[#CCD8D5] rounded-[14px] flex items-center justify-between text-xs">
                 <div className="flex items-center gap-3">
@@ -1896,7 +1896,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
               {
                 title: 'القانون رقم 04-18 المؤرخ في 25 ديسمبر 2004',
                 ref: 'الجريدة الرسمية عدد 83',
-                summary: 'الوقاية من المخدرات والمؤثرات العقلية وقمع الاستعمال والاتجار غير المشروعين بها، مع إسقاط الدعوى العمومية للعلاج الطوعي (المادة 6).',
+                summary: 'الوقاية من المخدرات والمؤثرات العقلية وقمع الاستعمال والاتجار غير المشروعين بها، وتعزيز سبل التكفل بالعلاج الطوعي.',
               },
               {
                 title: 'القانون رقم 25-03 المؤرخ في 1 يوليو 2025',

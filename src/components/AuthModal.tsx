@@ -81,7 +81,7 @@ const ACCOUNT_TYPES: AccountTypeConfig[] = [
     title: 'محامي',
     badge: '⚖️ مستشار قانوني',
     icon: '⚖️',
-    description: 'استشارات قانونية متخصصة وفق المادة 6 وقانون الوقاية وحماية المتعالجين',
+    description: 'استشارات قانونية مع محامين معتمدين ومستشارين قانونيين',
     isProvider: true,
   },
   {

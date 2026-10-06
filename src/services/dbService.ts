@@ -70,7 +70,7 @@ export const initialPartners: PartnerOrganization[] = [
     name: 'الاتحاد الوطني لمنظمات المحامين الجزائريين',
     category: 'هيئة وطنية',
     websiteUrl: 'https://www.ordre-avocats.dz',
-    description: 'المرافقة القانونية لحالات العلاج الطوعي والإعفاء القضائي وفق المادة 6',
+    description: 'المرافقة القانونية لحالات العلاج الطوعي والتكفل القضائي',
     isVisible: true,
   },
   {
