@@ -194,6 +194,7 @@ export function App() {
   };
 
   const handleNewCaseCTA = () => {
+    setPreselectedServiceId(undefined);
     if (!currentUser) {
       setIsAuthOpen(true);
     } else {
@@ -254,8 +255,8 @@ export function App() {
     };
 
     const saved = await createCareRequestInDb(newReqData);
+    setPreselectedServiceId(undefined);
     setSelectedRequest(saved);
-    handleNavigate('portal');
   };
 
   const handleCreateLegalCase = async (data: {
@@ -486,8 +487,13 @@ export function App() {
             <NewRequestView
               services={services}
               preselectedServiceId={preselectedServiceId}
+              currentUser={currentUser}
               onSubmit={handleCreateRequest}
-              onCancel={() => handleNavigate('portal')}
+              onNavigateToPortal={() => handleNavigate('portal')}
+              onCancel={() => {
+                setPreselectedServiceId(undefined);
+                handleNavigate('portal');
+              }}
             />
           )}
 

@@ -27,7 +27,7 @@ interface NewRequestViewProps {
     wilaya: string,
     description: string,
     extraData?: any
-  ) => void;
+  ) => void | Promise<void>;
   onCancel: () => void;
   onNavigateToPortal?: () => void;
 }
@@ -50,10 +50,24 @@ export const NewRequestView: React.FC<NewRequestViewProps> = ({
   const [step, setStep] = useState<number>(1);
 
   // Form states
-  const [selectedCategory, setSelectedCategory] = useState<string>('استشارة قانونية');
+  const [selectedServiceId, setSelectedServiceId] = useState<number>(
+    preselectedServiceId ?? services[0]?.id ?? 0
+  );
   const [targetPerson, setTargetPerson] = useState<'self' | 'family'>('self');
   const [problemDescription, setProblemDescription] = useState<string>('');
   const [attachedFileName, setAttachedFileName] = useState<string | null>(null);
+
+  const categoryLabels: Record<string, string> = {
+    psychological: 'الدعم النفسي',
+    social: 'المرافقة الاجتماعية',
+    legal: 'المساعدة القانونية',
+    treatment: 'العلاج وإعادة الإدماج',
+    medical: 'الدعم الطبي',
+  };
+  const selectedService =
+    services.find((service) => service.id === selectedServiceId) ??
+    services.find((service) => service.id === preselectedServiceId) ??
+    services[0];
 
   // Assessment answers (Requirement 9 & 21 from Project Plan)
   const [hasLegalProblem, setHasLegalProblem] = useState<'yes' | 'no' | 'unknown'>('no');
@@ -68,6 +82,7 @@ export const NewRequestView: React.FC<NewRequestViewProps> = ({
   // Result state
   const [createdOrderNumber, setCreatedOrderNumber] = useState<string>('SC2026-00001-');
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  const [submissionError, setSubmissionError] = useState<string>('');
   const [showInvoiceModal, setShowInvoiceModal] = useState<boolean>(false);
 
   const availableTimeSlots = [
@@ -85,37 +100,39 @@ export const NewRequestView: React.FC<NewRequestViewProps> = ({
     }
   };
 
-  const handleConfirmAndPay = () => {
+  const handleConfirmAndPay = async () => {
+    if (!selectedService || !currentUser) {
+      setSubmissionError('يرجى تسجيل الدخول واختيار خدمة قبل إرسال الطلب.');
+      return;
+    }
     setIsSubmitting(true);
+    setSubmissionError('');
 
     const generatedNo = `SC2026-${String(Math.floor(1 + Math.random() * 99999)).padStart(5, '0')}-`;
-    setCreatedOrderNumber(generatedNo);
-
-    // Map category to matching service
-    const matchedService =
-      services.find((s) => s.category.includes(selectedCategory) || s.title.includes(selectedCategory)) ||
-      services[0];
-
-    setTimeout(() => {
+    try {
+      await onSubmit(
+        selectedService.id,
+        isUrgent === 'yes' ? 'Critical' : 'High',
+        currentUser.wilayaName || '16. الجزائر العاصمة',
+        `[لمن الحالة: ${targetPerson === 'self' ? 'أنا' : 'أحد أفراد أسرتي'}] ${problemDescription}`,
+        {
+          orderNumber: generatedNo,
+          appointmentDate: selectedDate,
+          appointmentTime: selectedTime,
+          assessment:
+            selectedService.category === 'legal'
+              ? { hasLegalProblem, hasSummons, isUrgent }
+              : { isUrgent },
+          paymentMethod,
+        }
+      );
+      setCreatedOrderNumber(generatedNo);
+      setStep(6);
+    } catch {
+      setSubmissionError('تعذر حفظ الطلب الآن. تحقق من الاتصال أو صلاحيات الحساب ثم حاول مجدداً.');
+    } finally {
       setIsSubmitting(false);
-      setStep(6); // Success screen
-
-      if (currentUser) {
-        onSubmit(
-          matchedService?.id || 1,
-          isUrgent === 'yes' ? 'Critical' : 'High',
-          currentUser.wilayaName || '16. الجزائر العاصمة',
-          `[لمن الحالة: ${targetPerson === 'self' ? 'أنا' : 'أحد أفراد أسرتي'}] ${problemDescription}`,
-          {
-            orderNumber: generatedNo,
-            appointmentDate: selectedDate,
-            appointmentTime: selectedTime,
-            assessment: { hasLegalProblem, hasSummons, isUrgent },
-            paymentMethod,
-          }
-        );
-      }
-    }, 1200);
+    }
   };
 
   return (
@@ -155,33 +172,39 @@ export const NewRequestView: React.FC<NewRequestViewProps> = ({
           </div>
 
           <div className="space-y-2">
-            {[
-              { id: 'استشارة قانونية', title: 'المساعدة القانونية', icon: '⚖️', desc: 'استشارات قانونية مع محامين معتمدين ومستشارين قانونيين' },
-            ].map((item) => (
+            {services.map((service) => (
               <div
-                key={item.id}
-                onClick={() => setSelectedCategory(item.id)}
+                key={service.id}
+                onClick={() => setSelectedServiceId(service.id)}
                 className={`p-4 rounded-[14px] border cursor-pointer transition-all flex items-center justify-between gap-3 ${
-                  selectedCategory === item.id
+                  selectedService?.id === service.id
                     ? 'bg-[#EAF3F8] border-[#1766A6] shadow-xs'
                     : 'bg-white border-[#E0E8E6] hover:bg-[#F3F7F6]'
                 }`}
               >
                 <div className="flex items-center gap-3">
-                  <span className="text-2xl">{item.icon}</span>
+                  <span className="text-2xl">
+                    {service.category === 'legal' ? '⚖️' :
+                     service.category === 'psychological' ? '🧠' :
+                     service.category === 'social' ? '🤝' :
+                     service.category === 'treatment' ? '🌱' : '🩺'}
+                  </span>
                   <div>
-                    <h4 className="font-bold text-sm text-[#203945]">{item.title}</h4>
-                    <p className="text-[11px] text-[#203945]/70">{item.desc}</p>
+                    <h4 className="font-bold text-sm text-[#203945]">{service.title}</h4>
+                    <p className="text-[11px] text-[#1766A6] font-bold">
+                      {categoryLabels[service.category] || service.category}
+                    </p>
+                    <p className="text-[11px] text-[#203945]/70">{service.description}</p>
                   </div>
                 </div>
                 <div
                   className={`w-5 h-5 rounded-full border flex items-center justify-center shrink-0 ${
-                    selectedCategory === item.id
+                    selectedService?.id === service.id
                       ? 'border-[#1766A6] bg-[#1766A6] text-white'
                       : 'border-[#CCD8D5] bg-white'
                   }`}
                 >
-                  {selectedCategory === item.id && <Check className="w-3 h-3" />}
+                  {selectedService?.id === service.id && <Check className="w-3 h-3" />}
                 </div>
               </div>
             ))}
@@ -235,7 +258,7 @@ export const NewRequestView: React.FC<NewRequestViewProps> = ({
               <div>
                 <h4 className="font-bold text-sm text-[#203945]">الحالة تخصني أنا شخصياً</h4>
                 <p className="text-[11px] text-[#203945]/70 mt-1">
-                  أبحث عن استشارة وتوجيه طبي أو نفسي أو قانوني لمساعدتي على التعافي بسرية تامة.
+                  أبحث عن المساعدة المناسبة للخدمة التي اخترتها بسرية تامة.
                 </p>
               </div>
               <div className="pt-2 text-right">
@@ -260,7 +283,7 @@ export const NewRequestView: React.FC<NewRequestViewProps> = ({
               <div>
                 <h4 className="font-bold text-sm text-[#203945]">أنا أحد أفراد الأسرة</h4>
                 <p className="text-[11px] text-[#203945]/70 mt-1">
-                  الحالة تخص ابني/ابنتي أو أحد الأقارب وأرغب في مرافقة قانونية أو نفسية لحمايته وعلاجه.
+                  أطلب المساعدة لأحد أفراد أسرتي وفق نوع الخدمة المختارة.
                 </p>
               </div>
               <div className="pt-2 text-right">
@@ -299,7 +322,7 @@ export const NewRequestView: React.FC<NewRequestViewProps> = ({
               الخطوة 3 — وصف المشكلة
             </h2>
             <p className="text-xs text-[#203945]/70 mt-1">
-              اشرح لنا مشكلتك أو وضع الحالة باختصار لمساعدة المستشار على فهم الوضع بدقة
+              اشرح الحالة باختصار حتى يتمكن مقدم خدمة {categoryLabels[selectedService?.category ?? ''] || 'المساعدة'} من فهم احتياجك.
             </p>
           </div>
 
@@ -312,7 +335,7 @@ export const NewRequestView: React.FC<NewRequestViewProps> = ({
               rows={4}
               value={problemDescription}
               onChange={(e) => setProblemDescription(e.target.value)}
-              placeholder="اكتب هنا تفاصيل الوضع باختصار، مثل: طبيعة المخاوف، الاستفسار القانوني، الأعراض، أو الرغبة في بدء العلاج الطوعي..."
+              placeholder="اكتب هنا تفاصيل الحالة واحتياجك إلى الخدمة المختارة..."
               className="w-full p-3.5 bg-white border border-[#CCD8D5] rounded-[12px] text-xs text-[#203945] outline-hidden focus:border-[#1766A6] leading-relaxed resize-none"
             />
           </div>
@@ -367,7 +390,7 @@ export const NewRequestView: React.FC<NewRequestViewProps> = ({
         </div>
       )}
 
-      {/* ================= STEP 4: التقييم الأولي السريع (3 أسئلة من الخطة) ================= */}
+      {/* ================= STEP 4: تقييم أولي مناسب للخدمة ================= */}
       {step === 4 && (
         <div className="bg-[#FBFDFC] rounded-[20px] border border-[#E0E8E6] p-6 shadow-xs space-y-4">
           <div>
@@ -375,11 +398,12 @@ export const NewRequestView: React.FC<NewRequestViewProps> = ({
               الخطوة 4 — شاشة التقييم الأولي
             </h2>
             <p className="text-xs text-[#203945]/70 mt-1">
-              تساعدنا إجاباتك على توجيهك إلى الخدمة والمختص الأنسب لحالتك. هذه المعلومات سرية ولا تشكل قراراً قضائياً.
+              تساعدنا إجاباتك على توجيه طلبك إلى مقدم الخدمة المناسب. هذه المعلومات سرية.
             </p>
           </div>
 
-          {/* Question 1 */}
+          {selectedService?.category === 'legal' && (
+            <>
           <div className="bg-white p-4 rounded-[14px] border border-[#E0E8E6] space-y-2">
             <h4 className="font-bold text-xs sm:text-sm text-[#203945]">
               السؤال 1: هل لديك حالياً مشكلة قانونية أو استفسار مرتبط بالحالة؟
@@ -427,8 +451,10 @@ export const NewRequestView: React.FC<NewRequestViewProps> = ({
               ))}
             </div>
           </div>
+            </>
+          )}
 
-          {/* Question 3 */}
+          {/* سؤال الأولوية مشترك بين جميع أنواع الخدمات */}
           <div className="bg-white p-4 rounded-[14px] border border-[#E0E8E6] space-y-2">
             <h4 className="font-bold text-xs sm:text-sm text-[#203945]">
               السؤال 3: هل تحتاج إلى موعد عاجل ذو أولوية قصوى؟
@@ -486,23 +512,22 @@ export const NewRequestView: React.FC<NewRequestViewProps> = ({
 
           {/* Summary Card */}
           <div className="bg-[#EAF3F8] rounded-[16px] p-4.5 border border-[#DCEBF4] space-y-3">
-            <h4 className="font-black text-sm text-[#104A78]">مراجعة تفاصيل الاستشارة:</h4>
+            <h4 className="font-black text-sm text-[#104A78]">مراجعة تفاصيل الخدمة:</h4>
             <div className="grid grid-cols-2 gap-2 text-xs text-[#203945]">
               <p>
-                <strong>الخدمة:</strong> {selectedCategory}
+                <strong>الخدمة:</strong> {selectedService?.title}
               </p>
               <p>
                 <strong>المستفيد:</strong> {targetPerson === 'self' ? 'أنا (مباشر)' : 'أحد أفراد الأسرة'}
               </p>
               <p>
-                <strong>نوع الطلب:</strong> استشارة أولية متخصصة
-              </p>
-              <p>
-                <strong>مدة الجلسة:</strong> 45 دقيقة
+                <strong>نوع الخدمة:</strong> {categoryLabels[selectedService?.category ?? ''] || selectedService?.category}
               </p>
               <p>
                 <strong>السعر:</strong>{' '}
-                <span className="font-bold text-[#25866D]">500 دج</span>
+                <span className="font-bold text-[#25866D]">
+                  {selectedService?.amountDzd.toLocaleString('ar-DZ')} دج
+                </span>
               </p>
               <p>
                 <strong>الأولوية:</strong> {isUrgent === 'yes' ? '🔴 عاجلة' : '🟢 عادية'}
@@ -587,11 +612,13 @@ export const NewRequestView: React.FC<NewRequestViewProps> = ({
                       الدفع الإلكتروني (البطاقة الذهبية / CIB)
                     </strong>
                     <span className="text-[11px] text-[#203945]/70">
-                      المبلغ: 500 دج • بوابة دفع حكومية آمنة 100%
+                      المبلغ: {selectedService?.amountDzd.toLocaleString('ar-DZ')} دج
                     </span>
                   </div>
                 </div>
-                <span className="text-xs font-black text-[#25866D]">500 دج</span>
+                <span className="text-xs font-black text-[#25866D]">
+                  {selectedService?.amountDzd.toLocaleString('ar-DZ')} دج
+                </span>
               </label>
 
               <label
@@ -624,6 +651,11 @@ export const NewRequestView: React.FC<NewRequestViewProps> = ({
             </div>
           </div>
 
+          {submissionError && (
+            <p role="alert" className="rounded-[10px] bg-red-50 border border-red-200 px-3 py-2 text-xs font-bold text-red-700">
+              {submissionError}
+            </p>
+          )}
           <div className="pt-3 border-t border-[#E0E8E6] flex justify-between items-center">
             <button
               type="button"
@@ -657,7 +689,7 @@ export const NewRequestView: React.FC<NewRequestViewProps> = ({
               تم تأكيد حجزك بنجاح ✓
             </h2>
             <p className="text-xs text-[#203945]/70">
-              تم توجيه طلبك إلى المستشار المختص وتم تأكيد الموعد وإصدار الفاتورة الرسمية
+              تم توجيه طلبك إلى مقدم الخدمة المختص وإصدار الفاتورة
             </p>
           </div>
 
@@ -672,7 +704,7 @@ export const NewRequestView: React.FC<NewRequestViewProps> = ({
 
             <div className="flex items-center justify-between pb-2 border-b border-[#F0F4F2]">
               <span className="font-bold text-[#203945]/70">الخدمة:</span>
-              <strong className="text-[#203945]">{selectedCategory}</strong>
+               <strong className="text-[#203945]">{selectedService?.title}</strong>
             </div>
 
             <div className="flex items-center justify-between pb-2 border-b border-[#F0F4F2]">
@@ -688,7 +720,9 @@ export const NewRequestView: React.FC<NewRequestViewProps> = ({
             <div className="flex items-center justify-between pb-2 border-b border-[#F0F4F2]">
               <span className="font-bold text-[#203945]/70">المبلغ المدفوع:</span>
               <strong className="text-emerald-700 font-black">
-                {paymentMethod === 'card' ? '500 دج' : '0 دج (مغطى برصيد الباقة)'}
+                 {paymentMethod === 'card'
+                   ? `${selectedService?.amountDzd.toLocaleString('ar-DZ')} دج`
+                   : '0 دج (مغطى برصيد الباقة)'}
               </strong>
             </div>
 
@@ -746,7 +780,7 @@ export const NewRequestView: React.FC<NewRequestViewProps> = ({
               </p>
               <p className="flex justify-between">
                 <span className="text-[#203945]/70">الخدمة:</span>
-                <span className="font-bold">{selectedCategory}</span>
+                 <span className="font-bold">{selectedService?.title}</span>
               </p>
               <p className="flex justify-between">
                 <span className="text-[#203945]/70">التاريخ والوقت:</span>
@@ -759,7 +793,9 @@ export const NewRequestView: React.FC<NewRequestViewProps> = ({
               <div className="pt-2 border-t border-[#E0E8E6] flex justify-between font-black text-sm text-[#203945]">
                 <span>المجموع المدفوع:</span>
                 <span className="text-[#25866D]">
-                  {paymentMethod === 'card' ? '500 دج' : '0 دج (رصيد الباقة)'}
+                   {paymentMethod === 'card'
+                     ? `${selectedService?.amountDzd.toLocaleString('ar-DZ')} دج`
+                     : '0 دج (رصيد الباقة)'}
                 </span>
               </div>
             </div>
