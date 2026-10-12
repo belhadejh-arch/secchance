@@ -28,6 +28,8 @@ export interface User {
   specialty?: string;
   subSpecialty?: string;
   licenseNumber?: string;
+  professionalDetailsVerified?: boolean;
+  availabilitySlots?: ConsultationAvailabilitySlot[];
   address?: string;
   avatarUrl?: string;
   documents?: string[];
@@ -39,6 +41,12 @@ export interface User {
   rejectionReason?: string;
   createdAt?: string;
   password?: string;
+}
+
+export interface ConsultationAvailabilitySlot {
+  date: string;
+  time: string;
+  durationMinutes?: number;
 }
 
 export type Priority = 'Critical' | 'High' | 'Medium' | 'Low';
@@ -86,6 +94,8 @@ export interface CareRequest {
   createdAt: string;
   appointmentDate?: string | null;
   appointmentTime?: string | null;
+  paymentMethod?: 'EDAHABIA' | 'CIB';
+  appointmentHoldExpiresAt?: string;
 }
 
 export interface PaymentTransaction {
@@ -188,6 +198,7 @@ export interface ServiceItem {
   amountDzd: number;
   providerId: number;
   providerName: string;
+  durationMinutes?: number;
 }
 
 export interface PlatformNotification {

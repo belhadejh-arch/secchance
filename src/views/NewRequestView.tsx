@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ServiceItem, Priority, User } from '../types';
+import { Appointment, CareRequest, ServiceItem, Priority, User } from '../types';
 import { GuidanceProgress } from '../components/GuidanceProgress';
 import {
   Check,
@@ -20,8 +20,18 @@ import {
 
 interface NewRequestViewProps {
   services: ServiceItem[];
+  specialists: User[];
+  appointments: Appointment[];
+  requests: CareRequest[];
   preselectedServiceId?: number;
   initialTargetPerson?: 'self' | 'family';
+  legalDraft?: {
+    caseType: string;
+    description: string;
+    wilaya: string;
+    attachedDocs: string[];
+    priority: Priority;
+  } | null;
   currentUser?: User | null;
   onSubmit: (
     serviceId: number,
@@ -36,29 +46,50 @@ interface NewRequestViewProps {
 
 export const NewRequestView: React.FC<NewRequestViewProps> = ({
   services,
+  specialists,
+  appointments,
+  requests,
   preselectedServiceId,
   initialTargetPerson,
+  legalDraft,
   currentUser,
   onSubmit,
   onCancel,
   onNavigateToPortal,
 }) => {
-  // Step state: 1 to 6
+  // Step state: service, beneficiary, consultation, orientation, specialist, appointment
   // 1: طبيعة المساعدة
   // 2: لمن تتعلق الحالة؟
   // 3: وصف المشكلة وإرفاق وثيقة
   // 4: التقييم الأولي (الأسئلة الثلاثة)
-  // 5: ملخص الطلب واختيار الموعد
-  // 6: تأكيد الدفع وشاشة النجاح
-  const [step, setStep] = useState<number>(1);
+  // 5: اختيار المختص
+  // 6: الموعد وشروط الخدمة
+  const [step, setStep] = useState<number>(legalDraft ? 5 : 1);
 
   // Form states
   const [selectedServiceId, setSelectedServiceId] = useState<number>(
     preselectedServiceId ?? services[0]?.id ?? 0
   );
   const [targetPerson, setTargetPerson] = useState<'self' | 'family'>(initialTargetPerson ?? 'self');
-  const [problemDescription, setProblemDescription] = useState<string>('');
-  const [attachedFileName, setAttachedFileName] = useState<string | null>(null);
+  const [problemDescription, setProblemDescription] = useState<string>(legalDraft?.description ?? '');
+  const [attachedFileName, setAttachedFileName] = useState<string | null>(legalDraft?.attachedDocs[0] ?? null);
+  const legalTopics = [
+    'استفسار قانوني.',
+    'وضعية أحد أفراد الأسرة.',
+    'وضعية مرتبطة بالمخدرات أو المؤثرات العقلية.',
+    'إجراء قانوني.',
+    'وضعية قضائية.',
+    'حقوق والتزامات.',
+    'أخرى.',
+  ];
+  const psychologicalTopics = [
+    'الدعم النفسي والتعامل مع الضغوط',
+    'القلق والتوتر',
+    'العلاقات الأسرية',
+    'الدعم النفسي المرتبط بالتعافي',
+    'أخرى',
+  ];
+  const [consultationTopic, setConsultationTopic] = useState(legalDraft?.caseType ?? legalTopics[0]);
 
   const categoryLabels: Record<string, string> = {
     psychological: 'الدعم النفسي',
@@ -77,25 +108,77 @@ export const NewRequestView: React.FC<NewRequestViewProps> = ({
   const [hasSummons, setHasSummons] = useState<'yes' | 'no'>('no');
   const [isUrgent, setIsUrgent] = useState<'yes' | 'no'>('no');
 
-  // Appointment selection
-  const [selectedDate, setSelectedDate] = useState<string>('2026-10-05');
-  const [selectedTime, setSelectedTime] = useState<string>('14:00');
-  const [paymentMethod, setPaymentMethod] = useState<'card' | 'family_package'>('card');
-
-  // Result state
-  const [createdOrderNumber, setCreatedOrderNumber] = useState<string>('SC2026-00001-');
+  const [selectedSpecialistId, setSelectedSpecialistId] = useState<number | string | null>(null);
+  const [selectedSlotKey, setSelectedSlotKey] = useState<string | null>(null);
+  const [serviceTermsAccepted, setServiceTermsAccepted] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState<'EDAHABIA' | 'CIB'>('EDAHABIA');
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [submissionError, setSubmissionError] = useState<string>('');
-  const [showInvoiceModal, setShowInvoiceModal] = useState<boolean>(false);
 
-  const availableTimeSlots = [
-    { time: '09:00', available: true },
-    { time: '10:00', available: false }, // Disabled per plan
-    { time: '11:30', available: true },
-    { time: '14:00', available: true },
-    { time: '15:00', available: false }, // Disabled per plan
-    { time: '16:30', available: true },
-  ];
+  const professionalRoles =
+    selectedService?.category === 'legal'
+      ? ['lawyer', 'legal_advisor']
+      : selectedService?.category === 'psychological'
+        ? ['psychologist']
+        : selectedService?.category === 'medical'
+          ? ['doctor']
+          : [];
+  const eligibleSpecialists = specialists.filter(
+    (specialist) =>
+      specialist.status === 'active' &&
+      professionalRoles.includes(specialist.roleSlug) &&
+      (specialist.availabilitySlots ?? []).some((slot) => {
+        const startsAt = new Date(`${slot.date}T${slot.time}:00`).getTime();
+        const alreadyBooked = appointments.some(
+          (appointment) =>
+            String(appointment.specialistId) === String(specialist.id) &&
+            appointment.date === slot.date &&
+            appointment.time === slot.time &&
+            appointment.status !== 'CANCELLED'
+        );
+        const pendingRequest = requests.some(
+          (request) =>
+            String(request.providerId) === String(specialist.id) &&
+            request.appointmentDate === slot.date &&
+            request.appointmentTime === slot.time &&
+            request.status === 'WAITING_PAYMENT' &&
+            (!request.appointmentHoldExpiresAt ||
+              new Date(request.appointmentHoldExpiresAt).getTime() > Date.now())
+        );
+        const hasDuration = Boolean(selectedService?.durationMinutes || slot.durationMinutes);
+        return startsAt > Date.now() && !alreadyBooked && !pendingRequest && hasDuration;
+      })
+  );
+  const selectedSpecialist = eligibleSpecialists.find(
+    (specialist) => String(specialist.id) === String(selectedSpecialistId)
+  );
+  const availableSlots =
+    selectedSpecialist?.availabilitySlots
+      ?.filter((slot) => {
+        const startsAt = new Date(`${slot.date}T${slot.time}:00`).getTime();
+        const alreadyBooked = appointments.some(
+          (appointment) =>
+            String(appointment.specialistId) === String(selectedSpecialist.id) &&
+            appointment.date === slot.date &&
+            appointment.time === slot.time &&
+            appointment.status !== 'CANCELLED'
+        );
+        const pendingRequest = requests.some(
+          (request) =>
+            String(request.providerId) === String(selectedSpecialist.id) &&
+            request.appointmentDate === slot.date &&
+            request.appointmentTime === slot.time &&
+            request.status === 'WAITING_PAYMENT' &&
+            (!request.appointmentHoldExpiresAt ||
+              new Date(request.appointmentHoldExpiresAt).getTime() > Date.now())
+        );
+        return startsAt > Date.now() && !alreadyBooked && !pendingRequest;
+      })
+      .sort((a, b) => `${a.date} ${a.time}`.localeCompare(`${b.date} ${b.time}`)) ?? [];
+  const selectedSlot = availableSlots.find(
+    (slot) => `${slot.date}|${slot.time}` === selectedSlotKey
+  );
+  const appointmentDuration = selectedService?.durationMinutes ?? selectedSlot?.durationMinutes;
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -103,36 +186,38 @@ export const NewRequestView: React.FC<NewRequestViewProps> = ({
     }
   };
 
-  const handleConfirmAndPay = async () => {
-    if (!selectedService || !currentUser) {
-      setSubmissionError('يرجى تسجيل الدخول واختيار خدمة قبل إرسال الطلب.');
+  const handleContinueToPayment = async () => {
+    if (!selectedService || !currentUser || !selectedSpecialist || !selectedSlot || !serviceTermsAccepted) {
+      setSubmissionError('يرجى اختيار مختص وموعد متاح والموافقة على شروط الخدمة وسياسة الإلغاء.');
       return;
     }
     setIsSubmitting(true);
     setSubmissionError('');
 
-    const generatedNo = `SC2026-${String(Math.floor(1 + Math.random() * 99999)).padStart(5, '0')}-`;
     try {
       await onSubmit(
         selectedService.id,
         isUrgent === 'yes' ? 'Critical' : 'High',
-        currentUser.wilayaName || '16. الجزائر العاصمة',
-        `[لمن الحالة: ${targetPerson === 'self' ? 'أنا' : 'أحد أفراد أسرتي'}] ${problemDescription}`,
+        legalDraft?.wilaya ?? currentUser.wilayaName ?? '16. الجزائر العاصمة',
+        `${consultationTopic ? `[موضوع الاستشارة: ${consultationTopic}] ` : ''}[لمن الحالة: ${targetPerson === 'self' ? 'أنا' : 'أحد أفراد أسرتي'}] ${problemDescription}`,
         {
-          orderNumber: generatedNo,
-          appointmentDate: selectedDate,
-          appointmentTime: selectedTime,
+          specialistId: selectedSpecialist.id,
+          specialistName: `${selectedSpecialist.firstName} ${selectedSpecialist.lastName}`.trim(),
+          appointmentDate: selectedSlot.date,
+          appointmentTime: selectedSlot.time,
+          durationMinutes: appointmentDuration,
+          appointmentHoldExpiresAt: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
+          consultationTopic,
+          attachedDocs: attachedFileName ? [attachedFileName] : [],
+          paymentMethod,
           assessment:
             selectedService.category === 'legal'
               ? { hasLegalProblem, hasSummons, isUrgent }
               : { isUrgent },
-          paymentMethod,
         }
       );
-      setCreatedOrderNumber(generatedNo);
-      setStep(6);
     } catch {
-      setSubmissionError('تعذر حفظ الطلب الآن. تحقق من الاتصال أو صلاحيات الحساب ثم حاول مجدداً.');
+      setSubmissionError('تعذر تسجيل الموعد المعلّق. تحقق من الاتصال أو صلاحيات الحساب ثم حاول مجدداً.');
     } finally {
       setIsSubmitting(false);
     }
@@ -302,18 +387,48 @@ export const NewRequestView: React.FC<NewRequestViewProps> = ({
         <div className="bg-[#FBFDFC] rounded-[20px] border border-[#E0E8E6] p-6 shadow-xs space-y-4">
           <div>
             <h2 className="text-[17px] font-black text-[#203945]">
-              الخطوة 3 — وصف المشكلة
+              {selectedService?.category === 'psychological'
+                ? 'الشاشة 07 — الاستشارة النفسية'
+                : 'الخطوة 3 — وصف الاحتياج'}
             </h2>
-            <p className="text-xs text-[#203945]/70 mt-1">
-              اشرح الحالة باختصار حتى يتمكن مقدم خدمة {categoryLabels[selectedService?.category ?? ''] || 'المساعدة'} من فهم احتياجك.
-            </p>
+            {selectedService?.category === 'psychological' ? (
+              <>
+                <p className="text-xs text-[#203945]/70 mt-1">
+                  استشارة مباشرة مع مختص نفسي عيادي مؤهل لتقديم الدعم النفسي والإرشاد ضمن اختصاصه المهني.
+                </p>
+                <p className="mt-1 text-sm font-black text-[#25866D]">السعر: 500 دج</p>
+              </>
+            ) : (
+              <p className="text-xs text-[#203945]/70 mt-1">
+                اشرح احتياجك باختصار حتى يتمكن مقدم خدمة {categoryLabels[selectedService?.category ?? ''] || 'المساعدة'} من فهم طلبك.
+              </p>
+            )}
           </div>
 
+          {(selectedService?.category === 'psychological' || selectedService?.category === 'legal') && (
+            <div className="space-y-1.5">
+              <label className="block text-xs font-bold text-[#203945]">
+                {selectedService.category === 'psychological' ? 'موضوع الاستشارة' : 'ما موضوع استشارتك؟'}
+              </label>
+              <select
+                required
+                value={consultationTopic}
+                onChange={(e) => setConsultationTopic(e.target.value)}
+                className="w-full h-11 px-3 bg-white border border-[#CCD8D5] rounded-[10px] text-xs font-bold text-[#203945]"
+              >
+                {(selectedService.category === 'psychological' ? psychologicalTopics : legalTopics).map((topic) => (
+                  <option key={topic} value={topic}>{topic}</option>
+                ))}
+              </select>
+            </div>
+          )}
+
           <div className="space-y-1.5">
-            <label className="block text-xs font-bold text-[#203945]">
-              وصف مختصر للحالة:
+            <label className="block text-xs font-bold text-[#203945]" htmlFor="consultation-need-description">
+              {selectedService?.category === 'psychological' ? 'وصف احتياجك:' : 'وصف مختصر للحالة:'}
             </label>
             <textarea
+              id="consultation-need-description"
               required
               rows={4}
               value={problemDescription}
@@ -326,7 +441,9 @@ export const NewRequestView: React.FC<NewRequestViewProps> = ({
           {/* Document Upload (Optional per Prototype) */}
           <div className="p-3.5 rounded-[14px] bg-[#F3F7F6] border border-[#E0E8E6] space-y-2">
             <label className="block text-xs font-bold text-[#203945]">
-              إرفاق وثيقة — اختياري (استدعاء، تقرير طبي، أو وثيقة رسمية):
+              {selectedService?.category === 'psychological'
+                ? 'إرفاق وثيقة عند الحاجة — اختياري:'
+                : 'إرفاق وثيقة عند الحاجة — اختياري:'}
             </label>
             <div className="flex items-center gap-3">
               <label className="cursor-pointer px-3.5 py-2 rounded-[10px] bg-white border border-[#CCD8D5] hover:bg-[#EAF3F8] text-[#1766A6] font-bold text-xs flex items-center gap-1.5 transition-colors shadow-2xs">
@@ -352,6 +469,19 @@ export const NewRequestView: React.FC<NewRequestViewProps> = ({
             </div>
           </div>
 
+          {selectedService?.category === 'psychological' && (
+            <div className="rounded-[12px] border border-[#DCEBF4] bg-[#EAF3F8] p-3 text-xs leading-relaxed text-[#104A78]">
+              <strong className="block mb-1">تنبيه الخصوصية</strong>
+              شارك المعلومات الضرورية للاستشارة فقط. تُستخدم التفاصيل لمعالجة طلبك، ولا تُعد إجابات التوجيه تشخيصًا طبيًا.
+            </div>
+          )}
+
+          {selectedService?.category === 'legal' && (
+            <div className="rounded-[12px] border border-amber-200 bg-amber-50 p-3 text-xs leading-relaxed text-amber-950">
+              الاستشارة لا تعني صدور حكم قضائي أو قرار رسمي، ولا تعني تلقائيًا تمثيلك أمام الجهات القضائية.
+            </div>
+          )}
+
           <div className="pt-3 border-t border-[#E0E8E6] flex justify-between items-center">
             <button
               type="button"
@@ -366,7 +496,7 @@ export const NewRequestView: React.FC<NewRequestViewProps> = ({
               onClick={() => setStep(4)}
               className="px-6 py-2.5 rounded-[12px] bg-[#1766A6] hover:bg-[#125386] disabled:opacity-50 text-white font-bold text-xs shadow-xs transition-colors flex items-center gap-1.5"
             >
-              <span>المتابعة إلى التقييم الأولي</span>
+              <span>{selectedService?.category === 'psychological' ? 'المتابعة إلى اختيار المختص' : 'المتابعة إلى التوجيه الأولي'}</span>
               <ArrowRight className="w-4 h-4" />
             </button>
           </div>
