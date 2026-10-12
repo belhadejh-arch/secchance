@@ -64,6 +64,8 @@ import { SpecialistDashboardView } from './views/SpecialistDashboardView';
 export function App() {
   const [currentUser, setCurrentUser] = useState<User | null>(initialUsers[0]);
   const [currentView, setCurrentView] = useState<string>('landing');
+  const [directoryTab, setDirectoryTab] = useState<'centers' | 'associations'>('centers');
+  const [requestTargetPerson, setRequestTargetPerson] = useState<'self' | 'family'>('self');
 
   // Database-backed state
   const [users, setUsers] = useState<User[]>(initialUsers);
@@ -195,11 +197,28 @@ export function App() {
 
   const handleNewCaseCTA = () => {
     setPreselectedServiceId(undefined);
-    if (!currentUser) {
-      setIsAuthOpen(true);
-    } else {
-      handleNavigate('new-request');
-    }
+    setRequestTargetPerson('self');
+    handleNavigate('services');
+  };
+
+  const handleFamilyHelpCTA = () => {
+    setPreselectedServiceId(undefined);
+    setRequestTargetPerson('family');
+    handleNavigate('services');
+  };
+
+  const handleOpenDirectory = (tab: 'centers' | 'associations') => {
+    setDirectoryTab(tab);
+    handleNavigate('directory');
+  };
+
+  const handleOpenAwareness = () => {
+    handleNavigate('awareness');
+  };
+
+  const handleOpenFamilyTriage = () => {
+    setRequestTargetPerson('family');
+    setIsAiOpen(true);
   };
 
   // Login handler with RBAC auto-routing
@@ -288,7 +307,7 @@ export function App() {
       rejectionReason: null,
       paymentStatus: 'PENDING',
       wilayaName: data.wilaya,
-      description: data.description,
+      description: `${requestTargetPerson === 'family' ? '[لمن الحالة: أحد أفراد الأسرة] ' : ''}${data.description}`,
       caseType: data.caseType,
       attachedDocuments: data.attachedDocs,
       createdAt: new Date().toLocaleDateString('ar-DZ'),
@@ -433,9 +452,11 @@ export function App() {
           {currentView === 'landing' && (
             <LandingView
               onNavigate={handleNavigate}
-              onOpenAiTriage={() => setIsAiOpen(true)}
               onNewCase={handleNewCaseCTA}
-              onOpenAuth={(mode) => setIsAuthOpen(true)}
+              onFamilyHelp={handleFamilyHelpCTA}
+              onRequestService={handleRequestService}
+              onOpenDirectory={handleOpenDirectory}
+              services={services}
               partners={partners}
               usersCount={users.length}
               completedCasesCount={careRequests.filter((r) => r.status === 'COMPLETED').length || 38}
@@ -480,6 +501,10 @@ export function App() {
             <ServicesView
               services={services}
               onRequestService={handleRequestService}
+              onOpenDirectory={handleOpenDirectory}
+              onOpenLegalInformation={handleOpenAwareness}
+              onOpenFamilyGuidance={handleOpenFamilyTriage}
+              onOpenTriage={() => setIsAiOpen(true)}
             />
           )}
 
@@ -487,6 +512,7 @@ export function App() {
             <NewRequestView
               services={services}
               preselectedServiceId={preselectedServiceId}
+              initialTargetPerson={requestTargetPerson}
               currentUser={currentUser}
               onSubmit={handleCreateRequest}
               onNavigateToPortal={() => handleNavigate('portal')}
@@ -573,7 +599,12 @@ export function App() {
             />
           )}
 
-          {currentView === 'directory' && <DirectoryView />}
+          {currentView === 'directory' && (
+            <DirectoryView
+              key={directoryTab}
+              initialTab={directoryTab}
+            />
+          )}
 
           {currentView === 'awareness' && (
             <AwarenessView

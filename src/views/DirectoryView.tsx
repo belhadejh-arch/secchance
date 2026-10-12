@@ -2,9 +2,13 @@ import React, { useState } from 'react';
 import { initialTreatmentCenters, initialAssociations } from '../data/initialData';
 import { Search, Phone, MapPin, AlertCircle, Building2, HeartHandshake } from 'lucide-react';
 
-export const DirectoryView: React.FC = () => {
+interface DirectoryViewProps {
+  initialTab?: 'centers' | 'associations';
+}
+
+export const DirectoryView: React.FC<DirectoryViewProps> = ({ initialTab = 'centers' }) => {
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeTab, setActiveTab] = useState<'centers' | 'associations'>('centers');
+  const [activeTab, setActiveTab] = useState<'centers' | 'associations'>(initialTab);
 
   const filteredCenters = initialTreatmentCenters.filter((center) => {
     const q = searchQuery.trim().toLowerCase();

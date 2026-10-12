@@ -16,7 +16,6 @@ import {
   Mail,
   Phone,
   MapPin,
-  Lock,
   Activity,
   FileCheck,
   Award,
@@ -25,9 +24,11 @@ import { PartnerOrganization, ServiceItem, User } from '../types';
 
 interface LandingViewProps {
   onNavigate: (view: string) => void;
-  onOpenAiTriage: () => void;
   onNewCase: () => void;
-  onOpenAuth?: (mode?: 'login' | 'register') => void;
+  onFamilyHelp: () => void;
+  onRequestService: (service: ServiceItem) => void;
+  onOpenDirectory: (tab: 'centers' | 'associations') => void;
+  services: ServiceItem[];
   partners?: PartnerOrganization[];
   servicesCount?: number;
   usersCount?: number;
@@ -37,9 +38,11 @@ interface LandingViewProps {
 
 export const LandingView: React.FC<LandingViewProps> = ({
   onNavigate,
-  onOpenAiTriage,
   onNewCase,
-  onOpenAuth,
+  onFamilyHelp,
+  onRequestService,
+  onOpenDirectory,
+  services,
   partners = [],
   servicesCount = 6,
   usersCount = 120,
@@ -47,6 +50,39 @@ export const LandingView: React.FC<LandingViewProps> = ({
   specialistsCount = 24,
 }) => {
   const visiblePartners = partners.filter((p) => p.isVisible);
+  const mainServices = [
+    {
+      title: 'الاستشارة القانونية',
+      price: '500 دج',
+      description: 'استشارة مع محامٍ أو مستشار قانوني مختص.',
+      icon: <Scale className="w-5 h-5" />,
+      action: () => onNavigate('legal-assistance'),
+    },
+    {
+      title: 'الاستشارة النفسية',
+      price: '500 دج',
+      description: 'دعم نفسي يقدمه مختص.',
+      icon: <Activity className="w-5 h-5" />,
+      action: () => {
+        const service = services.find((item) => item.category === 'psychological');
+        if (service) onRequestService(service);
+      },
+    },
+    {
+      title: 'العثور على مركز علاج قريب',
+      price: 'مجاني',
+      description: 'ابحث في دليل مراكز العلاج حسب الولاية.',
+      icon: <Building className="w-5 h-5" />,
+      action: () => onOpenDirectory('centers'),
+    },
+    {
+      title: 'العثور على جمعية مختصة قريبة',
+      price: 'مجاني',
+      description: 'تصفح الجمعيات المختصة القريبة منك.',
+      icon: <HeartHandshake className="w-5 h-5" />,
+      action: () => onOpenDirectory('associations'),
+    },
+  ];
 
   return (
     <div className="space-y-8 max-w-4xl mx-auto">
@@ -66,8 +102,12 @@ export const LandingView: React.FC<LandingViewProps> = ({
             </div>
 
             <h1 className="text-xl sm:text-2xl font-black text-[#104A78] leading-snug">
-              نؤمن بأن كل شخص يستحق فرصة ثانية
+              الفرصة الثانية
             </h1>
+
+            <h2 className="text-sm sm:text-base font-bold text-[#104A78] leading-snug">
+              نؤمن بأن كل شخص يستحق فرصة ثانية
+            </h2>
 
             <p className="text-xs sm:text-sm text-[#104A78]/80 leading-relaxed font-medium">
               منصة رقمية متخصصة في دعم الأفراد وأسرهم لمواجهة آثار المخدرات والمؤثرات العقلية، عبر تقديم الاستشارات والمرافقة القانونية والنفسية والاجتماعية، وتوجيههم نحو العلاج وإعادة الإدماج، مع توفير نظام دفع إلكتروني عبر بطاقتي "الذهبية" و"CIB".
@@ -80,27 +120,16 @@ export const LandingView: React.FC<LandingViewProps> = ({
                 className="flex items-center justify-center gap-2 py-2.5 px-5 rounded-[12px] bg-[#1766A6] hover:bg-[#125386] text-white font-bold text-xs sm:text-sm shadow-xs transition-colors"
               >
                 <PlusCircle className="w-4 h-4" />
-                <span>طلب المساعدة الآن</span>
+                <span>أحتاج إلى مساعدة</span>
               </button>
 
-              {onOpenAuth && (
-                <button
-                  onClick={() => onOpenAuth('login')}
-                  className="flex items-center justify-center gap-2 py-2.5 px-4 rounded-[12px] bg-white border border-[#1766A6] text-[#1766A6] hover:bg-[#EAF3F8] font-bold text-xs sm:text-sm transition-colors shadow-2xs"
-                >
-                  <Lock className="w-4 h-4" />
-                  <span>تسجيل الدخول</span>
-                </button>
-              )}
-
-              {onOpenAuth && (
-                <button
-                  onClick={() => onOpenAuth('register')}
-                  className="flex items-center justify-center gap-2 py-2.5 px-4 rounded-[12px] bg-white/70 hover:bg-white text-[#203945] font-bold text-xs sm:text-sm transition-colors border border-[#CCD8D5]"
-                >
-                  <span>إنشاء حساب مستفيد</span>
-                </button>
-              )}
+              <button
+                onClick={onFamilyHelp}
+                className="flex items-center justify-center gap-2 py-2.5 px-4 rounded-[12px] bg-white border border-[#1766A6] text-[#1766A6] hover:bg-[#EAF3F8] font-bold text-xs sm:text-sm transition-colors shadow-2xs"
+              >
+                <Users className="w-4 h-4" />
+                <span>أنا أحد أفراد الأسرة</span>
+              </button>
             </div>
           </div>
         </div>
@@ -157,22 +186,27 @@ export const LandingView: React.FC<LandingViewProps> = ({
         </div>
       </section>
 
-      {/* 3. Services Cards (Requirement 16) */}
+      {/* 3. Main Services */}
       <section className="space-y-3">
-        <h2 className="text-base font-bold text-[#203945]">المساعدة القانونية</h2>
+        <h2 className="text-base font-bold text-[#203945]">الخدمات الرئيسية</h2>
         <div className="grid grid-cols-1 gap-3">
-          <div
-            onClick={() => onNavigate('legal-assistance')}
-            className="bg-[#FBFDFC] p-5 rounded-[18px] border border-[#E0E8E6] shadow-xs hover:border-[#1766A6] transition-all cursor-pointer space-y-2.5"
-          >
-            <div className="w-10 h-10 rounded-[12px] bg-[#EAF3F8] text-[#1766A6] flex items-center justify-center">
-              <Scale className="w-5 h-5" />
-            </div>
-            <h3 className="font-bold text-sm text-[#203945]">المساعدة القانونية</h3>
-            <p className="text-xs text-[#203945]/75 leading-relaxed">
-              استشارات قانونية مع محامين معتمدين ومستشارين قانونيين.
-            </p>
-          </div>
+          {mainServices.map((service) => (
+            <button
+              key={service.title}
+              type="button"
+              onClick={service.action}
+              className="w-full text-right bg-[#FBFDFC] p-5 rounded-[18px] border border-[#E0E8E6] shadow-xs hover:border-[#1766A6] transition-all cursor-pointer space-y-2.5"
+            >
+              <div className="flex items-center justify-between">
+                <div className="w-10 h-10 rounded-[12px] bg-[#EAF3F8] text-[#1766A6] flex items-center justify-center">
+                  {service.icon}
+                </div>
+                <span className="text-[13px] font-black text-[#25866D]">{service.price}</span>
+              </div>
+              <h3 className="font-bold text-sm text-[#203945]">{service.title}</h3>
+              <p className="text-xs text-[#203945]/75 leading-relaxed">{service.description}</p>
+            </button>
+          ))}
         </div>
       </section>
 
@@ -180,42 +214,30 @@ export const LandingView: React.FC<LandingViewProps> = ({
       <section className="bg-[#FBFDFC] border border-[#E0E8E6] rounded-[22px] p-6 shadow-xs space-y-4">
         <div className="text-center space-y-1">
           <h2 className="text-base sm:text-lg font-black text-[#203945]">كيفية عمل منصة الفرصة الثانية</h2>
-          <p className="text-xs text-[#203945]/70">أربع خطوات مبسطة وسرية تبدأ بها رحلة التعافي والمرافقة</p>
+          <p className="text-xs text-[#203945]/70">خطوات واضحة للوصول إلى الخدمة المناسبة</p>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 text-center">
-          <div className="p-4 rounded-[14px] bg-[#F3F7F6] space-y-2">
-            <div className="w-8 h-8 rounded-full bg-[#1766A6] text-white font-bold text-xs flex items-center justify-center mx-auto">
-              1
-            </div>
-            <h3 className="font-bold text-xs text-[#203945]">إنشاء الحساب</h3>
-            <p className="text-[11px] text-[#203945]/70">تسجيل سريع وسري كمستفيد أو أحد أفراد الأسرة</p>
-          </div>
+        <ol className="grid grid-cols-1 sm:grid-cols-4 gap-3 text-center">
+          {[
+            'أحتاج إلى مساعدة.',
+            'أحدد احتياجي.',
+            'أتعرف على الخدمة المناسبة.',
+            'أحجز عند الحاجة.',
+            'أدفع عند الحاجة.',
+            'أتلقى الاستشارة أو أحصل على التوجيه المناسب.',
+          ].map((step, index) => (
+            <li key={step} className="p-4 rounded-[14px] bg-[#F3F7F6] space-y-2">
+              <span className={`w-8 h-8 rounded-full ${index === 5 ? 'bg-[#25866D]' : 'bg-[#1766A6]'} text-white font-bold text-xs flex items-center justify-center mx-auto`}>
+                {index + 1}
+              </span>
+              <p className="font-bold text-xs text-[#203945]">{step}</p>
+            </li>
+          ))}
+        </ol>
 
-          <div className="p-4 rounded-[14px] bg-[#F3F7F6] space-y-2">
-            <div className="w-8 h-8 rounded-full bg-[#1766A6] text-white font-bold text-xs flex items-center justify-center mx-auto">
-              2
-            </div>
-            <h3 className="font-bold text-xs text-[#203945]">اختيار الخدمة أو المختص</h3>
-            <p className="text-[11px] text-[#203945]/70">تحديد نوع الاستشارة أو المحامي في ولايتك</p>
-          </div>
-
-          <div className="p-4 rounded-[14px] bg-[#F3F7F6] space-y-2">
-            <div className="w-8 h-8 rounded-full bg-[#1766A6] text-white font-bold text-xs flex items-center justify-center mx-auto">
-              3
-            </div>
-            <h3 className="font-bold text-xs text-[#203945]">الدفع وتأكيد الموعد</h3>
-            <p className="text-[11px] text-[#203945]/70">دفع إلكتروني آمن بالبطاقة الذهبية وتحديد موعد الجلسة</p>
-          </div>
-
-          <div className="p-4 rounded-[14px] bg-[#F3F7F6] space-y-2">
-            <div className="w-8 h-8 rounded-full bg-[#25866D] text-white font-bold text-xs flex items-center justify-center mx-auto">
-              4
-            </div>
-            <h3 className="font-bold text-xs text-[#25866D]">المتابعة والتقارير</h3>
-            <p className="text-[11px] text-[#203945]/70">جلسات دورية، متابعة سريرية، وتقارير رسمية معتمدة</p>
-          </div>
-        </div>
+        <p className="bg-[#FFF8E1] border border-[#FFE082] rounded-[12px] p-3 text-xs text-[#5D4037] leading-relaxed">
+          تنبيه: المنصة لا تقدم العلاج بنفسها، ولا تحل محل المؤسسات الصحية أو الجهات القضائية.
+        </p>
       </section>
 
       {/* 5. Official Partners Section (Requirement 15 & 16) */}

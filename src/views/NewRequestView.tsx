@@ -20,6 +20,7 @@ import {
 interface NewRequestViewProps {
   services: ServiceItem[];
   preselectedServiceId?: number;
+  initialTargetPerson?: 'self' | 'family';
   currentUser?: User | null;
   onSubmit: (
     serviceId: number,
@@ -35,6 +36,7 @@ interface NewRequestViewProps {
 export const NewRequestView: React.FC<NewRequestViewProps> = ({
   services,
   preselectedServiceId,
+  initialTargetPerson,
   currentUser,
   onSubmit,
   onCancel,
@@ -53,7 +55,7 @@ export const NewRequestView: React.FC<NewRequestViewProps> = ({
   const [selectedServiceId, setSelectedServiceId] = useState<number>(
     preselectedServiceId ?? services[0]?.id ?? 0
   );
-  const [targetPerson, setTargetPerson] = useState<'self' | 'family'>('self');
+  const [targetPerson, setTargetPerson] = useState<'self' | 'family'>(initialTargetPerson ?? 'self');
   const [problemDescription, setProblemDescription] = useState<string>('');
   const [attachedFileName, setAttachedFileName] = useState<string | null>(null);
 
