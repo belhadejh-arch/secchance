@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { ServiceItem, Priority, User } from '../types';
+import { GuidanceProgress } from '../components/GuidanceProgress';
 import {
   Check,
   Calendar,
@@ -139,27 +140,7 @@ export const NewRequestView: React.FC<NewRequestViewProps> = ({
 
   return (
     <div className="space-y-4 max-w-2xl mx-auto py-2">
-      {/* Progress Stepper (Except on Success screen) */}
-      {step < 6 && (
-        <div className="bg-[#FBFDFC] border border-[#E0E8E6] rounded-[18px] p-4 shadow-xs">
-          <div className="flex items-center justify-between text-xs font-bold text-[#203945] mb-2">
-            <span>الخطوة {step} من 5:</span>
-            <span className="text-[#1766A6]">
-              {step === 1 && 'طبيعة المساعدة'}
-              {step === 2 && 'لمن تتعلق الحالة؟'}
-              {step === 3 && 'وصف المشكلة والوثائق'}
-              {step === 4 && 'التقييم الأولي السريع'}
-              {step === 5 && 'مراجعة الموعد والدفع'}
-            </span>
-          </div>
-          <div className="w-full bg-[#E5ECE9] h-2 rounded-full overflow-hidden">
-            <div
-              className="bg-[#1766A6] h-full transition-all duration-300"
-              style={{ width: `${(step / 5) * 100}%` }}
-            />
-          </div>
-        </div>
-      )}
+      <GuidanceProgress activeStep={step === 6 ? 5 : step === 5 ? 4 : 3} />
 
       {/* ================= STEP 1: طبيعة المساعدة ================= */}
       {step === 1 && (

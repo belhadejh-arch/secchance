@@ -4,10 +4,14 @@ import { Search, Phone, MapPin, AlertCircle, Building2, HeartHandshake } from 'l
 
 interface DirectoryViewProps {
   initialTab?: 'centers' | 'associations';
+  initialSearch?: string;
 }
 
-export const DirectoryView: React.FC<DirectoryViewProps> = ({ initialTab = 'centers' }) => {
-  const [searchQuery, setSearchQuery] = useState('');
+export const DirectoryView: React.FC<DirectoryViewProps> = ({
+  initialTab = 'centers',
+  initialSearch = '',
+}) => {
+  const [searchQuery, setSearchQuery] = useState(initialSearch);
   const [activeTab, setActiveTab] = useState<'centers' | 'associations'>(initialTab);
 
   const filteredCenters = initialTreatmentCenters.filter((center) => {

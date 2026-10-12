@@ -48,6 +48,9 @@ import { RejectionModal } from './components/RejectionModal';
 
 import { LandingView } from './views/LandingView';
 import { ServicesView } from './views/ServicesView';
+import { HelpOptionsView } from './views/HelpOptionsView';
+import { NeedsAssessmentView, AssessmentAnswers } from './views/NeedsAssessmentView';
+import { GuidanceResultsView } from './views/GuidanceResultsView';
 import { NewRequestView } from './views/NewRequestView';
 import { PortalView } from './views/PortalView';
 import { CaseDetailView } from './views/CaseDetailView';
@@ -65,7 +68,9 @@ export function App() {
   const [currentUser, setCurrentUser] = useState<User | null>(initialUsers[0]);
   const [currentView, setCurrentView] = useState<string>('landing');
   const [directoryTab, setDirectoryTab] = useState<'centers' | 'associations'>('centers');
+  const [directorySearch, setDirectorySearch] = useState('');
   const [requestTargetPerson, setRequestTargetPerson] = useState<'self' | 'family'>('self');
+  const [assessmentAnswers, setAssessmentAnswers] = useState<AssessmentAnswers | null>(null);
 
   // Database-backed state
   const [users, setUsers] = useState<User[]>(initialUsers);
@@ -198,17 +203,29 @@ export function App() {
   const handleNewCaseCTA = () => {
     setPreselectedServiceId(undefined);
     setRequestTargetPerson('self');
-    handleNavigate('services');
+    handleNavigate('help-options');
   };
 
   const handleFamilyHelpCTA = () => {
     setPreselectedServiceId(undefined);
     setRequestTargetPerson('family');
-    handleNavigate('services');
+    handleNavigate('help-options');
   };
 
-  const handleOpenDirectory = (tab: 'centers' | 'associations') => {
+  const handleStartNeedsAssessment = () => {
+    setAssessmentAnswers(null);
+    handleNavigate('needs-assessment');
+  };
+
+  const handleContinueAssessment = (answers: AssessmentAnswers) => {
+    setAssessmentAnswers(answers);
+    setRequestTargetPerson(answers.targetPerson);
+    handleNavigate('guidance-results');
+  };
+
+  const handleOpenDirectory = (tab: 'centers' | 'associations', search = '') => {
     setDirectoryTab(tab);
+    setDirectorySearch(search);
     handleNavigate('directory');
   };
 
@@ -504,7 +521,39 @@ export function App() {
               onOpenDirectory={handleOpenDirectory}
               onOpenLegalInformation={handleOpenAwareness}
               onOpenFamilyGuidance={handleOpenFamilyTriage}
-              onOpenTriage={() => setIsAiOpen(true)}
+            />
+          )}
+
+          {currentView === 'help-options' && (
+            <HelpOptionsView
+              services={services}
+              onRequestService={handleRequestService}
+              onOpenDirectory={handleOpenDirectory}
+              onOpenLegalInformation={handleOpenAwareness}
+              onOpenFamilyGuidance={handleOpenFamilyTriage}
+              onStartNeedsAssessment={handleStartNeedsAssessment}
+            />
+          )}
+
+          {currentView === 'needs-assessment' && (
+            <NeedsAssessmentView
+              initialAnswers={assessmentAnswers}
+              initialTargetPerson={requestTargetPerson}
+              onContinue={handleContinueAssessment}
+              onBack={() => handleNavigate('help-options')}
+            />
+          )}
+
+          {currentView === 'guidance-results' && assessmentAnswers && (
+            <GuidanceResultsView
+              answers={assessmentAnswers}
+              services={services}
+              onReserveService={handleRequestService}
+              onOpenDirectory={handleOpenDirectory}
+              onOpenLegalInformation={handleOpenAwareness}
+              onOpenFamilyGuidance={handleOpenFamilyTriage}
+              onOpenEmergency={() => handleNavigate('emergency')}
+              onBack={() => handleNavigate('needs-assessment')}
             />
           )}
 
@@ -603,6 +652,7 @@ export function App() {
             <DirectoryView
               key={directoryTab}
               initialTab={directoryTab}
+              initialSearch={directorySearch}
             />
           )}
 
