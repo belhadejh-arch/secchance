@@ -25,7 +25,7 @@ export const HelpOptionsView: React.FC<HelpOptionsViewProps> = ({
     {
       title: 'أحتاج إلى استشارة قانونية',
       price: '500 دج',
-      description: 'قدّم طلب استشارة إلى محامٍ أو مستشار قانوني مختص.',
+      description: 'استشارة مباشرة مع مستشار قانوني مؤهل لفهم الوضعية القانونية والإجراءات والمسارات الممكنة ضمن اختصاصه.',
       icon: <Scale className="w-5 h-5" />,
       action: () => legalService && onRequestService(legalService),
       disabled: !legalService,

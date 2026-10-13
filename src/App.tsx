@@ -34,8 +34,6 @@ import {
   subscribeToNotifications,
   createCareRequestInDb,
   updateCareRequestInDb,
-  createPaymentTransactionInDb,
-  createAppointmentInDb,
   addSpecialistReportInDb,
   initialPartners,
 } from './services/dbService';
@@ -265,18 +263,33 @@ export function App() {
     serviceId: number,
     priority: Priority,
     wilaya: string,
-    description: string
+    description: string,
+    extraData?: {
+      consultationTopic?: string;
+      attachedDocs?: string[];
+      specialistId?: number | string;
+      specialistName?: string;
+      appointmentDate?: string;
+      appointmentTime?: string;
+      durationMinutes?: number;
+      appointmentHoldExpiresAt?: string;
+    }
   ) => {
     if (!currentUser) return;
     const service = services.find((s) => s.id === serviceId) || services[0];
+    const selectedSpecialist = users.find(
+      (user) => String(user.id) === String(extraData?.specialistId)
+    );
     const newCaseNo = `SC-2026-${Math.floor(1000 + Math.random() * 9000)}`;
 
     const newReqData: Omit<CareRequest, 'id'> = {
       caseNumber: newCaseNo,
       clientId: currentUser.id,
       clientName: `${currentUser.firstName} ${currentUser.lastName}`,
-      providerId: service.providerId,
-      providerName: service.providerName,
+      providerId: selectedSpecialist?.id ?? service.providerId,
+      providerName: selectedSpecialist
+        ? `${selectedSpecialist.firstName} ${selectedSpecialist.lastName}`.trim()
+        : service.providerName,
       serviceId: service.id,
       serviceTitle: service.title,
       category: service.category,
@@ -287,6 +300,12 @@ export function App() {
       paymentStatus: service.amountDzd > 0 ? 'PENDING' : 'NOT_REQUIRED',
       wilayaName: wilaya,
       description,
+      caseType: extraData?.consultationTopic,
+      attachedDocuments: extraData?.attachedDocs ?? [],
+      appointmentDate: extraData?.appointmentDate ?? null,
+      appointmentTime: extraData?.appointmentTime ?? null,
+      durationMinutes: extraData?.durationMinutes,
+      appointmentHoldExpiresAt: extraData?.appointmentHoldExpiresAt,
       createdAt: new Date().toLocaleDateString('ar-DZ'),
     };
 
@@ -350,55 +369,9 @@ export function App() {
     setRejectionTargetId(null);
   };
 
-  // Payment processing in database
-  const handleProcessPayment = async (requestId: number | string, paymentMethod: 'EDAHABIA' | 'CIB') => {
-    const targetReq = careRequests.find((r) => String(r.id) === String(requestId));
-    if (!targetReq) return;
-
-    const txnId = `TXN-${Math.floor(100000 + Math.random() * 900000)}`;
-    const payId = `PAY-${targetReq.caseNumber.replace('SC-', '')}-DZ`;
-    const orderId = `ORD-${Math.floor(1000 + Math.random() * 9000)}`;
-
-    const newTxnData: Omit<PaymentTransaction, 'id'> = {
-      paymentId: payId,
-      orderId,
-      clientId: targetReq.clientId,
-      clientName: targetReq.clientName,
-      providerId: targetReq.providerId,
-      providerName: targetReq.providerName,
-      serviceTitle: targetReq.serviceTitle,
-      amountDzd: targetReq.amountDzd,
-      currency: 'DZD',
-      paymentMethod,
-      transactionId: txnId,
-      status: 'SUCCESSFUL',
-      createdAt: new Date().toLocaleDateString('ar-DZ'),
-      paidAt: new Date().toLocaleString('ar-DZ'),
-    };
-
-    await createPaymentTransactionInDb(newTxnData);
-
-    await updateCareRequestInDb(targetReq.id, {
-      status: 'APPOINTMENT_CONFIRMED',
-      paymentStatus: 'PAID',
-      appointmentDate: '2026-10-05',
-      appointmentTime: '11:00 صباحاً',
-    });
-
-    await createAppointmentInDb({
-      caseNumber: targetReq.caseNumber,
-      clientId: targetReq.clientId,
-      clientName: targetReq.clientName,
-      specialistId: targetReq.providerId,
-      specialistName: targetReq.providerName,
-      specialty: targetReq.serviceTitle,
-      date: '2026-10-05',
-      time: '11:00 صباحاً',
-      type: 'جلسة مؤكدة عبر الدفع الإلكتروني',
-      status: 'CONFIRMED',
-    });
-
-    handleNavigate('portal');
+  // No local payment simulation: only a verified provider callback may mark a request paid.
+  const handleProcessPayment = async (_requestId: number | string, _paymentMethod: 'EDAHABIA' | 'CIB') => {
+    throw new Error('بوابة الدفع غير مهيأة؛ لم يتم تحصيل أي مبلغ.');
   };
 
   // Add specialist report in database
@@ -560,6 +533,9 @@ export function App() {
           {currentView === 'new-request' && (
             <NewRequestView
               services={services}
+              specialists={users}
+              appointments={appointments}
+              requests={careRequests}
               preselectedServiceId={preselectedServiceId}
               initialTargetPerson={requestTargetPerson}
               currentUser={currentUser}

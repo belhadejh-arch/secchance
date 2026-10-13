@@ -5,17 +5,10 @@ import {
   Check,
   Calendar,
   Clock,
-  FileText,
   Upload,
-  CreditCard,
-  CheckCircle2,
-  AlertTriangle,
   ArrowRight,
   Shield,
-  HelpCircle,
   FileCheck,
-  Receipt,
-  User as UserIcon,
 } from 'lucide-react';
 
 interface NewRequestViewProps {
@@ -57,13 +50,14 @@ export const NewRequestView: React.FC<NewRequestViewProps> = ({
   onCancel,
   onNavigateToPortal,
 }) => {
-  // Step state: service, beneficiary, consultation, orientation, specialist, appointment
+  // Step state: service, beneficiary, consultation, assessment, specialist, appointment, payment
   // 1: طبيعة المساعدة
   // 2: لمن تتعلق الحالة؟
   // 3: وصف المشكلة وإرفاق وثيقة
   // 4: التقييم الأولي (الأسئلة الثلاثة)
-  // 5: اختيار المختص
-  // 6: الموعد وشروط الخدمة
+  // 5: الشاشة 08 — اختيار المختص
+  // 6: الشاشة 09 — حجز الموعد
+  // 7: الشاشة 10 — الدفع
   const [step, setStep] = useState<number>(legalDraft ? 5 : 1);
 
   // Form states
@@ -112,6 +106,7 @@ export const NewRequestView: React.FC<NewRequestViewProps> = ({
   const [selectedSlotKey, setSelectedSlotKey] = useState<string | null>(null);
   const [serviceTermsAccepted, setServiceTermsAccepted] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<'EDAHABIA' | 'CIB'>('EDAHABIA');
+  const [bookingRequestCreated, setBookingRequestCreated] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [submissionError, setSubmissionError] = useState<string>('');
 
@@ -120,14 +115,10 @@ export const NewRequestView: React.FC<NewRequestViewProps> = ({
       ? ['lawyer', 'legal_advisor']
       : selectedService?.category === 'psychological'
         ? ['psychologist']
-        : selectedService?.category === 'medical'
-          ? ['doctor']
-          : [];
-  const eligibleSpecialists = specialists.filter(
-    (specialist) =>
-      specialist.status === 'active' &&
-      professionalRoles.includes(specialist.roleSlug) &&
-      (specialist.availabilitySlots ?? []).some((slot) => {
+        : [];
+  const getAvailableSlots = (specialist: User) =>
+    (specialist.availabilitySlots ?? [])
+      .filter((slot) => {
         const startsAt = new Date(`${slot.date}T${slot.time}:00`).getTime();
         const alreadyBooked = appointments.some(
           (appointment) =>
@@ -141,40 +132,35 @@ export const NewRequestView: React.FC<NewRequestViewProps> = ({
             String(request.providerId) === String(specialist.id) &&
             request.appointmentDate === slot.date &&
             request.appointmentTime === slot.time &&
-            request.status === 'WAITING_PAYMENT' &&
-            (!request.appointmentHoldExpiresAt ||
-              new Date(request.appointmentHoldExpiresAt).getTime() > Date.now())
+            (
+              ['ACCEPTED', 'PAID', 'APPOINTMENT_CONFIRMED', 'IN_PROGRESS'].includes(request.status) ||
+              (
+                ['PENDING_PROVIDER', 'WAITING_PAYMENT'].includes(request.status) &&
+                (!request.appointmentHoldExpiresAt ||
+                  new Date(request.appointmentHoldExpiresAt).getTime() > Date.now())
+              )
+            )
         );
-        const hasDuration = Boolean(selectedService?.durationMinutes || slot.durationMinutes);
-        return startsAt > Date.now() && !alreadyBooked && !pendingRequest && hasDuration;
+        return startsAt > Date.now() && !alreadyBooked && !pendingRequest;
       })
+      .sort((a, b) => `${a.date} ${a.time}`.localeCompare(`${b.date} ${b.time}`));
+  const eligibleSpecialists = specialists.filter(
+    (specialist) =>
+      specialist.status === 'active' &&
+      specialist.professionalDetailsVerified === true &&
+      professionalRoles.includes(specialist.roleSlug) &&
+      getAvailableSlots(specialist).some(
+        (slot) => Boolean(selectedService?.durationMinutes || slot.durationMinutes)
+      )
   );
   const selectedSpecialist = eligibleSpecialists.find(
     (specialist) => String(specialist.id) === String(selectedSpecialistId)
   );
-  const availableSlots =
-    selectedSpecialist?.availabilitySlots
-      ?.filter((slot) => {
-        const startsAt = new Date(`${slot.date}T${slot.time}:00`).getTime();
-        const alreadyBooked = appointments.some(
-          (appointment) =>
-            String(appointment.specialistId) === String(selectedSpecialist.id) &&
-            appointment.date === slot.date &&
-            appointment.time === slot.time &&
-            appointment.status !== 'CANCELLED'
-        );
-        const pendingRequest = requests.some(
-          (request) =>
-            String(request.providerId) === String(selectedSpecialist.id) &&
-            request.appointmentDate === slot.date &&
-            request.appointmentTime === slot.time &&
-            request.status === 'WAITING_PAYMENT' &&
-            (!request.appointmentHoldExpiresAt ||
-              new Date(request.appointmentHoldExpiresAt).getTime() > Date.now())
-        );
-        return startsAt > Date.now() && !alreadyBooked && !pendingRequest;
-      })
-      .sort((a, b) => `${a.date} ${a.time}`.localeCompare(`${b.date} ${b.time}`)) ?? [];
+  const availableSlots = selectedSpecialist
+    ? getAvailableSlots(selectedSpecialist).filter(
+        (slot) => selectedService?.durationMinutes || slot.durationMinutes
+      )
+    : [];
   const selectedSlot = availableSlots.find(
     (slot) => `${slot.date}|${slot.time}` === selectedSlotKey
   );
@@ -186,14 +172,23 @@ export const NewRequestView: React.FC<NewRequestViewProps> = ({
     }
   };
 
-  const handleContinueToPayment = async () => {
+  const handleCreateAppointmentRequest = async () => {
     if (!selectedService || !currentUser || !selectedSpecialist || !selectedSlot || !serviceTermsAccepted) {
       setSubmissionError('يرجى اختيار مختص وموعد متاح والموافقة على شروط الخدمة وسياسة الإلغاء.');
       return;
     }
+    const slotStillAvailable = getAvailableSlots(selectedSpecialist).some(
+      (slot) => slot.date === selectedSlot.date && slot.time === selectedSlot.time
+    );
+    if (!slotStillAvailable) {
+      setSelectedSlotKey(null);
+      setSubmissionError('هذا الموعد لم يعد متاحاً. اختر موعداً آخر من الأوقات المتاحة.');
+      setStep(6);
+      return;
+    }
+
     setIsSubmitting(true);
     setSubmissionError('');
-
     try {
       await onSubmit(
         selectedService.id,
@@ -216,8 +211,10 @@ export const NewRequestView: React.FC<NewRequestViewProps> = ({
               : { isUrgent },
         }
       );
+      setBookingRequestCreated(true);
+      setStep(7);
     } catch {
-      setSubmissionError('تعذر تسجيل الموعد المعلّق. تحقق من الاتصال أو صلاحيات الحساب ثم حاول مجدداً.');
+      setSubmissionError('تعذر تسجيل طلب الموعد. تحقق من الاتصال أو صلاحيات الحساب ثم حاول مجدداً.');
     } finally {
       setIsSubmitting(false);
     }
@@ -225,7 +222,7 @@ export const NewRequestView: React.FC<NewRequestViewProps> = ({
 
   return (
     <div className="space-y-4 max-w-2xl mx-auto py-2">
-      <GuidanceProgress activeStep={step === 6 ? 5 : step === 5 ? 4 : 3} />
+      <GuidanceProgress activeStep={step === 7 ? 6 : step === 6 ? 5 : step === 5 ? 4 : 3} />
 
       {/* ================= STEP 1: طبيعة المساعدة ================= */}
       {step === 1 && (
@@ -387,11 +384,20 @@ export const NewRequestView: React.FC<NewRequestViewProps> = ({
         <div className="bg-[#FBFDFC] rounded-[20px] border border-[#E0E8E6] p-6 shadow-xs space-y-4">
           <div>
             <h2 className="text-[17px] font-black text-[#203945]">
-              {selectedService?.category === 'psychological'
-                ? 'الشاشة 07 — الاستشارة النفسية'
-                : 'الخطوة 3 — وصف الاحتياج'}
+              {selectedService?.category === 'legal'
+                ? 'الاستشارة القانونية'
+                : selectedService?.category === 'psychological'
+                  ? 'الشاشة 07 — الاستشارة النفسية'
+                  : 'الخطوة 3 — وصف الاحتياج'}
             </h2>
-            {selectedService?.category === 'psychological' ? (
+            {selectedService?.category === 'legal' ? (
+              <>
+                <p className="text-xs text-[#203945]/70 mt-1">
+                  استشارة مباشرة مع مستشار قانوني مؤهل لفهم الوضعية القانونية والإجراءات والمسارات الممكنة ضمن اختصاصه.
+                </p>
+                <p className="mt-1 text-sm font-black text-[#25866D]">السعر: 500 دج</p>
+              </>
+            ) : selectedService?.category === 'psychological' ? (
               <>
                 <p className="text-xs text-[#203945]/70 mt-1">
                   استشارة مباشرة مع مختص نفسي عيادي مؤهل لتقديم الدعم النفسي والإرشاد ضمن اختصاصه المهني.
@@ -425,7 +431,11 @@ export const NewRequestView: React.FC<NewRequestViewProps> = ({
 
           <div className="space-y-1.5">
             <label className="block text-xs font-bold text-[#203945]" htmlFor="consultation-need-description">
-              {selectedService?.category === 'psychological' ? 'وصف احتياجك:' : 'وصف مختصر للحالة:'}
+              {selectedService?.category === 'legal'
+                ? 'اشرح لنا سؤالك أو وضعيتك'
+                : selectedService?.category === 'psychological'
+                  ? 'وصف احتياجك:'
+                  : 'وصف مختصر للحالة:'}
             </label>
             <textarea
               id="consultation-need-description"
@@ -477,7 +487,13 @@ export const NewRequestView: React.FC<NewRequestViewProps> = ({
           )}
 
           {selectedService?.category === 'legal' && (
-            <div className="rounded-[12px] border border-amber-200 bg-amber-50 p-3 text-xs leading-relaxed text-amber-950">
+            <div
+              role="note"
+              aria-label="تنبيه الخصوصية ونطاق الاستشارة القانونية"
+              className="rounded-[12px] border border-amber-200 bg-amber-50 p-3 text-xs leading-relaxed text-amber-950 space-y-1"
+            >
+              <strong className="block">تنبيه الخصوصية ونطاق الاستشارة</strong>
+              شارك المعلومات والوثائق الضرورية فقط. تُستخدم التفاصيل لفهم طلبك ومعالجته بسرية.
               الاستشارة لا تعني صدور حكم قضائي أو قرار رسمي، ولا تعني تلقائيًا تمثيلك أمام الجهات القضائية.
             </div>
           )}
@@ -611,157 +627,89 @@ export const NewRequestView: React.FC<NewRequestViewProps> = ({
         </div>
       )}
 
-      {/* ================= STEP 5: ملخص الطلب واختيار الموعد والدفع ================= */}
+      {/* ================= STEP 5: الشاشة 08 — اختيار المختص ================= */}
       {step === 5 && (
         <div className="bg-[#FBFDFC] rounded-[20px] border border-[#E0E8E6] p-6 shadow-xs space-y-5">
           <div>
             <h2 className="text-[17px] font-black text-[#203945]">
-              الخطوة 5 — مراجعة طلبك واختيار الموعد
+              الشاشة 08: اختيار المختص
             </h2>
             <p className="text-xs text-[#203945]/70 mt-1">
-              راجع تفاصيل الجلسة، حدد التوقيت المناسب، وأكد حجزك الآمن
+              اختر مختصاً متاحاً للاستشارة المطلوبة. لا نعرض إلا البيانات المهنية الموثقة والمواعيد المتاحة.
             </p>
           </div>
 
-          {/* Summary Card */}
-          <div className="bg-[#EAF3F8] rounded-[16px] p-4.5 border border-[#DCEBF4] space-y-3">
-            <h4 className="font-black text-sm text-[#104A78]">مراجعة تفاصيل الخدمة:</h4>
-            <div className="grid grid-cols-2 gap-2 text-xs text-[#203945]">
-              <p>
-                <strong>الخدمة:</strong> {selectedService?.title}
-              </p>
-              <p>
-                <strong>المستفيد:</strong> {targetPerson === 'self' ? 'أنا (مباشر)' : 'أحد أفراد الأسرة'}
-              </p>
-              <p>
-                <strong>نوع الخدمة:</strong> {categoryLabels[selectedService?.category ?? ''] || selectedService?.category}
-              </p>
-              <p>
-                <strong>السعر:</strong>{' '}
-                <span className="font-bold text-[#25866D]">
-                  {selectedService?.amountDzd.toLocaleString('ar-DZ')} دج
-                </span>
-              </p>
-              <p>
-                <strong>الأولوية:</strong> {isUrgent === 'yes' ? '🔴 عاجلة' : '🟢 عادية'}
-              </p>
-            </div>
-          </div>
-
-          {/* Appointment Date and Time Selection (Requirement 11 & 23) */}
           <div className="space-y-3">
-            <h4 className="font-bold text-sm text-[#203945] flex items-center gap-1.5">
-              <Calendar className="w-4 h-4 text-[#1766A6]" />
-              <span>اختر موعدك:</span>
-            </h4>
+            {eligibleSpecialists.length === 0 ? (
+              <div className="rounded-[14px] border border-[#E0E8E6] bg-white p-5 text-center text-sm text-[#203945]/70">
+                لا يوجد حالياً مختص موثق لديه مواعيد متاحة لهذه الاستشارة.
+              </div>
+            ) : eligibleSpecialists.map((specialist) => {
+              const slots = getAvailableSlots(specialist).filter(
+                (slot) => selectedService?.durationMinutes || slot.durationMinutes
+              );
+              const isSelected = String(selectedSpecialistId) === String(specialist.id);
+              return (
+                <article
+                  key={specialist.id}
+                  className={`space-y-3 rounded-[16px] border bg-white p-4 ${
+                    isSelected ? 'border-[#1766A6] ring-1 ring-[#1766A6]' : 'border-[#E0E8E6]'
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <h3 className="font-black text-sm text-[#203945]">
+                        {specialist.firstName} {specialist.lastName}
+                      </h3>
+                      <p className="mt-1 text-xs font-bold text-[#1766A6]">
+                        {specialist.roleSlug === 'psychologist' ? 'مختص نفسي عيادي' : 'مستشار قانوني'}
+                      </p>
+                    </div>
+                    <span className="shrink-0 text-xs font-black text-[#25866D]">
+                      {selectedService?.amountDzd.toLocaleString('ar-DZ')} دج
+                    </span>
+                  </div>
 
-            <div className="space-y-1.5">
-              <label className="block text-xs font-bold text-[#203945]">التاريخ:</label>
-              <select
-                value={selectedDate}
-                onChange={(e) => setSelectedDate(e.target.value)}
-                className="w-full h-10 px-3 bg-white border border-[#CCD8D5] rounded-[10px] text-xs font-bold text-[#203945]"
-              >
-                <option value="2026-10-05">الإثنين 05/10/2026</option>
-                <option value="2026-10-06">الثلاثاء 06/10/2026</option>
-                <option value="2026-10-07">الأربعاء 07/10/2026</option>
-                <option value="2026-10-11">الأحد 11/10/2026</option>
-              </select>
-            </div>
+                  {(specialist.specialty || specialist.subSpecialty || specialist.licenseNumber || specialist.wilayaName) && (
+                    <div className="space-y-1 text-xs text-[#203945]/75">
+                      {specialist.specialty && <p>الاختصاص: {specialist.specialty}</p>}
+                      {specialist.subSpecialty && <p>الاختصاص الفرعي: {specialist.subSpecialty}</p>}
+                      {specialist.licenseNumber && <p>رقم الاعتماد: {specialist.licenseNumber}</p>}
+                      {specialist.wilayaName && <p>الولاية: {specialist.wilayaName}</p>}
+                    </div>
+                  )}
 
-            <div className="space-y-1.5">
-              <label className="block text-xs font-bold text-[#203945]">
-                الأوقات المتاحة (المواعيد غير المتاحة معطلة):
-              </label>
-              <div className="grid grid-cols-3 gap-2">
-                {availableTimeSlots.map((slot) => (
+                  <div className="space-y-1">
+                    <p className="text-xs font-bold text-[#203945]">المواعيد المتاحة</p>
+                    {slots.map((slot) => (
+                      <p key={`${slot.date}|${slot.time}`} className="text-xs text-[#203945]/70">
+                        {slot.date} — {slot.time}
+                        {(selectedService?.durationMinutes ?? slot.durationMinutes) &&
+                          ` · ${selectedService?.durationMinutes ?? slot.durationMinutes} دقيقة`}
+                      </p>
+                    ))}
+                  </div>
                   <button
-                    key={slot.time}
                     type="button"
-                    disabled={!slot.available}
-                    onClick={() => setSelectedTime(slot.time)}
-                    className={`py-2.5 px-3 rounded-[10px] text-xs font-bold transition-all flex items-center justify-center gap-1 ${
-                      selectedTime === slot.time && slot.available
-                        ? 'bg-[#1766A6] text-white shadow-xs'
-                        : slot.available
-                        ? 'bg-white border border-[#CCD8D5] text-[#203945] hover:border-[#1766A6]'
-                        : 'bg-slate-100 border border-slate-200 text-slate-400 cursor-not-allowed line-through'
+                    aria-pressed={isSelected}
+                    onClick={() => {
+                      setSelectedSpecialistId(specialist.id);
+                      setSelectedSlotKey(null);
+                      setSubmissionError('');
+                    }}
+                    className={`w-full rounded-[10px] px-4 py-2.5 text-xs font-bold ${
+                      isSelected ? 'bg-[#EAF3F8] text-[#1766A6]' : 'bg-[#1766A6] text-white hover:bg-[#125386]'
                     }`}
                   >
-                    <Clock className="w-3.5 h-3.5" />
-                    <span>{slot.time}</span>
+                    {isSelected ? 'تم اختيار المختص' : 'اختيار المختص'}
                   </button>
-                ))}
-              </div>
-            </div>
+                </article>
+              );
+            })}
           </div>
 
-          {/* Payment Method Selection */}
-          <div className="space-y-3 pt-2 border-t border-[#E0E8E6]">
-            <h4 className="font-bold text-sm text-[#203945] flex items-center gap-1.5">
-              <CreditCard className="w-4 h-4 text-[#25866D]" />
-              <span>طريقة الدفع وتأكيد الحجز:</span>
-            </h4>
-
-            <div className="space-y-2">
-              <label
-                onClick={() => setPaymentMethod('card')}
-                className={`p-3.5 rounded-[12px] border cursor-pointer flex items-center justify-between transition-colors ${
-                  paymentMethod === 'card'
-                    ? 'bg-[#E8F4EF] border-[#25866D]'
-                    : 'bg-white border-[#E0E8E6]'
-                }`}
-              >
-                <div className="flex items-center gap-2.5">
-                  <input
-                    type="radio"
-                    name="payMethod"
-                    checked={paymentMethod === 'card'}
-                    onChange={() => setPaymentMethod('card')}
-                    className="accent-[#25866D]"
-                  />
-                  <div>
-                    <strong className="text-xs text-[#203945] block">
-                      الدفع الإلكتروني (البطاقة الذهبية / CIB)
-                    </strong>
-                    <span className="text-[11px] text-[#203945]/70">
-                      المبلغ: {selectedService?.amountDzd.toLocaleString('ar-DZ')} دج
-                    </span>
-                  </div>
-                </div>
-                <span className="text-xs font-black text-[#25866D]">
-                  {selectedService?.amountDzd.toLocaleString('ar-DZ')} دج
-                </span>
-              </label>
-
-              <label
-                onClick={() => setPaymentMethod('family_package')}
-                className={`p-3.5 rounded-[12px] border cursor-pointer flex items-center justify-between transition-colors ${
-                  paymentMethod === 'family_package'
-                    ? 'bg-[#EAF3F8] border-[#1766A6]'
-                    : 'bg-white border-[#E0E8E6]'
-                }`}
-              >
-                <div className="flex items-center gap-2.5">
-                  <input
-                    type="radio"
-                    name="payMethod"
-                    checked={paymentMethod === 'family_package'}
-                    onChange={() => setPaymentMethod('family_package')}
-                    className="accent-[#1766A6]"
-                  />
-                  <div>
-                    <strong className="text-xs text-[#203945] block">
-                      استخدام رصيد باقة الأسرة (Family Plus)
-                    </strong>
-                    <span className="text-[11px] text-[#1766A6]">
-                      خصم تلقائي من رصيد الحصص المتبقية (1 حصة)
-                    </span>
-                  </div>
-                </div>
-                <span className="text-xs font-bold text-[#1766A6]">رصيد الباقة</span>
-              </label>
-            </div>
+          <div className="rounded-[12px] border border-[#DCEBF4] bg-[#EAF3F8] p-3 text-xs text-[#104A78]">
+            اختر مختصاً من القائمة أعلاه للانتقال إلى المواعيد المتاحة وحجز الموعد.
           </div>
 
           {submissionError && (
@@ -779,163 +727,178 @@ export const NewRequestView: React.FC<NewRequestViewProps> = ({
             </button>
             <button
               type="button"
-              disabled={isSubmitting}
-              onClick={handleConfirmAndPay}
-              className="px-6 py-2.5 rounded-[12px] bg-[#25866D] hover:bg-[#1E6F5A] disabled:opacity-50 text-white font-bold text-xs sm:text-sm shadow-xs transition-colors flex items-center gap-2"
+              disabled={!selectedSpecialist}
+              onClick={() => setStep(6)}
+              className="px-6 py-2.5 rounded-[12px] bg-[#1766A6] hover:bg-[#125386] disabled:opacity-50 text-white font-bold text-xs sm:text-sm shadow-xs transition-colors flex items-center gap-2"
             >
-              <CheckCircle2 className="w-4 h-4" />
-              <span>{isSubmitting ? 'جاري معالجة الدفع وتأكيد الحجز...' : 'الدفع وتأكيد الحجز'}</span>
+              <span>المتابعة إلى حجز الموعد</span>
+              <ArrowRight className="w-4 h-4" />
             </button>
           </div>
         </div>
       )}
 
-      {/* ================= STEP 6: شاشة النجاح الكاملة (Requirement 11 & 25) ================= */}
+      {/* ================= STEP 6: الشاشة 09 — حجز الموعد ================= */}
       {step === 6 && (
-        <div className="bg-[#FBFDFC] rounded-[24px] border border-[#25866D]/30 p-6 sm:p-8 shadow-md text-center space-y-5 animate-in fade-in zoom-in-95 duration-200">
-          <div className="w-16 h-16 rounded-full bg-[#E8F4EF] text-[#25866D] flex items-center justify-center mx-auto shadow-xs">
-            <CheckCircle2 className="w-10 h-10" />
+        <div className="bg-[#FBFDFC] rounded-[20px] border border-[#E0E8E6] p-6 shadow-xs space-y-5">
+          <div>
+            <h2 className="text-[17px] font-black text-[#203945]">الشاشة 09: حجز الموعد</h2>
+            <p className="text-xs text-[#203945]/70 mt-1">اختر موعداً ما زال متاحاً للمختص المحدد.</p>
           </div>
 
-          <div className="space-y-1">
-            <h2 className="text-xl sm:text-2xl font-black text-[#203945]">
-              تم تأكيد حجزك بنجاح ✓
-            </h2>
-            <p className="text-xs text-[#203945]/70">
-              تم توجيه طلبك إلى مقدم الخدمة المختص وإصدار الفاتورة
+          <div className="rounded-[16px] border border-[#DCEBF4] bg-[#EAF3F8] p-4 space-y-2 text-xs text-[#203945]">
+            <p><strong>الخدمة:</strong> {selectedService?.title}</p>
+            <p><strong>المختص:</strong> {selectedSpecialist ? `${selectedSpecialist.firstName} ${selectedSpecialist.lastName}` : '—'}</p>
+            <p><strong>السعر:</strong> {selectedService?.amountDzd.toLocaleString('ar-DZ')} دج</p>
+            <p><strong>مدة الخدمة:</strong> {appointmentDuration ? `${appointmentDuration} دقيقة` : 'غير محددة'}</p>
+          </div>
+
+          <div className="space-y-2">
+            <h3 className="text-sm font-bold text-[#203945]">التاريخ والساعة المتاحان</h3>
+            {availableSlots.length === 0 ? (
+              <p className="rounded-[12px] bg-amber-50 p-3 text-xs text-amber-900">
+                لم تعد هناك مواعيد متاحة لهذا المختص. ارجع واختر مختصاً آخر.
+              </p>
+            ) : (
+              <div className="grid gap-2 sm:grid-cols-2">
+                {availableSlots.map((slot) => {
+                  const key = `${slot.date}|${slot.time}`;
+                  const isSelected = selectedSlotKey === key;
+                  return (
+                    <button
+                      key={key}
+                      type="button"
+                      aria-pressed={isSelected}
+                      onClick={() => {
+                        setSelectedSlotKey(key);
+                        setSubmissionError('');
+                      }}
+                      className={`rounded-[12px] border p-3 text-right text-xs font-bold ${
+                        isSelected
+                          ? 'border-[#1766A6] bg-[#EAF3F8] text-[#104A78]'
+                          : 'border-[#E0E8E6] bg-white text-[#203945] hover:border-[#1766A6]'
+                      }`}
+                    >
+                      <Calendar className="ml-1 inline h-4 w-4" />
+                      {slot.date}
+                      <Clock className="mr-3 ml-1 inline h-4 w-4" />
+                      {slot.time}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          <label className="flex items-start gap-2 rounded-[12px] border border-[#E0E8E6] bg-white p-3 text-xs leading-relaxed text-[#203945]">
+            <input
+              type="checkbox"
+              checked={serviceTermsAccepted}
+              onChange={(event) => setServiceTermsAccepted(event.target.checked)}
+              className="mt-0.5 accent-[#1766A6]"
+            />
+            <span>أوافق على شروط الخدمة وسياسة الإلغاء.</span>
+          </label>
+
+          {submissionError && (
+            <p role="alert" className="rounded-[10px] border border-red-200 bg-red-50 px-3 py-2 text-xs font-bold text-red-700">
+              {submissionError}
             </p>
-          </div>
+          )}
 
-          {/* Details Card from Prototype */}
-          <div className="bg-white rounded-[18px] border border-[#E0E8E6] p-5 max-w-md mx-auto text-right space-y-2.5 text-xs shadow-2xs">
-            <div className="flex items-center justify-between pb-2 border-b border-[#F0F4F2]">
-              <span className="font-bold text-[#203945]/70">رقم الطلب:</span>
-              <span className="font-mono font-black text-sm text-[#1766A6]" dir="ltr">
-                {createdOrderNumber}
-              </span>
-            </div>
-
-            <div className="flex items-center justify-between pb-2 border-b border-[#F0F4F2]">
-              <span className="font-bold text-[#203945]/70">الخدمة:</span>
-               <strong className="text-[#203945]">{selectedService?.title}</strong>
-            </div>
-
-            <div className="flex items-center justify-between pb-2 border-b border-[#F0F4F2]">
-              <span className="font-bold text-[#203945]/70">التاريخ:</span>
-              <span className="font-semibold text-[#203945]">{selectedDate}</span>
-            </div>
-
-            <div className="flex items-center justify-between pb-2 border-b border-[#F0F4F2]">
-              <span className="font-bold text-[#203945]/70">الوقت:</span>
-              <span className="font-semibold text-[#203945]">{selectedTime}</span>
-            </div>
-
-            <div className="flex items-center justify-between pb-2 border-b border-[#F0F4F2]">
-              <span className="font-bold text-[#203945]/70">المبلغ المدفوع:</span>
-              <strong className="text-emerald-700 font-black">
-                 {paymentMethod === 'card'
-                   ? `${selectedService?.amountDzd.toLocaleString('ar-DZ')} دج`
-                   : '0 دج (مغطى برصيد الباقة)'}
-              </strong>
-            </div>
-
-            <div className="flex items-center justify-between">
-              <span className="font-bold text-[#203945]/70">حالة الدفع والحجز:</span>
-              <span className="px-2 py-0.5 rounded-full bg-[#E8F4EF] text-[#25866D] font-bold text-[10px]">
-                مؤكد ومحجوز / Paid ✓
-              </span>
-            </div>
-          </div>
-
-          {/* Action Buttons from Prototype */}
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-2.5 pt-2 max-w-md mx-auto">
-            <button
-              onClick={() => setShowInvoiceModal(true)}
-              className="w-full sm:flex-1 py-2.5 px-4 rounded-[12px] bg-[#EAF3F8] hover:bg-[#DCEBF4] text-[#1766A6] font-bold text-xs flex items-center justify-center gap-1.5 transition-colors border border-[#DCEBF4]"
-            >
-              <Receipt className="w-3.5 h-3.5" />
-              <span>عرض الفاتورة</span>
+          <div className="flex items-center justify-between border-t border-[#E0E8E6] pt-3">
+            <button type="button" onClick={() => setStep(5)} className="px-4 py-2 text-xs font-bold text-[#203945]/70">
+              السابق
             </button>
-
             <button
-              onClick={onNavigateToPortal || onCancel}
-              className="w-full sm:flex-1 py-2.5 px-4 rounded-[12px] bg-[#1766A6] hover:bg-[#125386] text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-colors shadow-xs"
+              type="button"
+              disabled={!selectedSlot || !serviceTermsAccepted || isSubmitting || !appointmentDuration}
+              onClick={handleCreateAppointmentRequest}
+              className="flex items-center gap-2 rounded-[12px] bg-[#1766A6] px-6 py-2.5 text-xs font-bold text-white disabled:cursor-not-allowed disabled:opacity-50"
             >
-              <UserIcon className="w-3.5 h-3.5" />
-              <span>العودة إلى لوحة التحكم</span>
+              <span>{isSubmitting ? 'جارٍ حفظ الطلب...' : 'الانتقال إلى الدفع'}</span>
+              <ArrowRight className="h-4 w-4" />
             </button>
           </div>
         </div>
       )}
 
-      {/* Invoice Modal from Prototype */}
-      {showInvoiceModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
-          <div className="bg-white rounded-[22px] max-w-md w-full p-6 space-y-4 shadow-2xl border border-[#E0E8E6] text-right text-xs">
-            <div className="flex items-center justify-between pb-3 border-b border-[#E0E8E6]">
-              <div className="flex items-center gap-2">
-                <Receipt className="w-5 h-5 text-[#25866D]" />
-                <h3 className="font-black text-sm text-[#203945]">فاتورة المعاملة الرسمية</h3>
-              </div>
-              <span className="text-[10px] font-mono bg-[#E8F4EF] text-[#25866D] px-2 py-0.5 rounded-full font-bold">
-                PAID / مسددة
-              </span>
-            </div>
+      {/* ================= STEP 7: الشاشة 10 — الدفع ================= */}
+      {step === 7 && (
+        <div className="bg-[#FBFDFC] rounded-[20px] border border-[#E0E8E6] p-6 shadow-xs space-y-5">
+          <div>
+            <h2 className="text-[17px] font-black text-[#203945]">الشاشة 10: إتمام الدفع</h2>
+            <p className="text-xs text-[#203945]/70 mt-1">راجع تفاصيل الخدمة واختر طريقة الدفع.</p>
+          </div>
 
-            <div className="space-y-2 bg-[#F8FAF9] p-4 rounded-[14px] border border-[#E5ECE9]">
-              <p className="flex justify-between">
-                <span className="text-[#203945]/70">رقم الفاتورة:</span>
-                <span className="font-mono font-bold">INV-{createdOrderNumber.replace(/-/g, '')}</span>
-              </p>
-              <p className="flex justify-between">
-                <span className="text-[#203945]/70">رقم الطلب:</span>
-                <span className="font-mono font-bold text-[#1766A6]">{createdOrderNumber}</span>
-              </p>
-              <p className="flex justify-between">
-                <span className="text-[#203945]/70">الخدمة:</span>
-                 <span className="font-bold">{selectedService?.title}</span>
-              </p>
-              <p className="flex justify-between">
-                <span className="text-[#203945]/70">التاريخ والوقت:</span>
-                <span>{selectedDate} — {selectedTime}</span>
-              </p>
-              <p className="flex justify-between">
-                <span className="text-[#203945]/70">المستفيد:</span>
-                <span>{currentUser ? `${currentUser.firstName} ${currentUser.lastName}` : 'مستفيد المنصة'}</span>
-              </p>
-              <div className="pt-2 border-t border-[#E0E8E6] flex justify-between font-black text-sm text-[#203945]">
-                <span>المجموع المدفوع:</span>
-                <span className="text-[#25866D]">
-                   {paymentMethod === 'card'
-                     ? `${selectedService?.amountDzd.toLocaleString('ar-DZ')} دج`
-                     : '0 دج (رصيد الباقة)'}
-                </span>
-              </div>
-            </div>
+          <div className="rounded-[16px] border border-[#DCEBF4] bg-[#EAF3F8] p-4 space-y-2 text-xs text-[#203945]">
+            <p><strong>الخدمة:</strong> {selectedService?.title}</p>
+            <p><strong>المبلغ المستحق:</strong> {selectedService?.amountDzd.toLocaleString('ar-DZ')} دج</p>
+          </div>
 
-            <p className="text-[10px] text-center text-[#203945]/60">
-              منصة الفرصة الثانية — قسنطينة • www.secchance.dz
+          <fieldset className="space-y-2">
+            <legend className="text-sm font-bold text-[#203945]">طريقة الدفع</legend>
+            {([
+              { value: 'CIB', title: 'CIB — الدفع بواسطة بطاقة CIB' },
+              { value: 'EDAHABIA', title: 'EDAHABIA — الدفع بواسطة البطاقة الذهبية' },
+            ] as const).map((method) => (
+              <label
+                key={method.value}
+                className={`flex cursor-pointer items-center gap-3 rounded-[12px] border bg-white p-3 text-xs font-bold ${
+                  paymentMethod === method.value ? 'border-[#1766A6] bg-[#EAF3F8]' : 'border-[#E0E8E6]'
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="legal-consultation-payment-method"
+                  value={method.value}
+                  checked={paymentMethod === method.value}
+                  onChange={() => setPaymentMethod(method.value)}
+                  className="accent-[#1766A6]"
+                />
+                {method.title}
+              </label>
+            ))}
+          </fieldset>
+
+          <div role="note" className="flex items-start gap-2 rounded-[12px] border border-[#DCEBF4] bg-[#EAF3F8] p-3 text-xs leading-relaxed text-[#104A78]">
+            <Shield className="mt-0.5 h-4 w-4 shrink-0" />
+            <p>
+              تتم معالجة الدفع عبر مزود الدفع المعتمد. لا تحتفظ المنصة ببيانات البطاقة الحساسة مثل رقم البطاقة الكامل أو رمز CVV أو الرقم السري أو رمز OTP.
             </p>
+          </div>
 
-            <div className="flex justify-end pt-2 border-t border-[#E0E8E6] gap-2">
-              <button
-                type="button"
-                onClick={() => window.print()}
-                className="px-4 py-2 rounded-[10px] bg-[#EAF3F8] text-[#1766A6] font-bold text-xs"
-              >
-                طباعة / تحميل
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowInvoiceModal(false)}
-                className="px-5 py-2 rounded-[10px] bg-[#1766A6] text-white font-bold text-xs"
-              >
-                إغلاق
-              </button>
-            </div>
+          {bookingRequestCreated && (
+            <p className="rounded-[12px] border border-amber-200 bg-amber-50 p-3 text-xs leading-relaxed text-amber-950">
+              تم تسجيل طلب الموعد وهو بانتظار قبول المختص. لن يُخصم أي مبلغ قبل إتمام الدفع عبر مزود معتمد وتأكيده.
+            </p>
+          )}
+
+          {submissionError && (
+            <p role="alert" className="rounded-[10px] border border-red-200 bg-red-50 px-3 py-2 text-xs font-bold text-red-700">
+              {submissionError}
+            </p>
+          )}
+
+          <div className="flex items-center justify-between border-t border-[#E0E8E6] pt-3">
+            <button
+              type="button"
+              onClick={() => onNavigateToPortal ? onNavigateToPortal() : onCancel()}
+              className="px-4 py-2 text-xs font-bold text-[#203945]/70"
+            >
+              العودة إلى الطلبات
+            </button>
+            <button
+              type="button"
+              onClick={() => setSubmissionError('بوابة الدفع غير مهيأة في هذا المشروع؛ لم يتم تنفيذ الدفع أو تسجيله كعملية ناجحة.')}
+              className="rounded-[12px] bg-[#25866D] px-6 py-2.5 text-xs font-bold text-white hover:bg-[#1E6F5A]"
+            >
+              الدفع الآن — {selectedService?.amountDzd.toLocaleString('ar-DZ')} دج
+            </button>
           </div>
         </div>
       )}
+
     </div>
   );
 };

@@ -103,9 +103,9 @@ export const initialServices: ServiceItem[] = [
   },
   {
     id: 2,
-    title: 'المساعدة القانونية',
+    title: 'الاستشارة القانونية',
     category: 'legal',
-    description: 'استشارات قانونية مع محامين معتمدين ومستشارين قانونيين.',
+    description: 'استشارة مباشرة مع مستشار قانوني مؤهل لفهم الوضعية القانونية والإجراءات والمسارات الممكنة ضمن اختصاصه.',
     amountDzd: 500,
     providerId: 3,
     providerName: 'أستاذ ياسين بوعلام',

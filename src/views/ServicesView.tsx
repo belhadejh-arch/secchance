@@ -23,7 +23,7 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
     {
       title: 'الاستشارة القانونية',
       category: 'legal',
-      description: 'استشارة مباشرة مع مستشار قانوني مؤهل لمساعدة المستخدم على فهم وضعه القانوني والمسارات الممكنة.',
+      description: 'استشارة مباشرة مع مستشار قانوني مؤهل لفهم الوضعية القانونية والإجراءات والمسارات الممكنة ضمن اختصاصه.',
       service: legalService,
       icon: <Scale className="h-5 w-5" />,
     },

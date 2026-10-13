@@ -94,6 +94,7 @@ export interface CareRequest {
   createdAt: string;
   appointmentDate?: string | null;
   appointmentTime?: string | null;
+  durationMinutes?: number;
   paymentMethod?: 'EDAHABIA' | 'CIB';
   appointmentHoldExpiresAt?: string;
 }
