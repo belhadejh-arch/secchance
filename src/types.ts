@@ -197,6 +197,8 @@ export interface AwarenessArticle {
   summary: string;
   content: string;
   date: string;
+  legalSource?: string;
+  lastUpdated?: string;
 }
 
 export interface ServiceItem {

@@ -1,365 +1,482 @@
-import React, { useState } from 'react';
-import { initialLegalTopics } from '../data/initialData';
+import React, { useMemo, useState } from 'react';
 import {
-  Scale,
   BookOpen,
-  AlertTriangle,
-  FileText,
-  CheckCircle2,
+  CalendarDays,
+  Clock3,
   Download,
   Eye,
+  ExternalLink,
   FileDown,
-  X,
+  FileText,
+  Search,
   ShieldCheck,
+  X,
 } from 'lucide-react';
+import { initialAwarenessArticles, initialLegalTopics } from '../data/initialData';
 
 interface AwarenessViewProps {
   onNavigateToLegalAssistance?: () => void;
 }
 
+interface AwarenessMaterial {
+  id: string;
+  title: string;
+  summary: string;
+  source: string;
+  publishedAt: string;
+  lastUpdated: string;
+  categories: string[];
+  sections: { title: string; content: string }[];
+  pdfUrl?: string;
+}
+
+const categories = [
+  'الكل',
+  'القوانين',
+  'الأسئلة الشائعة',
+  'الإجراءات',
+  'حقوق الفرد والأسرة',
+  'آخر التحديثات',
+];
+
+const pdfDocuments = [
+  {
+    id: '18-04',
+    title: 'القانون رقم 04-18 المؤرخ في 25 ديسمبر 2004',
+    subtitle: 'الوقاية من المخدرات والمؤثرات العقلية وقمع الاستعمال والاتجار غير المشروعين بها',
+    file: '/18-04.pdf',
+    pages: 'الجريدة الرسمية عدد 83',
+    badge: 'القانون الأساسي',
+    categories: ['القوانين'],
+  },
+  {
+    id: '25-03',
+    title: 'القانون رقم 25-03 المؤرخ في 1 يوليو 2025',
+    subtitle: 'المعدل والمتمم للقانون رقم 04-18',
+    file: '/25-03.pdf',
+    pages: 'الجريدة الرسمية عدد 43',
+    badge: 'آخر التعديلات',
+    categories: ['القوانين', 'آخر التحديثات'],
+  },
+  {
+    id: '76-26',
+    title: 'المرسوم التنفيذي رقم 26-76',
+    subtitle: 'شروط وكيفيات الوقاية من تعاطي المخدرات والمؤثرات العقلية عند التوظيف',
+    file: '/76-26-ar-1.pdf',
+    pages: 'الجريدة الرسمية عدد 08',
+    badge: 'مرسوم تطبيقي',
+    categories: ['الإجراءات', 'آخر التحديثات'],
+  },
+  {
+    id: '18-07',
+    title: 'القانون رقم 18-07 المؤرخ في 10 يونيو 2018',
+    subtitle: 'حماية الأشخاص الطبيعيين في مجال معالجة المعطيات ذات الطابع الشخصي',
+    file: '/18-07.pdf',
+    pages: 'الجريدة الرسمية عدد 34',
+    badge: 'حماية المعطيات',
+    categories: ['القوانين', 'حقوق الفرد والأسرة'],
+  },
+];
+
+const topicCategories: Record<number, string[]> = {
+  1: ['القوانين', 'حقوق الفرد والأسرة'],
+  2: ['القوانين', 'آخر التحديثات'],
+  3: ['الإجراءات', 'آخر التحديثات'],
+  4: ['القوانين', 'حقوق الفرد والأسرة'],
+};
+
+const legalMaterials: AwarenessMaterial[] = [
+  ...initialLegalTopics.map((topic) => ({
+    id: `law-${topic.id}`,
+    title: topic.title,
+    summary: topic.plainSummary,
+    source: `${topic.legalReference}. ${topic.officialSource}`,
+    publishedAt: topic.officialSource.match(/\(([^()]+)\)/)?.[1] ?? topic.lawDate,
+    lastUpdated: topic.lastReviewedDate,
+    categories: topicCategories[topic.id] ?? ['القوانين'],
+    sections: [
+      { title: 'شرح مبسط', content: topic.plainExplanation },
+      { title: topic.relevantArticle, content: topic.officialText },
+      { title: 'التعديلات التشريعية', content: topic.amendments.join('\n') },
+      { title: 'المرسوم أو التنظيم المرتبط', content: topic.executiveDecree },
+    ],
+    pdfUrl: topic.pdfUrl,
+  })),
+  ...initialAwarenessArticles.map((article) => ({
+    id: `article-${article.id}`,
+    title: article.title,
+    summary: article.summary,
+    source: article.legalSource ?? article.category,
+    publishedAt: article.date,
+    lastUpdated: article.lastUpdated ?? article.date,
+    categories: [article.category],
+    sections: [{ title: 'معلومة قانونية مبسطة', content: article.content }],
+  })),
+];
+
+function normalizeSearch(value: string) {
+  return value
+    .toLocaleLowerCase('ar')
+    .replace(/[\u064B-\u065F\u0670\u0640]/g, '')
+    .replace(/[أإآٱ]/g, 'ا')
+    .replace(/ى/g, 'ي')
+    .trim();
+}
+
+function displayDate(value: string) {
+  const match = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  return match ? `${match[3]}/${match[2]}/${match[1]}` : value;
+}
+
 export const AwarenessView: React.FC<AwarenessViewProps> = ({
   onNavigateToLegalAssistance,
 }) => {
-  const [selectedPdfToRead, setSelectedPdfToRead] = useState<{
-    title: string;
-    url: string;
-  } | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('الكل');
+  const [selectedMaterial, setSelectedMaterial] = useState<AwarenessMaterial | null>(null);
+  const [selectedPdfToRead, setSelectedPdfToRead] = useState<{ title: string; url: string } | null>(
+    null
+  );
 
-  const officialPdfDocuments = [
-    {
-      id: '18-04',
-      title: 'القانون رقم 04-18 المؤرخ في 25 ديسمبر 2004',
-      subtitle: 'الوقاية من المخدرات والمؤثرات العقلية وقمع الاستعمال والاتجار غير المشروعين بها',
-      file: '/18-04.pdf',
-      pages: 'الجريدة الرسمية عدد 83',
-      badge: 'القانون الأساسي المعتمد',
-    },
-    {
-      id: '25-03',
-      title: 'القانون رقم 25-03 المؤرخ في 1 يوليو 2025',
-      subtitle: 'المعدل والمتمم للقانون رقم 04-18 (الفحوصات الطبية، الوقاية، وإعادة الإدماج الاجتماعي)',
-      file: '/25-03.pdf',
-      pages: 'الجريدة الرسمية عدد 43',
-      badge: 'التعديل التشريعي 2025',
-    },
-    {
-      id: '76-26',
-      title: 'المرسوم التنفيذي رقم 26-76 / 07-229',
-      subtitle: 'شروط وكيفيات الفحوصات الطبية عند التوظيف وضمانات السر المهني والتكفل بالعلاج',
-      file: '/76-26-ar-1.pdf',
-      pages: 'الجريدة الرسمية عدد 08',
-      badge: 'مرسوم تطبيقي ملزم',
-    },
-    {
-      id: '18-07',
-      title: 'القانون رقم 18-07 المؤرخ في 10 يونيو 2018',
-      subtitle: 'حماية الأشخاص الطبيعيين في مجال معالجة المعطيات ذات الطابع الشخصي (حماية البيانات الصحية والسرية)',
-      file: '/18-07.pdf',
-      pages: 'الجريدة الرسمية عدد 34',
-      badge: 'حماية الخصوصية والمعطيات',
-    },
-  ];
+  const filteredMaterials = useMemo(() => {
+    const query = normalizeSearch(searchQuery);
+    const matches = legalMaterials.filter((material) => {
+      const matchesCategory =
+        selectedCategory === 'الكل' || material.categories.includes(selectedCategory);
+      const searchableText = normalizeSearch(
+        [
+          material.title,
+          material.summary,
+          material.source,
+          material.publishedAt,
+          material.lastUpdated,
+          ...material.sections.map((section) => `${section.title} ${section.content}`),
+        ].join(' ')
+      );
+      return matchesCategory && (!query || searchableText.includes(query));
+    });
+    return selectedCategory === 'آخر التحديثات'
+      ? matches.sort((a, b) => b.lastUpdated.localeCompare(a.lastUpdated))
+      : matches;
+  }, [searchQuery, selectedCategory]);
+
+  const visiblePdfs = pdfDocuments.filter((document) => {
+    const matchesCategory =
+      selectedCategory === 'الكل' || document.categories.includes(selectedCategory);
+    const query = normalizeSearch(searchQuery);
+    const matchesSearch =
+      !query ||
+      normalizeSearch(`${document.title} ${document.subtitle} ${document.pages}`).includes(query);
+    return matchesCategory && matchesSearch;
+  });
 
   return (
-    <div className="space-y-5 max-w-4xl mx-auto">
-      {/* Header */}
-      <div>
-        <h1 className="text-[20px] font-black text-[#203945]">
-          المراجع القانونية الموحدة والتوعية التشريعية ⚖️
-        </h1>
-        <p className="text-[12px] text-[#203945]/70 mt-0.5">
-          الأطر التشريعية الرسمية الموثقة في الجزائر (القانون 04-18، تعديلاته بالقانون 25-03، المرسوم التنفيذي 26-76، وقانون حماية المعطيات الشخصية 18-07)
+    <main className="mx-auto max-w-4xl space-y-5" dir="rtl">
+      <header>
+        <h1 className="text-xl font-black text-[#203945]">مركز التوعية القانونية</h1>
+        <p className="mt-1 text-sm leading-relaxed text-[#203945]/70">
+          معلومات مبسطة ومراجع قانونية رسمية حول القوانين والإجراءات وحقوق الفرد والأسرة.
         </p>
-      </div>
+      </header>
 
-      {/* Official Legal Framework Banner */}
-      <div className="bg-[#EAF3F8] rounded-[18px] p-4.5 space-y-2 border border-[#DCEBF4] shadow-xs">
-        <div className="flex items-center gap-2">
-          <BookOpen className="w-5 h-5 text-[#1766A6]" />
-          <h2 className="font-bold text-[14px] text-[#1766A6]">
-            📜 المراجع التشريعية الوطنية المعتمدة
-          </h2>
+      <aside
+        role="note"
+        className="flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm leading-relaxed text-amber-950"
+      >
+        <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0" />
+        <div className="flex-1">
+          <strong>تنبيه:</strong> مواد التوعية لا تحل محل الاستشارة القانونية الفردية؛ تختلف
+          الإجراءات باختلاف تفاصيل كل حالة.
         </div>
-        <p className="text-[12px] text-[#104A78] leading-[22px] font-normal">
-          • <strong>القانون رقم 04-18</strong> (25 ديسمبر 2004) المتعلق بالوقاية من المخدرات والمؤثرات العقلية وقمع الاستعمال والاتجار غير المشروعين بها (الجريدة الرسمية عدد 83).<br />
-          • <strong>القانون رقم 25-03</strong> (1 يوليو 2025) المعدل والمتمم للقانون 04-18 (إدراج الفحوصات الطبية، تعزيز الوقاية وإعادة الإدماج، الجريدة الرسمية عدد 43).<br />
-          • <strong>المرسوم التنفيذي رقم 26-76</strong> (14 جانفي 2026) المحدد لشروط وكيفيات الوقاية عند التوظيف في القطاعين العام والخاص والسر المهني (الجريدة الرسمية عدد 08).<br />
-          • <strong>القانون رقم 18-07</strong> (10 يونيو 2018) المتعلق بحماية الأشخاص الطبيعيين في مجال معالجة المعطيات ذات الطابع الشخصي، المعدل والمتمم (الجريدة الرسمية عدد 34).
-        </p>
-        <div className="pt-1 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-          <span className="text-[11px] text-[#A64842] font-bold">
-            ⚠️ تنبيه قانوني: هذه المعلومات توعوية وتثقيفية ولا تشكل استشارة قانونية فردية نهائية.
-          </span>
-          {onNavigateToLegalAssistance && (
+        {onNavigateToLegalAssistance && (
+          <button
+            type="button"
+            onClick={onNavigateToLegalAssistance}
+            className="shrink-0 text-xs font-bold text-[#1766A6] underline"
+          >
+            طلب استشارة
+          </button>
+        )}
+      </aside>
+
+      <section className="space-y-3 rounded-2xl border border-[#E0E8E6] bg-white p-4">
+        <label htmlFor="legal-awareness-search" className="text-sm font-bold text-[#203945]">
+          البحث في المحتوى
+        </label>
+        <div className="relative">
+          <Search className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#1766A6]" />
+          <input
+            id="legal-awareness-search"
+            type="search"
+            value={searchQuery}
+            onChange={(event) => setSearchQuery(event.target.value)}
+            placeholder="ابحث عن قانون أو إجراء أو حق…"
+            className="w-full rounded-xl border border-[#CCD8D5] py-3 pl-3 pr-10 text-sm outline-none focus:border-[#1766A6]"
+          />
+        </div>
+        <div className="flex gap-2 overflow-x-auto pb-1" role="group" aria-label="تصنيف المواد">
+          {categories.map((category) => (
             <button
-              onClick={onNavigateToLegalAssistance}
-              className="text-xs font-bold text-[#1766A6] underline hover:opacity-80 shrink-0"
+              key={category}
+              type="button"
+              aria-pressed={selectedCategory === category}
+              onClick={() => setSelectedCategory(category)}
+              className={`shrink-0 rounded-full px-3 py-2 text-xs font-bold transition-colors ${
+                selectedCategory === category
+                  ? 'bg-[#1766A6] text-white'
+                  : 'border border-[#CCD8D5] bg-white text-[#203945] hover:bg-[#F3F7F6]'
+              }`}
             >
-              طلب استشارة مع محامٍ معتمد ←
+              {category}
             </button>
-          )}
-        </div>
-      </div>
-
-      {/* DIRECT PDF DOWNLOAD & READING SECTION (New Requirement) */}
-      <div className="bg-[#FBFDFC] border-2 border-[#1766A6]/30 rounded-[20px] p-5 shadow-xs space-y-3.5">
-        <div className="flex items-center justify-between border-b border-[#E0E8E6] pb-3">
-          <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-[10px] bg-[#1766A6] text-white flex items-center justify-center">
-              <FileDown className="w-5 h-5" />
-            </div>
-            <div>
-              <h2 className="text-[15px] font-black text-[#203945]">
-                📥 تحميل وقراءة القوانين والمراسيم الرسمية مباشرة (PDF)
-              </h2>
-              <p className="text-[11px] text-[#203945]/70">
-                يمكن لجميع الزوار والمستفيدين تصفح وتحميل النصوص التشريعية الرسمية المعتمدة مجاناً
-              </p>
-            </div>
-          </div>
-          <span className="text-[11px] font-bold bg-[#E8F4EF] text-[#1A5E4D] px-2.5 py-1 rounded-[8px] hidden sm:inline-block">
-            نصوص رسمية معتمدة ⚖️
-          </span>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          {officialPdfDocuments.map((doc) => (
-            <div
-              key={doc.id}
-              className="bg-white rounded-[14px] border border-[#E0E8E6] p-4 flex flex-col justify-between space-y-3 hover:border-[#1766A6] transition-colors shadow-2xs"
-            >
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-[6px] bg-[#EAF3F8] text-[#1766A6]">
-                    {doc.badge}
-                  </span>
-                  <span className="text-[10px] text-[#203945]/60 font-medium">
-                    {doc.pages}
-                  </span>
-                </div>
-                <h3 className="font-bold text-[13px] text-[#203945] leading-snug">
-                  {doc.title}
-                </h3>
-                <p className="text-[11px] text-[#203945]/70 leading-relaxed">
-                  {doc.subtitle}
-                </p>
-              </div>
-
-              <div className="pt-2 border-t border-[#F0F4F2] flex items-center gap-2">
-                <a
-                  href={doc.file}
-                  download
-                  className="flex-1 bg-[#1766A6] hover:bg-[#125386] text-white font-bold text-xs py-2 px-3 rounded-[10px] flex items-center justify-center gap-1.5 transition-colors shadow-2xs"
-                >
-                  <Download className="w-3.5 h-3.5" />
-                  <span>تحميل PDF</span>
-                </a>
-
-                <button
-                  onClick={() =>
-                    setSelectedPdfToRead({ title: doc.title, url: doc.file })
-                  }
-                  className="flex-1 bg-[#F3F7F6] hover:bg-[#E5ECE9] text-[#203945] font-bold text-xs py-2 px-3 rounded-[10px] flex items-center justify-center gap-1.5 transition-colors border border-[#DCE4E1]"
-                >
-                  <Eye className="w-3.5 h-3.5 text-[#1766A6]" />
-                  <span>قراءة مباشرة</span>
-                </button>
-              </div>
-            </div>
           ))}
         </div>
-      </div>
+      </section>
 
-      {/* PDF Reading Modal Viewer */}
-      {selectedPdfToRead && (
-        <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-3 sm:p-5 backdrop-blur-xs">
-          <div className="bg-white rounded-[22px] max-w-4xl w-full h-[90vh] flex flex-col shadow-2xl overflow-hidden border border-white/20 animate-in fade-in zoom-in-95 duration-150">
-            {/* Modal Header */}
-            <div className="bg-[#203945] text-white p-4 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <FileText className="w-5 h-5 text-[#25866D]" />
-                <h3 className="font-bold text-sm sm:text-base line-clamp-1">
-                  قراءة الوثيقة الرسمية: {selectedPdfToRead.title}
-                </h3>
-              </div>
-              <div className="flex items-center gap-2">
-                <a
-                  href={selectedPdfToRead.url}
-                  download
-                  className="bg-[#25866D] hover:bg-[#1E6F5A] text-white text-xs font-bold px-3 py-1.5 rounded-[8px] flex items-center gap-1 transition-colors"
-                >
-                  <Download className="w-3.5 h-3.5" />
-                  <span>تحميل</span>
-                </a>
-                <button
-                  onClick={() => setSelectedPdfToRead(null)}
-                  className="p-1.5 rounded-[8px] bg-white/10 hover:bg-white/20 text-white transition-colors"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-
-            {/* Embedded PDF iframe */}
-            <div className="flex-1 w-full bg-[#E5ECE9] relative">
-              <iframe
-                src={`${selectedPdfToRead.url}#toolbar=1&navpanes=0`}
-                title={selectedPdfToRead.title}
-                className="w-full h-full border-0"
-              />
-            </div>
-
-            {/* Modal Footer Note */}
-            <div className="bg-[#F8FAF9] p-3 border-t border-[#E0E8E6] flex items-center justify-between text-[11px] text-[#203945]/70">
-              <span className="flex items-center gap-1.5">
-                <ShieldCheck className="w-4 h-4 text-[#25866D]" />
-                <span>وثيقة قانونية رسمية معتمدة ومحفوظة بمنصة الفرصة الثانية</span>
-              </span>
-              <button
-                onClick={() => setSelectedPdfToRead(null)}
-                className="font-bold text-[#1766A6] hover:underline"
+      <section aria-live="polite" className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h2 className="text-base font-black text-[#203945]">
+            المواد التوعوية ({filteredMaterials.length})
+          </h2>
+          {selectedCategory === 'آخر التحديثات' && (
+            <span className="flex items-center gap-1 text-xs text-[#203945]/60">
+              <Clock3 className="h-3.5 w-3.5" />
+              الأحدث أولاً
+            </span>
+          )}
+        </div>
+        {filteredMaterials.length === 0 ? (
+          <p className="rounded-2xl border border-[#E0E8E6] bg-white p-6 text-sm text-[#203945]/70">
+            لا توجد مواد مطابقة. جرّب كلمات بحث أخرى أو اختر تصنيفاً مختلفاً.
+          </p>
+        ) : (
+          <div className="grid gap-3 md:grid-cols-2">
+            {filteredMaterials.map((material) => (
+              <article
+                key={material.id}
+                className="flex flex-col justify-between gap-4 rounded-2xl border border-[#E0E8E6] bg-white p-4"
               >
-                إغلاق القارئ
-              </button>
+                <div className="space-y-3">
+                  <div className="flex flex-wrap gap-1.5">
+                    {material.categories.map((category) => (
+                      <span
+                        key={category}
+                        className="rounded-full bg-[#EAF3F8] px-2.5 py-1 text-[11px] font-bold text-[#104A78]"
+                      >
+                        {category}
+                      </span>
+                    ))}
+                  </div>
+                  <h3 className="font-black leading-relaxed text-[#203945]">{material.title}</h3>
+                  <p className="text-sm leading-relaxed text-[#203945]/80">{material.summary}</p>
+                  <dl className="space-y-2 border-t border-[#E0E8E6] pt-3 text-xs">
+                    <div>
+                      <dt className="font-bold text-[#203945]">المصدر القانوني</dt>
+                      <dd className="mt-0.5 leading-relaxed text-[#203945]/70">{material.source}</dd>
+                    </div>
+                    <div className="flex flex-wrap gap-x-5 gap-y-1 text-[#203945]/60">
+                      <div className="flex items-center gap-1">
+                        <CalendarDays className="h-3.5 w-3.5" />
+                        <dt>تاريخ النشر:</dt>
+                        <dd>{displayDate(material.publishedAt)}</dd>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Clock3 className="h-3.5 w-3.5" />
+                        <dt>آخر تحديث:</dt>
+                        <dd>{displayDate(material.lastUpdated)}</dd>
+                      </div>
+                    </div>
+                  </dl>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setSelectedMaterial(material)}
+                  className="w-full rounded-xl bg-[#1766A6] px-4 py-2.5 text-sm font-bold text-white hover:bg-[#125386]"
+                >
+                  اقرأ المزيد
+                </button>
+              </article>
+            ))}
+          </div>
+        )}
+      </section>
+
+      {visiblePdfs.length > 0 && (
+        <section className="space-y-3 rounded-2xl border border-[#DCEBF4] bg-[#EAF3F8] p-4">
+          <div className="flex items-center gap-2">
+            <FileDown className="h-5 w-5 text-[#1766A6]" />
+            <div>
+              <h2 className="font-black text-[#203945]">النصوص القانونية الرسمية</h2>
+              <p className="text-xs text-[#203945]/70">قراءة النصوص أو تحميلها بصيغة PDF</p>
             </div>
           </div>
+          <div className="grid gap-3 md:grid-cols-2">
+            {visiblePdfs.map((document) => (
+              <article
+                key={document.id}
+                className="flex flex-col justify-between gap-3 rounded-xl border border-[#E0E8E6] bg-white p-4"
+              >
+                <div className="space-y-1.5">
+                  <span className="rounded-md bg-[#E8F4EF] px-2 py-1 text-[11px] font-bold text-[#1A5E4D]">
+                    {document.badge}
+                  </span>
+                  <h3 className="pt-1 text-sm font-bold text-[#203945]">{document.title}</h3>
+                  <p className="text-xs leading-relaxed text-[#203945]/70">{document.subtitle}</p>
+                  <p className="text-[11px] text-[#203945]/55">{document.pages}</p>
+                </div>
+                <div className="flex gap-2">
+                  <a
+                    href={document.file}
+                    download
+                    className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-[#1766A6] px-3 py-2 text-xs font-bold text-white"
+                  >
+                    <Download className="h-3.5 w-3.5" />
+                    تحميل PDF
+                  </a>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setSelectedPdfToRead({ title: document.title, url: document.file })
+                    }
+                    className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-[#CCD8D5] px-3 py-2 text-xs font-bold text-[#203945]"
+                  >
+                    <Eye className="h-3.5 w-3.5" />
+                    قراءة مباشرة
+                  </button>
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {selectedMaterial && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4"
+          role="presentation"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) setSelectedMaterial(null);
+          }}
+        >
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="awareness-material-title"
+            className="max-h-[90vh] w-full max-w-2xl space-y-4 overflow-y-auto rounded-2xl bg-white p-5"
+          >
+            <div className="flex items-start justify-between gap-3 border-b border-[#E0E8E6] pb-3">
+              <div className="space-y-2">
+                <div className="flex flex-wrap gap-1.5">
+                  {selectedMaterial.categories.map((category) => (
+                    <span key={category} className="rounded-full bg-[#EAF3F8] px-2.5 py-1 text-xs font-bold text-[#104A78]">
+                      {category}
+                    </span>
+                  ))}
+                </div>
+                <h2 id="awareness-material-title" className="font-black leading-relaxed text-[#203945]">
+                  {selectedMaterial.title}
+                </h2>
+              </div>
+              <button
+                type="button"
+                aria-label="إغلاق المادة"
+                onClick={() => setSelectedMaterial(null)}
+                className="rounded-lg p-1 text-[#203945]/70 hover:bg-slate-100"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <p className="rounded-xl bg-[#F3F7F6] p-3 text-sm leading-relaxed text-[#203945]">
+              {selectedMaterial.summary}
+            </p>
+            {selectedMaterial.sections.map((section) => (
+              <section key={section.title} className="space-y-1">
+                <h3 className="text-sm font-bold text-[#1766A6]">{section.title}</h3>
+                <p className="whitespace-pre-line text-sm leading-relaxed text-[#203945]/80">
+                  {section.content}
+                </p>
+              </section>
+            ))}
+            <dl className="space-y-2 border-t border-[#E0E8E6] pt-3 text-xs">
+              <div>
+                <dt className="font-bold text-[#203945]">المصدر القانوني</dt>
+                <dd className="mt-0.5 leading-relaxed text-[#203945]/70">{selectedMaterial.source}</dd>
+              </div>
+              <div className="flex flex-wrap gap-x-5 gap-y-1 text-[#203945]/60">
+                <div><dt className="inline font-bold">تاريخ النشر: </dt><dd className="inline">{displayDate(selectedMaterial.publishedAt)}</dd></div>
+                <div><dt className="inline font-bold">آخر تحديث: </dt><dd className="inline">{displayDate(selectedMaterial.lastUpdated)}</dd></div>
+              </div>
+            </dl>
+            {selectedMaterial.pdfUrl && (
+              <div className="flex flex-wrap gap-2">
+                <a
+                  href={selectedMaterial.pdfUrl}
+                  download
+                  className="inline-flex items-center gap-2 rounded-lg bg-[#25866D] px-3 py-2 text-xs font-bold text-white"
+                >
+                  <Download className="h-4 w-4" />
+                  تحميل النص الرسمي
+                </a>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedPdfToRead({
+                      title: selectedMaterial.title,
+                      url: selectedMaterial.pdfUrl!,
+                    });
+                    setSelectedMaterial(null);
+                  }}
+                  className="inline-flex items-center gap-2 rounded-lg border border-[#CCD8D5] px-3 py-2 text-xs font-bold text-[#203945]"
+                >
+                  <ExternalLink className="h-4 w-4" />
+                  قراءة النص الرسمي
+                </button>
+              </div>
+            )}
+            <p className="border-t border-[#E0E8E6] pt-3 text-xs font-bold leading-relaxed text-[#A64842]">
+              مواد التوعية لا تحل محل الاستشارة القانونية الفردية.
+            </p>
+          </section>
         </div>
       )}
 
-      {/* Unified Legal Topics Detailed Cards */}
-      <div className="space-y-4">
-        {initialLegalTopics.map((topic) => (
-          <div
-            key={topic.id}
-            className="bg-[#FBFDFC] rounded-[20px] border border-[#E5ECE9] p-5 sm:p-6 shadow-xs space-y-3.5 hover:border-[#1766A6]/40 transition-colors"
+      {selectedPdfToRead && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/70 p-3 sm:p-5"
+          role="presentation"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) setSelectedPdfToRead(null);
+          }}
+        >
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-label={`قراءة الوثيقة: ${selectedPdfToRead.title}`}
+            className="flex h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl bg-white"
           >
-            {/* 1. عنوان الموضوع */}
-            <div className="flex items-start justify-between gap-3 border-b border-[#E5ECE9] pb-3">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-[8px] bg-[#EAF3F8] text-[#1766A6] flex items-center justify-center shrink-0">
-                  <Scale className="w-4 h-4" />
-                </div>
-                <h3 className="font-black text-[16px] sm:text-[17px] text-[#203945]">
-                  ⚖️ {topic.title}
-                </h3>
-              </div>
-              <span className="text-[10px] font-bold px-2 py-0.5 rounded-[6px] bg-[#E8F4EF] text-[#1A5E4D] shrink-0">
-                {topic.status === 'ACTIVE' ? 'ساري المفعول' : 'مؤرشف'}
-              </span>
-            </div>
-
-            {/* 2. ملخص مبسط */}
-            <div className="text-[13px] text-[#203945]/85 leading-relaxed bg-[#F3F7F6] p-3 rounded-[12px]">
-              <strong className="text-[#203945] block font-bold text-[12px] mb-1">
-                ملخص مبسط:
-              </strong>
-              {topic.plainSummary}
-            </div>
-
-            {/* 3. المرجع القانوني */}
-            <div className="space-y-1 text-xs">
-              <span className="font-bold text-[#1766A6] block">
-                📜 المرجع القانوني:
-              </span>
-              <p className="text-[#203945] font-medium leading-relaxed">
-                {topic.legalReference} ({topic.lawDate})
-              </p>
-            </div>
-
-            {/* 4. المادة ذات الصلة والنص الرسمي */}
-            <div className="bg-[#EAF3F8] p-3.5 rounded-[14px] border border-[#DCEBF4] space-y-1.5">
-              <div className="flex items-center gap-1.5 text-[#1766A6] font-bold text-xs">
-                <FileText className="w-3.5 h-3.5" />
-                <span>📝 {topic.relevantArticle} — النص الرسمي:</span>
-              </div>
-              <p className="text-[12px] sm:text-[13px] font-semibold text-[#104A78] leading-relaxed italic pr-2 border-r-2 border-[#1766A6]">
-                {topic.officialText}
-              </p>
-            </div>
-
-            {/* 5. التعديلات */}
-            <div className="space-y-1 text-xs">
-              <span className="font-bold text-[#25866D] block">
-                🔎 التعديلات التشريعية:
-              </span>
-              <ul className="list-disc list-inside space-y-0.5 text-[#203945]/80 text-[11px]">
-                {topic.amendments.map((amend, i) => (
-                  <li key={i}>{amend}</li>
-                ))}
-              </ul>
-            </div>
-
-            {/* 6. شرح مبسط */}
-            <div className="space-y-1 text-xs">
-              <span className="font-bold text-[#203945] block">
-                📋 الشرح الإجرائي المبسط:
-              </span>
-              <p className="text-[12px] text-[#203945]/80 leading-relaxed">
-                {topic.plainExplanation}
-              </p>
-            </div>
-
-            {/* 7. المرسوم التطبيقي & 8. المصدر الرسمي */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs pt-1 border-t border-[#E5ECE9]">
-              <div>
-                <span className="font-bold text-[#1766A6] block text-[11px]">
-                  📚 المرسوم التطبيقي:
-                </span>
-                <p className="text-[11px] text-[#203945]/80">{topic.executiveDecree}</p>
-              </div>
-
-              <div>
-                <span className="font-bold text-[#1766A6] block text-[11px]">
-                  🔗 المصدر الرسمي:
-                </span>
-                <p className="text-[11px] text-[#203945]/80">{topic.officialSource}</p>
-              </div>
-            </div>
-
-            {/* Direct PDF actions on the topic card */}
-            {topic.pdfUrl && (
-              <div className="bg-[#F0F7F4] p-3 rounded-[12px] border border-[#D5EAE2] flex flex-col sm:flex-row items-center justify-between gap-2 text-xs">
-                <span className="text-[#1A5E4D] font-bold flex items-center gap-1.5">
-                  <FileText className="w-4 h-4" />
-                  <span>النسخة الرسمية الكاملة المعتمدة لهذا القانون متاحة بصيغة PDF</span>
-                </span>
-                <div className="flex items-center gap-2 w-full sm:w-auto">
-                  <a
-                    href={topic.pdfUrl}
-                    download
-                    className="flex-1 sm:flex-none px-3 py-1.5 bg-[#25866D] hover:bg-[#1E6F5A] text-white font-bold rounded-[8px] flex items-center justify-center gap-1 transition-colors shadow-2xs text-[11px]"
-                  >
-                    <Download className="w-3.5 h-3.5" />
-                    <span>تحميل النص الكامل (PDF)</span>
-                  </a>
-                  <button
-                    onClick={() =>
-                      setSelectedPdfToRead({
-                        title: topic.title,
-                        url: topic.pdfUrl!,
-                      })
-                    }
-                    className="flex-1 sm:flex-none px-3 py-1.5 bg-white hover:bg-[#E8F4EF] text-[#1A5E4D] border border-[#25866D]/40 font-bold rounded-[8px] flex items-center justify-center gap-1 transition-colors text-[11px]"
-                  >
-                    <Eye className="w-3.5 h-3.5" />
-                    <span>قراءة فورية</span>
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* 9. آخر مراجعة & 10. التنبيه القانوني */}
-            <div className="pt-2 border-t border-[#E5ECE9] flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-[11px]">
-              <span className="text-[#203945]/60 font-medium">
-                🕐 آخر مراجعة وتحقق: {topic.lastReviewedDate}
-              </span>
-              <span className="text-[#A64842] font-bold">
-                ⚠️ المعلومات توعوية ولا تشكل استشارة قانونية.
-              </span>
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
+            <header className="flex items-center justify-between gap-3 bg-[#203945] p-4 text-white">
+              <h2 className="line-clamp-1 text-sm font-bold">{selectedPdfToRead.title}</h2>
+              <button
+                type="button"
+                aria-label="إغلاق قارئ النص"
+                onClick={() => setSelectedPdfToRead(null)}
+                className="rounded-lg bg-white/10 p-2 hover:bg-white/20"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </header>
+            <iframe
+              src={`${selectedPdfToRead.url}#toolbar=1&navpanes=0`}
+              title={selectedPdfToRead.title}
+              className="min-h-0 flex-1 border-0 bg-[#E5ECE9]"
+            />
+            <footer className="flex items-center gap-2 border-t border-[#E0E8E6] p-3 text-xs text-[#203945]/70">
+              <ShieldCheck className="h-4 w-4 text-[#25866D]" />
+              النصوص الرسمية متاحة للقراءة والتحميل.
+            </footer>
+          </section>
+        </div>
+      )}
+    </main>
   );
 };
