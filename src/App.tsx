@@ -53,6 +53,7 @@ import { NewRequestView } from './views/NewRequestView';
 import { PortalView } from './views/PortalView';
 import { CaseDetailView } from './views/CaseDetailView';
 import { PaymentView } from './views/PaymentView';
+import { BookingConfirmationView } from './views/BookingConfirmationView';
 import { AppointmentsView } from './views/AppointmentsView';
 import { ChatView } from './views/ChatView';
 import { DirectoryView } from './views/DirectoryView';
@@ -61,6 +62,44 @@ import { EmergencyView } from './views/EmergencyView';
 import { LegalAssistanceView } from './views/LegalAssistanceView';
 import { AdminDashboardView } from './views/AdminDashboardView';
 import { SpecialistDashboardView } from './views/SpecialistDashboardView';
+
+function findProviderConfirmedBooking(
+  request: CareRequest | null,
+  transactions: PaymentTransaction[],
+  appointments: Appointment[]
+) {
+  if (
+    !request ||
+    request.status !== 'APPOINTMENT_CONFIRMED' ||
+    request.paymentStatus !== 'PAID' ||
+    !request.appointmentDate ||
+    !request.appointmentTime
+  ) {
+    return null;
+  }
+
+  const transaction = transactions.find(
+    (item) =>
+      item.caseNumber === request.caseNumber &&
+      item.status === 'SUCCESSFUL' &&
+      Boolean(item.transactionId.trim()) &&
+      item.currency === 'DZD' &&
+      item.amountDzd === request.amountDzd &&
+      String(item.clientId) === String(request.clientId) &&
+      String(item.providerId) === String(request.providerId)
+  );
+  const appointment = appointments.find(
+    (item) =>
+      item.caseNumber === request.caseNumber &&
+      item.status === 'CONFIRMED' &&
+      item.date === request.appointmentDate &&
+      item.time === request.appointmentTime &&
+      String(item.clientId) === String(request.clientId) &&
+      String(item.specialistId) === String(request.providerId)
+  );
+
+  return transaction && appointment ? { request, transaction, appointment } : null;
+}
 
 export function App() {
   const [currentUser, setCurrentUser] = useState<User | null>(initialUsers[0]);
@@ -156,6 +195,21 @@ export function App() {
       }
     }
   }, [users]);
+
+  useEffect(() => {
+    if (currentView !== 'payment' || !paymentTargetRequest || !currentUser) return;
+    const latestRequest = careRequests.find(
+      (request) => String(request.id) === String(paymentTargetRequest.id)
+    );
+    if (!latestRequest || String(latestRequest.clientId) !== String(currentUser.id)) return;
+
+    const confirmed = findProviderConfirmedBooking(latestRequest, paymentTransactions, appointments);
+    if (!confirmed) return;
+
+    setSelectedRequest(latestRequest);
+    setCurrentView('booking-confirmation');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [currentView, paymentTargetRequest, currentUser, careRequests, paymentTransactions, appointments]);
 
   // Navigation handlers
   const handleNavigate = (view: string) => {
@@ -425,6 +479,15 @@ export function App() {
     }));
   };
 
+  const latestSelectedRequest = selectedRequest
+    ? careRequests.find((request) => String(request.id) === String(selectedRequest.id)) ?? selectedRequest
+    : null;
+  const confirmedBooking = findProviderConfirmedBooking(
+    latestSelectedRequest,
+    paymentTransactions,
+    appointments
+  );
+
   return (
     <div className="min-h-screen bg-[#F3F7F6] text-[#203945] flex flex-col justify-between pb-16">
       <div>
@@ -598,6 +661,33 @@ export function App() {
               onProcessPayment={handleProcessPayment}
               onCancel={() => handleNavigate('portal')}
             />
+          )}
+
+          {currentView === 'booking-confirmation' && confirmedBooking && (
+            <BookingConfirmationView
+              request={confirmedBooking.request}
+              appointment={confirmedBooking.appointment}
+              transaction={confirmedBooking.transaction}
+              onEnterConsultation={() => {
+                setSelectedRequest(confirmedBooking.request);
+                handleNavigate('case-detail');
+              }}
+              onBackToRequests={() => handleNavigate('portal')}
+            />
+          )}
+
+          {currentView === 'booking-confirmation' && !confirmedBooking && (
+            <div role="status" className="mx-auto max-w-lg space-y-3 rounded-[16px] border border-amber-200 bg-amber-50 p-5 text-center text-sm text-amber-950">
+              <p className="font-bold">لم يصل بعد تأكيد الدفع والحجز.</p>
+              <p className="text-xs">لن نعرض تأكيداً ناجحاً قبل مطابقة تأكيد مزود الدفع مع الموعد المؤكد.</p>
+              <button
+                type="button"
+                onClick={() => handleNavigate('portal')}
+                className="rounded-[10px] bg-[#1766A6] px-4 py-2 text-xs font-bold text-white"
+              >
+                العودة إلى الطلبات
+              </button>
+            </div>
           )}
 
           {currentView === 'appointments' && (

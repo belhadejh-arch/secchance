@@ -112,6 +112,7 @@ export interface PaymentTransaction {
   currency: string;
   paymentMethod: 'EDAHABIA' | 'CIB';
   transactionId: string;
+  caseNumber?: string;
   status: 'SUCCESSFUL' | 'FAILED' | 'PENDING' | 'REFUNDED' | 'CANCELLED';
   createdAt: string;
   paidAt?: string | null;
