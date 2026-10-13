@@ -171,6 +171,10 @@ export interface TreatmentCenter {
   address: string;
   phone: string;
   services: string;
+  municipality?: string;
+  receptionInformation?: string;
+  latitude?: number;
+  longitude?: number;
 }
 
 export interface Association {
@@ -180,6 +184,9 @@ export interface Association {
   address: string;
   phone: string;
   services: string;
+  municipality?: string;
+  latitude?: number;
+  longitude?: number;
 }
 
 export interface AwarenessArticle {
