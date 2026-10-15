@@ -9,9 +9,16 @@ import {
   Priority,
   LegalTopic,
   CaseFileDocument,
+  ServiceItem,
 } from '../types';
 import {
   User as UserIcon,
+  Home,
+  UsersRound,
+  MapPin,
+  Settings,
+  ShieldCheck,
+  Building2,
   LogOut,
   Plus,
   CreditCard,
@@ -38,14 +45,16 @@ import {
   CheckCircle2,
 } from 'lucide-react';
 import {
-  initialUsers,
   initialLegalTopics,
   initialCaseDocuments,
 } from '../data/initialData';
 import { markNotificationAsReadInDb } from '../services/dbService';
+import { AccountDashboardView } from './AccountDashboardView';
+import { FamilyPackageView } from './FamilyPackageView';
 
 interface PortalViewProps {
   currentUser: User;
+  services: ServiceItem[];
   requests: CareRequest[];
   transactions: PaymentTransaction[];
   appointments?: Appointment[];
@@ -57,11 +66,14 @@ interface PortalViewProps {
   onAcceptRequest: (requestId: number | string, priority: Priority) => void;
   onRejectRequestClick: (requestId: number | string) => void;
   onOpenChat: (convId: number) => void;
+  onRequestService: (service: ServiceItem) => void;
+  onOpenDirectory: (tab: 'centers' | 'associations') => void;
   onLogout: () => void;
 }
 
 export const PortalView: React.FC<PortalViewProps> = ({
   currentUser,
+  services,
   requests,
   transactions,
   appointments = [],
@@ -73,9 +85,11 @@ export const PortalView: React.FC<PortalViewProps> = ({
   onAcceptRequest,
   onRejectRequestClick,
   onOpenChat,
+  onRequestService,
+  onOpenDirectory,
   onLogout,
 }) => {
-  // Navigation tabs (Matching Project Plan Requirements: requests, appointments, family-package, payments, invoices, messages, profile)
+  // Main navigation for the beneficiary account.
   const [beneficiaryTab, setBeneficiaryTab] = useState<
     | 'requests'
     | 'appointments'
@@ -86,21 +100,16 @@ export const PortalView: React.FC<PortalViewProps> = ({
     | 'notifications'
     | 'files'
     | 'reports'
+    | 'dashboard'
+    | 'family-members'
+    | 'privacy'
+    | 'settings'
     | 'profile'
-  >('requests');
+  >('dashboard');
 
   // Filter requests belonging to this beneficiary
   const myRequests = requests.filter(
     (r) => String(r.clientId) === String(currentUser.id)
-  );
-
-  // Active cases (accepted or in progress)
-  const myActiveCases = myRequests.filter(
-    (r) =>
-      r.status === 'ACCEPTED' ||
-      r.status === 'APPOINTMENT_CONFIRMED' ||
-      r.status === 'IN_PROGRESS' ||
-      r.status === 'PAID'
   );
 
   // Appointments for this beneficiary
@@ -108,6 +117,12 @@ export const PortalView: React.FC<PortalViewProps> = ({
     (a) =>
       String(a.clientId) === String(currentUser.id) ||
       myRequests.some((r) => r.caseNumber === a.caseNumber)
+  );
+  const myTransactions = transactions.filter(
+    (transaction) =>
+      String(transaction.clientId) === String(currentUser.id) ||
+      (Boolean(transaction.caseNumber) &&
+        myRequests.some((request) => request.caseNumber === transaction.caseNumber))
   );
 
   // Permitted reports for this user (only their own case numbers, respecting privacy)
@@ -119,7 +134,6 @@ export const PortalView: React.FC<PortalViewProps> = ({
   const myNotifications = notifications.filter(
     (n) => String(n.userId) === String(currentUser.id) || n.recipientRole === 'user' || n.recipientRole === 'ALL'
   );
-  const unreadCount = myNotifications.filter((n) => !n.isRead).length;
 
   // Documents state
   const [myDocuments, setMyDocuments] = useState<CaseFileDocument[]>(
@@ -128,67 +142,23 @@ export const PortalView: React.FC<PortalViewProps> = ({
   const [newDocName, setNewDocName] = useState('');
   const [newDocCategory, setNewDocCategory] = useState<CaseFileDocument['fileCategory']>('وثيقة شخصية');
 
-  // Family Package State (Requirements 14 & 15 from Project Plan)
-  const [familyPackage, setFamilyPackage] = useState({
-    name: 'Family Plus',
-    status: 'نشطة',
-    startDate: '01/10/2026',
-    endDate: '30/11/2026',
-    remainingDays: 42,
-    quotas: [
-      { id: 'legal', service: 'جلسة استشارة قانونية', total: 1, remaining: 1, used: 0 },
-      { id: 'psych', service: 'جلسة توجيه نفسي', total: 1, remaining: 1, used: 0 },
-      { id: 'social', service: 'جلسة مرافقة اجتماعية', total: 1, remaining: 1, used: 0 },
-    ],
-  });
-  const [packageMsg, setPackageMsg] = useState<string | null>(null);
-
   // Selected Invoice Modal State
-  const [selectedInvoice, setSelectedInvoice] = useState<any | null>(null);
-
-  const handleUsePackageSession = (sessionQuotaId: string) => {
-    // Backend verification logic (Requirement 15)
-    // 1. هل الباقة نشطة؟
-    if (familyPackage.status !== 'نشطة') {
-      setPackageMsg('عذراً، الباقة الأسرية غير نشطة حالياً.');
-      return;
-    }
-    // 2. هل تاريخ الانتهاء لم يمر؟
-    // 3. هل توجد حصة متبقية؟
-    const quotaItem = familyPackage.quotas.find((q) => q.id === sessionQuotaId);
-    if (!quotaItem || quotaItem.remaining <= 0) {
-      setPackageMsg('عذراً، لقد استنفدت جميع الحصص المخصصة لهذه الخدمة في باقتك الحالية.');
-      return;
-    }
-
-    // Deduct session quota
-    setFamilyPackage({
-      ...familyPackage,
-      quotas: familyPackage.quotas.map((q) =>
-        q.id === sessionQuotaId ? { ...q, remaining: q.remaining - 1, used: q.used + 1 } : q
-      ),
-    });
-
-    setPackageMsg(`تم بنجاح تفعيل حجز «${quotaItem.service}» وخصم الحصة من رصيد باقة الأسرة.`);
-    setTimeout(() => {
-      onNewRequest();
-    }, 1500);
-  };
+  const [selectedInvoice, setSelectedInvoice] = useState<PaymentTransaction | null>(null);
 
   const handleUploadDoc = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newDocName.trim()) return;
+    if (!newDocName.trim() || !myRequests[0]) return;
 
     const newDoc: CaseFileDocument = {
       id: Date.now(),
-      caseNumber: myRequests[0]?.caseNumber || 'SC2026-00001-',
+      caseNumber: myRequests[0].caseNumber,
       clientId: currentUser.id as any,
       clientName: `${currentUser.firstName} ${currentUser.lastName}`,
-      providerId: 2,
-      providerName: 'المختص المشرف',
+      providerId: myRequests[0].providerId,
+      providerName: myRequests[0].providerName,
       fileName: newDocName.trim(),
       fileCategory: newDocCategory,
-      fileSize: '1.2 MB',
+      fileSize: 'غير متاح',
       uploadDate: new Date().toISOString().split('T')[0],
       isConfidential: true,
     };
@@ -234,8 +204,52 @@ export const PortalView: React.FC<PortalViewProps> = ({
     }
   };
 
+  const accountMenu = [
+    { key: 'dashboard', title: 'الرئيسية', icon: <Home className="h-4 w-4" />, action: () => setBeneficiaryTab('dashboard') },
+    { key: 'new-request', title: 'طلب استشارة', icon: <Plus className="h-4 w-4" />, action: onNewRequest },
+    { key: 'requests', title: 'طلباتي', icon: <FolderOpen className="h-4 w-4" />, action: () => setBeneficiaryTab('requests') },
+    { key: 'appointments', title: 'مواعيدي', icon: <Calendar className="h-4 w-4" />, action: () => setBeneficiaryTab('appointments') },
+    { key: 'family-members', title: 'أفراد أسرتي', icon: <UsersRound className="h-4 w-4" />, action: () => setBeneficiaryTab('family-members') },
+    { key: 'family-package', title: 'الباقة الأسرية', icon: <PackageCheck className="h-4 w-4" />, action: () => setBeneficiaryTab('family-package') },
+    { key: 'payments', title: 'مدفوعاتي', icon: <CreditCard className="h-4 w-4" />, action: () => setBeneficiaryTab('payments') },
+    { key: 'invoices', title: 'فواتيري', icon: <Receipt className="h-4 w-4" />, action: () => setBeneficiaryTab('invoices') },
+    { key: 'nearby', title: 'الجهات القريبة مني', icon: <MapPin className="h-4 w-4" />, action: () => onOpenDirectory('centers') },
+    { key: 'messages', title: 'رسائلي', icon: <MessageSquare className="h-4 w-4" />, action: () => onOpenChat(1) },
+    { key: 'privacy', title: 'الخصوصية', icon: <ShieldCheck className="h-4 w-4" />, action: () => setBeneficiaryTab('privacy') },
+    { key: 'settings', title: 'الإعدادات', icon: <Settings className="h-4 w-4" />, action: () => setBeneficiaryTab('settings') },
+  ];
+
   return (
-    <div className="space-y-5 max-w-4xl mx-auto">
+    <div className="mx-auto grid max-w-6xl gap-5 lg:grid-cols-[220px_minmax(0,1fr)]" dir="rtl">
+      <aside className="h-fit rounded-[18px] border border-[#E0E8E6] bg-[#FBFDFC] p-3 shadow-xs lg:sticky lg:top-4">
+        <div className="mb-2 px-2 py-2">
+          <p className="text-sm font-black text-[#203945]">القائمة</p>
+          <p className="mt-1 text-[11px] text-[#203945]/60">{currentUser.firstName} {currentUser.lastName}</p>
+        </div>
+        <nav aria-label="قائمة الحساب" className="grid grid-cols-2 gap-1 sm:grid-cols-3 lg:flex lg:flex-col">
+          {accountMenu.map((item) => {
+            const active = item.key === beneficiaryTab;
+            return (
+              <button
+                key={item.key}
+                type="button"
+                onClick={item.action}
+                aria-current={active ? 'page' : undefined}
+                className={`flex min-h-10 items-center gap-2 rounded-[10px] px-2.5 py-2 text-right text-xs font-bold transition-colors ${
+                  active
+                    ? 'bg-[#1766A6] text-white'
+                    : 'text-[#203945]/80 hover:bg-[#EAF3F8] hover:text-[#104A78]'
+                }`}
+              >
+                <span className="shrink-0">{item.icon}</span>
+                <span>{item.title}</span>
+              </button>
+            );
+          })}
+        </nav>
+      </aside>
+
+      <main className="min-w-0 space-y-5">
       {/* Profile Header */}
       <div className="bg-[#FBFDFC] rounded-[22px] p-5 sm:p-6 border border-[#E0E8E6] shadow-xs flex items-center justify-between gap-4">
         <div className="flex items-center gap-3.5">
@@ -247,17 +261,14 @@ export const PortalView: React.FC<PortalViewProps> = ({
           <div>
             <div className="flex items-center gap-2">
               <span className="px-2.5 py-0.5 rounded-full bg-[#1766A6]/10 text-[#1766A6] text-[10px] font-bold">
-                👨‍👩‍👧 لوحة الأسرة / المستفيد
-              </span>
-              <span className="text-[10px] text-[#25866D] font-bold bg-[#E8F4EF] px-2 py-0.5 rounded-md">
-                بيانات مشفرة وسرية
+                حساب المستفيد
               </span>
             </div>
             <h2 className="font-black text-lg text-[#203945] mt-1">
-              مرحباً بك، {currentUser.firstName} {currentUser.lastName} 👋
+              {currentUser.firstName} {currentUser.lastName}
             </h2>
             <p className="text-xs text-[#203945]/70">
-              البريد: {currentUser.email} • الولاية: {currentUser.wilayaName || 'قسنطينة'}
+              البريد: {currentUser.email || 'غير مسجل'} • الولاية: {currentUser.wilayaName || 'غير محددة'}
             </p>
           </div>
         </div>
@@ -281,196 +292,46 @@ export const PortalView: React.FC<PortalViewProps> = ({
         </div>
       </div>
 
-      {/* Quick Summary Cards from Plan (Page 13, 25, 26) */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-        {/* Card 1: What do you need today? */}
-        <div className="bg-[#FBFDFC] p-4.5 rounded-[18px] border border-[#E0E8E6] shadow-xs flex flex-col justify-between space-y-2.5">
-          <div>
-            <span className="text-[11px] font-bold text-[#1766A6]">مرحباً بك</span>
-            <h3 className="font-black text-sm text-[#203945] mt-0.5">ماذا تحتاج اليوم؟</h3>
-            <p className="text-[11px] text-[#203945]/70 mt-1">
-              طلب استشارة قانونية أو نفسية أو مرافقة علاجية بسرية تامة
-            </p>
-          </div>
-          <button
-            onClick={onNewRequest}
-            className="w-full py-2 bg-[#1766A6] hover:bg-[#125386] text-white font-bold text-xs rounded-[10px] transition-colors flex items-center justify-center gap-1.5 shadow-2xs"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            <span>[ طلب استشارة جديدة ]</span>
-          </button>
-        </div>
+      {beneficiaryTab === 'dashboard' && (
+        <AccountDashboardView
+          currentUser={currentUser}
+          requests={myRequests}
+          appointments={myAppointments}
+          transactions={myTransactions}
+          reports={permittedReports}
+          services={services}
+          onNewRequest={onNewRequest}
+          onRequestService={onRequestService}
+          onOpenDirectory={onOpenDirectory}
+        />
+      )}
 
-        {/* Card 2: Next Appointment */}
-        <div className="bg-[#FBFDFC] p-4.5 rounded-[18px] border border-[#E0E8E6] shadow-xs flex flex-col justify-between space-y-2.5">
-          <div>
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-bold text-[#25866D] flex items-center gap-1">
-                <Calendar className="w-3 h-3" />
-                <span>الموعد القادم</span>
-              </span>
-              <span className="text-[10px] font-bold bg-[#E8F4EF] text-[#25866D] px-2 py-0.5 rounded-full">
-                مؤكد
-              </span>
+      {beneficiaryTab === 'family-members' && (
+        <section className="rounded-[20px] border border-dashed border-[#CCD8D5] bg-[#FBFDFC] p-8 text-center shadow-xs">
+          <UsersRound className="mx-auto h-10 w-10 text-[#1766A6]" />
+          <h2 className="mt-3 font-black text-[#203945]">أفراد أسرتي</h2>
+          <p className="mx-auto mt-2 max-w-md text-sm leading-relaxed text-[#203945]/70">
+            لا توجد صلات بأفراد أسرة مسجلة في بيانات هذا الحساب حاليًا.
+          </p>
+        </section>
+      )}
+
+      {beneficiaryTab === 'privacy' && (
+        <section className="space-y-3 rounded-[20px] border border-[#E0E8E6] bg-[#FBFDFC] p-5 shadow-xs">
+          <div className="flex items-center gap-3">
+            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#EAF3F8] text-[#1766A6]">
+              <ShieldCheck className="h-5 w-5" />
+            </span>
+            <div>
+              <h2 className="font-black text-[#203945]">الخصوصية</h2>
+              <p className="mt-1 text-xs text-[#203945]/65">بيانات الحساب والطلبات المرتبطة به.</p>
             </div>
-            <h3 className="font-bold text-sm text-[#203945] mt-0.5">الاستشارة القانونية</h3>
-            <p className="text-xs text-[#203945]/80 font-mono mt-1">
-              📅 05/10/2026 — ⏰ 14:00
-            </p>
           </div>
-          <button
-            onClick={() => setBeneficiaryTab('appointments')}
-            className="w-full py-1.5 bg-[#EAF3F8] hover:bg-[#DCEBF4] text-[#1766A6] font-bold text-xs rounded-[10px] transition-colors text-center"
-          >
-            [ عرض الموعد ]
-          </button>
-        </div>
-
-        {/* Card 3: Family Package */}
-        <div className="bg-[#FBFDFC] p-4.5 rounded-[18px] border border-[#E0E8E6] shadow-xs flex flex-col justify-between space-y-2.5">
-          <div>
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-bold text-purple-700">باقتي الأسرية</span>
-              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700">
-                {familyPackage.status}
-              </span>
-            </div>
-            <h3 className="font-bold text-sm text-[#203945] mt-0.5">{familyPackage.name}</h3>
-            <p className="text-[11px] text-[#203945]/70 mt-1">
-              متبقي {familyPackage.remainingDays} يوماً • الحصص المتاحة: 3
-            </p>
-          </div>
-          <button
-            onClick={() => setBeneficiaryTab('family-package')}
-            className="w-full py-1.5 bg-[#F3F7F6] hover:bg-[#E5ECE9] text-[#203945] font-bold text-xs rounded-[10px] transition-colors text-center border border-[#DCE4E1]"
-          >
-            [ إدارة الباقة ]
-          </button>
-        </div>
-      </div>
-
-      {/* Navigation Tabs (Project Plan Standard) */}
-      <div className="flex items-center gap-1.5 overflow-x-auto pb-2 no-scrollbar text-xs font-bold border-b border-[#E0E8E6]">
-        <button
-          onClick={() => setBeneficiaryTab('requests')}
-          className={`px-3 py-2 rounded-[10px] transition-colors shrink-0 flex items-center gap-1.5 ${
-            beneficiaryTab === 'requests'
-              ? 'bg-[#1766A6] text-white shadow-xs'
-              : 'bg-[#FBFDFC] text-[#203945]/70 hover:bg-[#EAF3F8]'
-          }`}
-        >
-          <FolderOpen className="w-3.5 h-3.5" />
-          <span>طلباتي ({myRequests.length})</span>
-        </button>
-
-        <button
-          onClick={() => setBeneficiaryTab('appointments')}
-          className={`px-3 py-2 rounded-[10px] transition-colors shrink-0 flex items-center gap-1.5 ${
-            beneficiaryTab === 'appointments'
-              ? 'bg-[#1766A6] text-white shadow-xs'
-              : 'bg-[#FBFDFC] text-[#203945]/70 hover:bg-[#EAF3F8]'
-          }`}
-        >
-          <Calendar className="w-3.5 h-3.5" />
-          <span>مواعيدي ({myAppointments.length})</span>
-        </button>
-
-        <button
-          onClick={() => setBeneficiaryTab('family-package')}
-          className={`px-3 py-2 rounded-[10px] transition-colors shrink-0 flex items-center gap-1.5 ${
-            beneficiaryTab === 'family-package'
-              ? 'bg-[#1766A6] text-white shadow-xs'
-              : 'bg-[#FBFDFC] text-[#203945]/70 hover:bg-[#EAF3F8]'
-          }`}
-        >
-          <PackageCheck className="w-3.5 h-3.5" />
-          <span>باقتي الأسرية (Family Plus)</span>
-        </button>
-
-        <button
-          onClick={() => setBeneficiaryTab('payments')}
-          className={`px-3 py-2 rounded-[10px] transition-colors shrink-0 flex items-center gap-1.5 ${
-            beneficiaryTab === 'payments'
-              ? 'bg-[#1766A6] text-white shadow-xs'
-              : 'bg-[#FBFDFC] text-[#203945]/70 hover:bg-[#EAF3F8]'
-          }`}
-        >
-          <CreditCard className="w-3.5 h-3.5" />
-          <span>المدفوعات</span>
-        </button>
-
-        <button
-          onClick={() => setBeneficiaryTab('invoices')}
-          className={`px-3 py-2 rounded-[10px] transition-colors shrink-0 flex items-center gap-1.5 ${
-            beneficiaryTab === 'invoices'
-              ? 'bg-[#1766A6] text-white shadow-xs'
-              : 'bg-[#FBFDFC] text-[#203945]/70 hover:bg-[#EAF3F8]'
-          }`}
-        >
-          <Receipt className="w-3.5 h-3.5" />
-          <span>الفواتير</span>
-        </button>
-
-        <button
-          onClick={() => setBeneficiaryTab('messages')}
-          className={`px-3 py-2 rounded-[10px] transition-colors shrink-0 flex items-center gap-1.5 ${
-            beneficiaryTab === 'messages'
-              ? 'bg-[#1766A6] text-white shadow-xs'
-              : 'bg-[#FBFDFC] text-[#203945]/70 hover:bg-[#EAF3F8]'
-          }`}
-        >
-          <MessageSquare className="w-3.5 h-3.5" />
-          <span>الرسائل</span>
-        </button>
-
-        <button
-          onClick={() => setBeneficiaryTab('notifications')}
-          className={`px-3 py-2 rounded-[10px] transition-colors shrink-0 flex items-center gap-1.5 ${
-            beneficiaryTab === 'notifications'
-              ? 'bg-[#1766A6] text-white shadow-xs'
-              : 'bg-[#FBFDFC] text-[#203945]/70 hover:bg-[#EAF3F8]'
-          }`}
-        >
-          <Bell className="w-3.5 h-3.5" />
-          <span>الإشعارات {unreadCount > 0 && `(${unreadCount})`}</span>
-        </button>
-
-        <button
-          onClick={() => setBeneficiaryTab('files')}
-          className={`px-3 py-2 rounded-[10px] transition-colors shrink-0 flex items-center gap-1.5 ${
-            beneficiaryTab === 'files'
-              ? 'bg-[#1766A6] text-white shadow-xs'
-              : 'bg-[#FBFDFC] text-[#203945]/70 hover:bg-[#EAF3F8]'
-          }`}
-        >
-          <Paperclip className="w-3.5 h-3.5" />
-          <span>إيداع الملفات ({myDocuments.length})</span>
-        </button>
-
-        <button
-          onClick={() => setBeneficiaryTab('reports')}
-          className={`px-3 py-2 rounded-[10px] transition-colors shrink-0 flex items-center gap-1.5 ${
-            beneficiaryTab === 'reports'
-              ? 'bg-[#1766A6] text-white shadow-xs'
-              : 'bg-[#FBFDFC] text-[#203945]/70 hover:bg-[#EAF3F8]'
-          }`}
-        >
-          <FileText className="w-3.5 h-3.5" />
-          <span>التقارير ({permittedReports.length})</span>
-        </button>
-
-        <button
-          onClick={() => setBeneficiaryTab('profile')}
-          className={`px-3 py-2 rounded-[10px] transition-colors shrink-0 flex items-center gap-1.5 ${
-            beneficiaryTab === 'profile'
-              ? 'bg-[#1766A6] text-white shadow-xs'
-              : 'bg-[#FBFDFC] text-[#203945]/70 hover:bg-[#EAF3F8]'
-          }`}
-        >
-          <UserIcon className="w-3.5 h-3.5" />
-          <span>الملف الشخصي</span>
-        </button>
-      </div>
+          <p className="rounded-[14px] bg-[#F3F7F6] p-4 text-sm leading-relaxed text-[#203945]/80">
+            تعرض لوحة الحساب الطلبات والمواعيد والمدفوعات المرتبطة بحسابك فقط. لا تتوفر حاليًا إعدادات إضافية لتغيير تفضيلات الخصوصية من هذه الشاشة.
+          </p>
+        </section>
+      )}
 
       {/* ================= 1. TAB: REQUESTS (طلباتي) ================= */}
       {beneficiaryTab === 'requests' && (
@@ -534,7 +395,17 @@ export const PortalView: React.FC<PortalViewProps> = ({
                       <span>•</span>
                       <span>المبلغ: {req.amountDzd.toLocaleString()} دج</span>
                       <span>•</span>
-                      <span>الدفع: {req.paymentStatus === 'PAID' ? 'مسدد ✓' : 'بانتظار الدفع'}</span>
+                       <span>
+                         الدفع: {{
+                           PAID: 'مسدد',
+                           NOT_REQUIRED: 'غير مطلوب',
+                           PENDING: 'بانتظار الدفع',
+                           PROCESSING: 'قيد المعالجة',
+                           FAILED: 'فشل الدفع',
+                           REFUNDED: 'مسترد',
+                           CANCELLED: 'ملغى',
+                         }[req.paymentStatus]}
+                       </span>
                     </div>
 
                     <div className="flex items-center gap-2">
@@ -544,7 +415,7 @@ export const PortalView: React.FC<PortalViewProps> = ({
                           className="px-3.5 py-1.5 rounded-[8px] bg-[#25866D] text-white font-bold text-xs hover:bg-[#1E6F5A] flex items-center gap-1"
                         >
                           <CreditCard className="w-3.5 h-3.5" />
-                          <span>سداد الرسوم (500 دج)</span>
+                           <span>سداد الرسوم ({req.amountDzd.toLocaleString('ar-DZ')} دج)</span>
                         </button>
                       )}
 
@@ -577,139 +448,48 @@ export const PortalView: React.FC<PortalViewProps> = ({
             </button>
           </div>
 
-          {/* Seeded Default Appointment if empty per Prototype */}
-          <div className="bg-[#FBFDFC] rounded-[18px] border border-[#25866D]/30 p-4.5 shadow-xs space-y-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="text-xl">📅</span>
-                <div>
-                  <h4 className="font-black text-sm text-[#203945]">الاستشارة القانونية</h4>
-                  <p className="text-[11px] text-[#25866D] font-bold">جلسة استشارة أولية مع محامٍ معتمد</p>
-                </div>
-              </div>
-              <span className="px-2.5 py-0.5 rounded-full bg-[#E8F4EF] text-[#25866D] text-[10px] font-bold">
-                موعد مؤكد ومحجوز
-              </span>
+          {myAppointments.length === 0 ? (
+            <div className="rounded-[18px] border border-dashed border-[#CCD8D5] bg-[#FBFDFC] p-8 text-center">
+              <Calendar className="mx-auto h-9 w-9 text-[#1766A6]" />
+              <p className="mt-2 text-sm font-bold text-[#203945]">لا توجد مواعيد مسجلة لهذا الحساب.</p>
             </div>
-
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs bg-white p-3 rounded-[12px] border border-[#E0E8E6]">
-              <p>
-                <span className="text-[#203945]/70 block text-[10px]">التاريخ:</span>
-                <strong className="font-mono text-sm text-[#203945]">05/10/2026</strong>
-              </p>
-              <p>
-                <span className="text-[#203945]/70 block text-[10px]">الوقت:</span>
-                <strong className="font-mono text-sm text-[#1766A6]">14:00 ⏰</strong>
-              </p>
-              <p>
-                <span className="text-[#203945]/70 block text-[10px]">المدة:</span>
-                <strong>45 دقيقة</strong>
-              </p>
-              <p>
-                <span className="text-[#203945]/70 block text-[10px]">النوع:</span>
-                <span>استشارة عن بعد / حضورية</span>
-              </p>
-            </div>
-
-            <div className="flex items-center justify-between pt-1 text-xs">
-              <span className="text-[11px] text-[#203945]/60 font-mono">رقم الطلب: SC2026-00001-</span>
-              <button
-                onClick={() => setSelectedInvoice({
-                  orderNumber: 'SC2026-00001-',
-                  service: 'الاستشارة القانونية',
-                  date: '05/10/2026',
-                  time: '14:00',
-                  amount: '500 دج',
-                })}
-                className="text-[#1766A6] font-bold hover:underline"
-              >
-                [ عرض الفاتورة المرفقة ]
-              </button>
-            </div>
-          </div>
+          ) : (
+            myAppointments.map((appointment) => {
+              const request = myRequests.find((item) => item.caseNumber === appointment.caseNumber);
+              const statusLabels: Record<Appointment['status'], string> = {
+                PENDING: 'بانتظار التأكيد',
+                CONFIRMED: 'مؤكد',
+                COMPLETED: 'مكتمل',
+                CANCELLED: 'ملغى',
+              };
+              return (
+                <article key={appointment.id} className="rounded-[18px] border border-[#E0E8E6] bg-[#FBFDFC] p-4 shadow-xs">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <h4 className="font-black text-sm text-[#203945]">
+                        {request?.serviceTitle || appointment.type}
+                      </h4>
+                      <p className="mt-1 text-xs text-[#203945]/65">{appointment.specialistName}</p>
+                    </div>
+                    <span className="rounded-full bg-[#EAF3F8] px-3 py-1 text-xs font-bold text-[#104A78]">
+                      {statusLabels[appointment.status]}
+                    </span>
+                  </div>
+                  <div className="mt-3 grid gap-2 rounded-xl bg-white p-3 text-xs sm:grid-cols-3">
+                    <p><span className="text-[#203945]/60">التاريخ: </span><strong>{appointment.date}</strong></p>
+                    <p><span className="text-[#203945]/60">الوقت: </span><strong>{appointment.time}</strong></p>
+                    <p><span className="text-[#203945]/60">رقم الطلب: </span><strong dir="ltr">{appointment.caseNumber}</strong></p>
+                  </div>
+                </article>
+              );
+            })
+          )}
         </div>
       )}
 
       {/* ================= 3. TAB: FAMILY PACKAGE (باقتي الأسرية) ================= */}
       {beneficiaryTab === 'family-package' && (
-        <div className="bg-[#FBFDFC] border border-[#E0E8E6] rounded-[20px] p-6 shadow-xs space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#E0E8E6]">
-            <div>
-              <div className="flex items-center gap-2">
-                <h3 className="font-black text-lg text-[#203945]">{familyPackage.name}</h3>
-                <span className="px-2.5 py-0.5 rounded-full bg-[#E8F4EF] text-[#25866D] text-[11px] font-bold">
-                  الحالة: {familyPackage.status}
-                </span>
-              </div>
-              <p className="text-xs text-[#203945]/70 mt-1">
-                باقة متكاملة لحماية ودعم الأسرة (استشارات قانونية، توجيه نفسي، ومرافقة اجتماعية)
-              </p>
-            </div>
-
-            <div className="text-left sm:text-right bg-[#EAF3F8] px-3.5 py-2 rounded-[12px] border border-[#DCEBF4]">
-              <span className="text-[10px] text-[#1766A6] font-bold block">فترة الصلاحية:</span>
-              <strong className="text-xs font-mono text-[#104A78]">
-                {familyPackage.startDate} إلى {familyPackage.endDate}
-              </strong>
-              <span className="text-[10px] text-purple-700 block font-bold">
-                (متبقي {familyPackage.remainingDays} يوماً)
-              </span>
-            </div>
-          </div>
-
-          {packageMsg && (
-            <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-[12px] text-xs text-emerald-800 font-bold flex items-center gap-2">
-              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-              <span>{packageMsg}</span>
-            </div>
-          )}
-
-          {/* Quota Table from Project Plan (Page 27) */}
-          <div className="space-y-2">
-            <h4 className="font-bold text-xs text-[#203945]">جدول حصص الاستشارات المشمولة بالباقة:</h4>
-            <div className="border border-[#CCD8D5] rounded-[14px] overflow-hidden bg-white">
-              <table className="w-full text-xs text-right">
-                <thead className="bg-[#F3F7F6] text-[#203945] font-bold border-b border-[#CCD8D5]">
-                  <tr>
-                    <th className="p-3">الخدمة</th>
-                    <th className="p-3 text-center">الحصة الإجمالية</th>
-                    <th className="p-3 text-center">المستخدم</th>
-                    <th className="p-3 text-center">المتبقي</th>
-                    <th className="p-3 text-center">الإجراء</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[#E0E8E6]">
-                  {familyPackage.quotas.map((q) => (
-                    <tr key={q.id} className="hover:bg-[#FBFDFC]">
-                      <td className="p-3 font-bold text-[#203945]">{q.service}</td>
-                      <td className="p-3 text-center font-mono">{q.total}</td>
-                      <td className="p-3 text-center font-mono">{q.used}</td>
-                      <td className="p-3 text-center font-mono font-bold text-[#25866D]">
-                        {q.remaining}
-                      </td>
-                      <td className="p-3 text-center">
-                        <button
-                          disabled={q.remaining <= 0}
-                          onClick={() => handleUsePackageSession(q.id)}
-                          className="px-3 py-1.5 rounded-[8px] bg-[#1766A6] hover:bg-[#125386] disabled:opacity-40 text-white font-bold text-[11px] shadow-2xs transition-colors"
-                        >
-                          [ استخدام خدمة من الباقة ]
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          <div className="p-3 rounded-[12px] bg-[#F8FAF9] border border-[#E0E8E6] text-[11px] text-[#203945]/80 space-y-1">
-            <strong>🔒 التحقق الآلي من الرصيد (Backend Quota Verification):</strong>
-            <p>
-              يتحقق النظام آلياً من سريان الباقة وتوفر الحصة قبل تأكيد الحجز وخصمها من الرصيد المتبقي دون الحاجة لدفع إضافي.
-            </p>
-          </div>
-        </div>
+        <FamilyPackageView />
       )}
 
       {/* ================= 4. TAB: PAYMENTS (المدفوعات) ================= */}
@@ -720,43 +500,48 @@ export const PortalView: React.FC<PortalViewProps> = ({
             <span className="text-xs text-[#203945]/60">معاملات إلكترونية مؤكدة</span>
           </div>
 
-          {/* Seeded payment record matching prototype */}
-          <div className="space-y-2">
-            <div className="bg-white p-4 rounded-[14px] border border-[#CCD8D5] flex items-center justify-between text-xs">
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-full bg-emerald-50 text-emerald-700 flex items-center justify-center font-bold">
-                  ✓
-                </div>
-                <div>
-                  <h4 className="font-bold text-sm text-[#203945]">الاستشارة القانونية</h4>
-                  <p className="text-[11px] text-[#203945]/70 font-mono">
-                    معاملة رقم: TX-2026-8842 • 05/10/2026
-                  </p>
-                </div>
-              </div>
-              <div className="text-left">
-                <span className="font-black text-sm text-emerald-700 block">500 دج</span>
-                <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">
-                  ناجحة / Paid
-                </span>
-              </div>
+          {myTransactions.length === 0 ? (
+            <div className="rounded-[16px] border border-dashed border-[#CCD8D5] bg-white p-7 text-center">
+              <CreditCard className="mx-auto h-8 w-8 text-[#1766A6]" />
+              <p className="mt-2 text-sm font-bold text-[#203945]">لا توجد معاملات دفع مسجلة لهذا الحساب.</p>
             </div>
-
-            {transactions.map((t) => (
-              <div key={t.id} className="bg-white p-4 rounded-[14px] border border-[#CCD8D5] flex items-center justify-between text-xs">
-                <div>
-                  <h4 className="font-bold text-sm text-[#203945]">{t.clientName}</h4>
-                  <p className="text-[11px] text-[#203945]/70 font-mono">{t.transactionId} • {t.createdAt}</p>
-                </div>
-                <div className="text-left">
-                  <span className="font-black text-sm text-emerald-700 block">{t.amountDzd} دج</span>
-                  <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">
-                    {t.status}
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
+          ) : (
+            <div className="space-y-2">
+              {myTransactions.map((transaction) => {
+                const statusLabels: Record<PaymentTransaction['status'], string> = {
+                  SUCCESSFUL: 'ناجحة',
+                  FAILED: 'فاشلة',
+                  PENDING: 'قيد الانتظار',
+                  REFUNDED: 'مستردة',
+                  CANCELLED: 'ملغاة',
+                };
+                const succeeded = transaction.status === 'SUCCESSFUL';
+                return (
+                  <article key={transaction.id} className="flex flex-col gap-3 rounded-[14px] border border-[#CCD8D5] bg-white p-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex items-center gap-3">
+                      <span className={`flex h-9 w-9 items-center justify-center rounded-full font-bold ${succeeded ? 'bg-emerald-50 text-emerald-700' : 'bg-[#F3F7F6] text-[#52656D]'}`}>
+                        {succeeded ? <Check className="h-4 w-4" /> : <CreditCard className="h-4 w-4" />}
+                      </span>
+                      <div>
+                        <h4 className="font-bold text-sm text-[#203945]">{transaction.serviceTitle}</h4>
+                        <p className="text-[11px] text-[#203945]/70">
+                          {transaction.paymentId} • {transaction.paidAt || transaction.createdAt}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between gap-3 sm:flex-col sm:items-end">
+                      <span className="font-black text-sm text-[#203945]">
+                        {transaction.amountDzd.toLocaleString('ar-DZ')} {transaction.currency}
+                      </span>
+                      <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${succeeded ? 'bg-emerald-50 text-emerald-700' : 'bg-[#F3F7F6] text-[#52656D]'}`}>
+                        {statusLabels[transaction.status]}
+                      </span>
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
 
@@ -764,51 +549,51 @@ export const PortalView: React.FC<PortalViewProps> = ({
       {beneficiaryTab === 'invoices' && (
         <div className="bg-[#FBFDFC] border border-[#E0E8E6] rounded-[20px] p-5 shadow-xs space-y-3">
           <div className="flex items-center justify-between pb-2 border-b border-[#E0E8E6]">
-            <h3 className="font-bold text-sm text-[#203945]">فواتيري الرسمية</h3>
-            <span className="text-xs text-[#203945]/60">الفواتير الضريبية والقانونية المسددة</span>
+            <h3 className="font-bold text-sm text-[#203945]">فواتيري وإيصالات الدفع</h3>
+            <span className="text-xs text-[#203945]/60">إيصالات مستندة إلى معاملات دفع ناجحة</span>
           </div>
 
-          <div className="bg-white p-4.5 rounded-[16px] border border-[#CCD8D5] flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-[10px] bg-[#EAF3F8] text-[#1766A6] flex items-center justify-center font-bold">
-                <Receipt className="w-5 h-5" />
-              </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <h4 className="font-bold text-sm text-[#203945]">استشارة قانونية</h4>
-                  <span className="text-[10px] font-mono bg-emerald-50 text-emerald-700 font-bold px-2 py-0.5 rounded-full">
-                    الحالة: مدفوعة ✓
-                  </span>
-                </div>
-                <p className="text-[11px] text-[#203945]/70 font-mono mt-0.5">
-                  رقم الفاتورة: INV-SC2026-0001 • التاريخ: 05/10/2026
-                </p>
-                <p className="font-black text-xs text-[#25866D] mt-1">المبلغ: 500 دج</p>
-              </div>
+          {myTransactions.filter((transaction) => transaction.status === 'SUCCESSFUL').length === 0 ? (
+            <div className="rounded-[16px] border border-dashed border-[#CCD8D5] bg-white p-7 text-center">
+              <Receipt className="mx-auto h-8 w-8 text-[#1766A6]" />
+              <p className="mt-2 text-sm font-bold text-[#203945]">لا توجد إيصالات دفع ناجحة لهذا الحساب.</p>
             </div>
-
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setSelectedInvoice({
-                  orderNumber: 'SC2026-00001-',
-                  service: 'استشارة قانونية',
-                  date: '05/10/2026',
-                  time: '14:00',
-                  amount: '500 دج',
-                })}
-                className="px-3.5 py-1.5 rounded-[8px] bg-[#EAF3F8] text-[#1766A6] font-bold text-xs hover:bg-[#DCEBF4] transition-colors"
-              >
-                [ عرض الفاتورة ]
-              </button>
-              <button
-                onClick={() => window.print()}
-                className="px-3.5 py-1.5 rounded-[8px] bg-white border border-[#CCD8D5] text-[#203945] font-bold text-xs hover:bg-slate-100 transition-colors flex items-center gap-1"
-              >
-                <Download className="w-3.5 h-3.5" />
-                <span>[ تحميل ]</span>
-              </button>
+          ) : (
+            <div className="space-y-2">
+              {myTransactions
+                .filter((transaction) => transaction.status === 'SUCCESSFUL')
+                .map((transaction) => (
+                  <article key={transaction.id} className="flex flex-col gap-3 rounded-[16px] border border-[#CCD8D5] bg-white p-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex items-center gap-3">
+                      <span className="flex h-10 w-10 items-center justify-center rounded-[10px] bg-[#EAF3F8] text-[#1766A6]">
+                        <Receipt className="h-5 w-5" />
+                      </span>
+                      <div>
+                        <h4 className="font-bold text-sm text-[#203945]">{transaction.serviceTitle}</h4>
+                        <p className="mt-1 text-[11px] text-[#203945]/70">
+                          {transaction.paymentId} • {transaction.paidAt || transaction.createdAt}
+                        </p>
+                        {transaction.caseNumber && (
+                          <p className="mt-0.5 text-[11px] text-[#203945]/60" dir="ltr">{transaction.caseNumber}</p>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-black text-sm text-[#25866D]">
+                        {transaction.amountDzd.toLocaleString('ar-DZ')} {transaction.currency}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedInvoice(transaction)}
+                        className="rounded-[8px] bg-[#EAF3F8] px-3.5 py-1.5 text-xs font-bold text-[#1766A6] transition-colors hover:bg-[#DCEBF4]"
+                      >
+                        عرض الإيصال
+                      </button>
+                    </div>
+                  </article>
+                ))}
             </div>
-          </div>
+          )}
         </div>
       )}
 
@@ -855,7 +640,7 @@ export const PortalView: React.FC<PortalViewProps> = ({
                     )}
                   </div>
                   <p className="text-[11px] text-[#203945]/80 leading-relaxed">{n.message}</p>
-                  <span className="text-[10px] text-[#203945]/50 block">{n.createdAt}</span>
+                  <span className="text-[10px] text-[#203945]/50 block">{n.timestamp}</span>
                 </div>
 
                 {!n.isRead && (
@@ -954,7 +739,7 @@ export const PortalView: React.FC<PortalViewProps> = ({
                   <h4 className="font-bold text-sm text-[#203945]">{rep.caseNumber} — تقرير استشارة</h4>
                   <span className="text-[10px] text-[#203945]/60">{rep.createdAt}</span>
                 </div>
-                <p className="text-[#203945]/80">{rep.summary}</p>
+                <p className="text-[#203945]/80">{rep.evaluation}</p>
                 <div className="bg-[#F3F7F6] p-2.5 rounded-[8px] text-[11px] text-[#25866D] font-bold">
                   التوصيات: {rep.recommendations}
                 </div>
@@ -965,7 +750,7 @@ export const PortalView: React.FC<PortalViewProps> = ({
       )}
 
       {/* ================= 10. TAB: PROFILE (الملف الشخصي) ================= */}
-      {beneficiaryTab === 'profile' && (
+      {beneficiaryTab === 'settings' && (
         <div className="bg-[#FBFDFC] border border-[#E0E8E6] rounded-[20px] p-6 shadow-xs space-y-4 text-xs">
           <div className="flex items-center gap-3 pb-3 border-b border-[#E0E8E6]">
             <div className="w-12 h-12 rounded-full bg-[#EAF3F8] text-[#1766A6] flex items-center justify-center text-lg font-bold">
@@ -976,7 +761,7 @@ export const PortalView: React.FC<PortalViewProps> = ({
                 {currentUser.firstName} {currentUser.lastName}
               </h3>
               <p className="text-[#1766A6] font-bold">
-                حساب مستفيد / أسرة • الولاية: {currentUser.wilayaName || 'قسنطينة'}
+                حساب مستفيد • الولاية: {currentUser.wilayaName || 'غير محددة'}
               </p>
             </div>
           </div>
@@ -984,35 +769,35 @@ export const PortalView: React.FC<PortalViewProps> = ({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
             <div className="bg-[#F3F7F6] p-3.5 rounded-[12px] space-y-1">
               <span className="text-[#203945]/70 block font-semibold">البريد الإلكتروني:</span>
-              <p className="font-bold text-[#203945]">{currentUser.email}</p>
+              <p className="font-bold text-[#203945]">{currentUser.email || 'غير مسجل'}</p>
             </div>
 
             <div className="bg-[#F3F7F6] p-3.5 rounded-[12px] space-y-1">
               <span className="text-[#203945]/70 block font-semibold">رقم الهاتف:</span>
-              <p className="font-bold text-[#203945]">{currentUser.phone || '0673362606'}</p>
+              <p className="font-bold text-[#203945]">{currentUser.phone || 'غير مسجل'}</p>
             </div>
 
             <div className="bg-[#F3F7F6] p-3.5 rounded-[12px] space-y-1">
               <span className="text-[#203945]/70 block font-semibold">الموقع / الولاية:</span>
-              <p className="font-bold text-[#203945]">{currentUser.wilayaName || 'قسنطينة'}</p>
+              <p className="font-bold text-[#203945]">{currentUser.wilayaName || 'غير محددة'}</p>
             </div>
 
             <div className="bg-[#F3F7F6] p-3.5 rounded-[12px] space-y-1">
               <span className="text-[#203945]/70 block font-semibold">حالة الحساب:</span>
-              <p className="font-bold text-[#25866D]">
-                {currentUser.status === 'active' ? 'حساب نشط ومحمي' : 'قيد المراجعة'}
-              </p>
+              <p className="font-bold text-[#25866D]">{currentUser.status}</p>
             </div>
           </div>
 
           <div className="bg-[#EAF3F8] p-3.5 rounded-[14px] border border-[#DCEBF4] text-[11px] text-[#104A78] space-y-1">
-            <strong className="block font-bold">🔒 الحماية القانونية للبيانات الشخصية:</strong>
+            <strong className="block font-bold">معلومات حسابك:</strong>
             <p className="leading-relaxed">
-              وفقاً لأحكام القانون رقم 18-07 المؤرخ في 10 يونيو 2018 المتعلق بحماية الأشخاص الطبيعيين في مجال معالجة المعطيات ذات الطابع الشخصي، فإن كافة معلوماتك مشفرة ومصانة ولا يتم مشاركتها إلا مع المختص المعالج بعد موافقتك الصريحة.
+              يمكنك مراجعة بيانات الحساب المسجلة هنا. القيم غير المتوفرة تظهر بوضوح ولا تُستبدل ببيانات افتراضية.
             </p>
           </div>
         </div>
       )}
+
+      </main>
 
       {/* Invoice Viewer Modal */}
       {selectedInvoice && (
@@ -1021,42 +806,44 @@ export const PortalView: React.FC<PortalViewProps> = ({
             <div className="flex items-center justify-between pb-3 border-b border-[#E0E8E6]">
               <div className="flex items-center gap-2">
                 <Receipt className="w-5 h-5 text-[#25866D]" />
-                <h3 className="font-black text-sm text-[#203945]">فاتورة الاستشارة الرسمية</h3>
+                <h3 className="font-black text-sm text-[#203945]">إيصال الدفع</h3>
               </div>
               <span className="text-[10px] font-mono bg-[#E8F4EF] text-[#25866D] px-2 py-0.5 rounded-full font-bold">
-                PAID / مدفوعة ✓
+                {selectedInvoice.status === 'SUCCESSFUL' ? 'مدفوعة' : selectedInvoice.status}
               </span>
             </div>
 
             <div className="space-y-2 bg-[#F8FAF9] p-4 rounded-[14px] border border-[#E5ECE9]">
               <p className="flex justify-between">
-                <span className="text-[#203945]/70">رقم الفاتورة:</span>
-                <span className="font-mono font-bold">INV-SC2026-0001</span>
+                <span className="text-[#203945]/70">رقم الدفع:</span>
+                <span className="font-mono font-bold">{selectedInvoice.paymentId}</span>
               </p>
               <p className="flex justify-between">
-                <span className="text-[#203945]/70">رقم الطلب:</span>
-                <span className="font-mono font-bold text-[#1766A6]">{selectedInvoice.orderNumber}</span>
+                <span className="text-[#203945]/70">مرجع الطلب:</span>
+                <span className="font-mono font-bold text-[#1766A6]">{selectedInvoice.orderId}</span>
               </p>
               <p className="flex justify-between">
                 <span className="text-[#203945]/70">نوع الخدمة:</span>
-                <span className="font-bold">{selectedInvoice.service}</span>
+                <span className="font-bold">{selectedInvoice.serviceTitle}</span>
               </p>
               <p className="flex justify-between">
-                <span className="text-[#203945]/70">تاريخ وساعة الموعد:</span>
-                <span>{selectedInvoice.date} — {selectedInvoice.time}</span>
+                <span className="text-[#203945]/70">تاريخ الدفع:</span>
+                <span>{selectedInvoice.paidAt || selectedInvoice.createdAt}</span>
               </p>
               <p className="flex justify-between">
                 <span className="text-[#203945]/70">المستفيد:</span>
-                <span>{currentUser.firstName} {currentUser.lastName}</span>
+                <span>{selectedInvoice.clientName}</span>
               </p>
               <div className="pt-2 border-t border-[#E0E8E6] flex justify-between font-black text-sm text-[#203945]">
-                <span>المبلغ المسدد:</span>
-                <span className="text-[#25866D]">{selectedInvoice.amount}</span>
+                <span>المبلغ:</span>
+                <span className="text-[#25866D]">
+                  {selectedInvoice.amountDzd.toLocaleString('ar-DZ')} {selectedInvoice.currency}
+                </span>
               </div>
             </div>
 
-            <p className="text-[10px] text-center text-[#203945]/60">
-              منصة الفرصة الثانية — قسنطينة • www.secchance.dz
+            <p className="text-[10px] leading-relaxed text-center text-[#203945]/60">
+              هذا الإيصال يعرض تفاصيل معاملة الدفع المحفوظة في الحساب.
             </p>
 
             <div className="flex justify-end pt-2 border-t border-[#E0E8E6] gap-2">

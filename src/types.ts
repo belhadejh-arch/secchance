@@ -292,7 +292,7 @@ export interface CaseFileDocument {
   caseNumber: string;
   clientId: number;
   clientName: string;
-  providerId: number;
+  providerId: number | string;
   providerName: string;
   fileName: string;
   fileCategory: 'تقرير طبي' | 'شهادة طبية' | 'وثيقة قضائية' | 'محضر رسمي' | 'وثيقة شخصية';

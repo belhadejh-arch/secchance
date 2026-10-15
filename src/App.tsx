@@ -103,7 +103,7 @@ function findProviderConfirmedBooking(
 }
 
 export function App() {
-  const [currentUser, setCurrentUser] = useState<User | null>(initialUsers[0]);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [currentView, setCurrentView] = useState<string>('landing');
   const [directoryTab, setDirectoryTab] = useState<'centers' | 'associations'>('centers');
   const [directorySearch, setDirectorySearch] = useState('');
@@ -112,7 +112,7 @@ export function App() {
   const [assessmentAnswers, setAssessmentAnswers] = useState<AssessmentAnswers | null>(null);
 
   // Database-backed state
-  const [users, setUsers] = useState<User[]>(initialUsers);
+  const [users, setUsers] = useState<User[]>([]);
   const [services] = useState<ServiceItem[]>(initialServices);
   const [careRequests, setCareRequests] = useState<CareRequest[]>([]);
   const [paymentTransactions, setPaymentTransactions] = useState<PaymentTransaction[]>([]);
@@ -136,11 +136,11 @@ export function App() {
 
   // Real-time Database initialization and subscriptions
   useEffect(() => {
-    initializeDatabase().catch(console.error);
+    if (currentUser) {
+      initializeDatabase().catch(console.error);
+    }
 
-    const unsubUsers = subscribeToUsers((data) => {
-      if (data.length > 0) setUsers(data);
-    });
+    const unsubUsers = subscribeToUsers((data) => setUsers(data));
 
     const unsubRequests = subscribeToCareRequests((data) => {
       setCareRequests(data);
@@ -185,18 +185,18 @@ export function App() {
       unsubFollowUps();
       unsubNotifs();
     };
-  }, []);
+  }, [currentUser]);
 
   // Restore remember-me user if available
   useEffect(() => {
     const savedUserId = localStorage.getItem('secchance_user_id');
     if (savedUserId && users.length > 0) {
       const found = users.find((u) => String(u.id) === savedUserId);
-      if (found) {
+      if (found && String(currentUser?.id) !== savedUserId) {
         setCurrentUser(found);
       }
     }
-  }, [users]);
+  }, [users, currentUser]);
 
   useEffect(() => {
     if (currentView !== 'payment' || !paymentTargetRequest || !currentUser) return;
@@ -626,6 +626,7 @@ export function App() {
           {currentView === 'portal' && currentUser && (
             <PortalView
               currentUser={currentUser}
+              services={services}
               requests={careRequests}
               transactions={paymentTransactions}
               appointments={appointments}
@@ -637,6 +638,8 @@ export function App() {
               onAcceptRequest={handleAcceptRequest}
               onRejectRequestClick={(id) => setRejectionTargetId(id)}
               onOpenChat={() => handleNavigate('messages')}
+              onRequestService={handleRequestService}
+              onOpenDirectory={handleOpenDirectory}
               onLogout={handleLogout}
             />
           )}
