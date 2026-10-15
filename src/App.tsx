@@ -60,6 +60,7 @@ import { DirectoryView } from './views/DirectoryView';
 import { AwarenessView } from './views/AwarenessView';
 import { EmergencyView } from './views/EmergencyView';
 import { LegalAssistanceView } from './views/LegalAssistanceView';
+import { FamilyGuidanceView } from './views/FamilyGuidanceView';
 import { AdminDashboardView } from './views/AdminDashboardView';
 import { SpecialistDashboardView } from './views/SpecialistDashboardView';
 
@@ -107,6 +108,7 @@ export function App() {
   const [directoryTab, setDirectoryTab] = useState<'centers' | 'associations'>('centers');
   const [directorySearch, setDirectorySearch] = useState('');
   const [requestTargetPerson, setRequestTargetPerson] = useState<'self' | 'family'>('self');
+  const [familyGuidanceReturnView, setFamilyGuidanceReturnView] = useState('help-options');
   const [assessmentAnswers, setAssessmentAnswers] = useState<AssessmentAnswers | null>(null);
 
   // Database-backed state
@@ -285,9 +287,10 @@ export function App() {
     handleNavigate('awareness');
   };
 
-  const handleOpenFamilyTriage = () => {
+  const handleOpenFamilyGuidance = () => {
+    setFamilyGuidanceReturnView(currentView);
     setRequestTargetPerson('family');
-    setIsAiOpen(true);
+    handleNavigate('family-guidance');
   };
 
   // Login handler with RBAC auto-routing
@@ -556,7 +559,7 @@ export function App() {
               onRequestService={handleRequestService}
               onOpenDirectory={handleOpenDirectory}
               onOpenLegalInformation={handleOpenAwareness}
-              onOpenFamilyGuidance={handleOpenFamilyTriage}
+              onOpenFamilyGuidance={handleOpenFamilyGuidance}
             />
           )}
 
@@ -566,7 +569,7 @@ export function App() {
               onRequestService={handleRequestService}
               onOpenDirectory={handleOpenDirectory}
               onOpenLegalInformation={handleOpenAwareness}
-              onOpenFamilyGuidance={handleOpenFamilyTriage}
+              onOpenFamilyGuidance={handleOpenFamilyGuidance}
               onStartNeedsAssessment={handleStartNeedsAssessment}
             />
           )}
@@ -587,9 +590,18 @@ export function App() {
               onReserveService={handleRequestService}
               onOpenDirectory={handleOpenDirectory}
               onOpenLegalInformation={handleOpenAwareness}
-              onOpenFamilyGuidance={handleOpenFamilyTriage}
+              onOpenFamilyGuidance={handleOpenFamilyGuidance}
               onOpenEmergency={() => handleNavigate('emergency')}
               onBack={() => handleNavigate('needs-assessment')}
+            />
+          )}
+
+          {currentView === 'family-guidance' && (
+            <FamilyGuidanceView
+              services={services}
+              onRequestService={handleRequestService}
+              onOpenDirectory={() => handleOpenDirectory('centers')}
+              onBack={() => handleNavigate(familyGuidanceReturnView)}
             />
           )}
 
