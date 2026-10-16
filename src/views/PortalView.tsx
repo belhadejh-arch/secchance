@@ -214,7 +214,7 @@ export const PortalView: React.FC<PortalViewProps> = ({
     { key: 'payments', title: 'مدفوعاتي', icon: <CreditCard className="h-4 w-4" />, action: () => setBeneficiaryTab('payments') },
     { key: 'invoices', title: 'فواتيري', icon: <Receipt className="h-4 w-4" />, action: () => setBeneficiaryTab('invoices') },
     { key: 'nearby', title: 'الجهات القريبة مني', icon: <MapPin className="h-4 w-4" />, action: () => onOpenDirectory('centers') },
-    { key: 'messages', title: 'رسائلي', icon: <MessageSquare className="h-4 w-4" />, action: () => onOpenChat(1) },
+    { key: 'messages', title: 'رسائلي', icon: <MessageSquare className="h-4 w-4" />, action: () => setBeneficiaryTab('messages') },
     { key: 'privacy', title: 'الخصوصية', icon: <ShieldCheck className="h-4 w-4" />, action: () => setBeneficiaryTab('privacy') },
     { key: 'settings', title: 'الإعدادات', icon: <Settings className="h-4 w-4" />, action: () => setBeneficiaryTab('settings') },
   ];

@@ -41,6 +41,11 @@ export interface User {
   rejectionReason?: string;
   createdAt?: string;
   password?: string;
+  familyPackage?: {
+    status: 'ACTIVE' | 'INACTIVE';
+    startsAt: string;
+    endsAt: string;
+  };
 }
 
 export interface ConsultationAvailabilitySlot {

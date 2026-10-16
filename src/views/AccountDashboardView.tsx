@@ -71,6 +71,13 @@ export const AccountDashboardView: React.FC<AccountDashboardViewProps> = ({
   const legalService = services.find((service) => service.category === 'legal');
   const psychologicalService = services.find((service) => service.category === 'psychological');
   const successfulTransactions = transactions.filter((transaction) => transaction.status === 'SUCCESSFUL');
+  const packageStart = dateValue(currentUser.familyPackage?.startsAt);
+  const packageEnd = dateValue(currentUser.familyPackage?.endsAt);
+  const familyPackageActive =
+    currentUser.familyPackage?.status === 'ACTIVE' &&
+    packageStart > 0 &&
+    packageEnd > Date.now() &&
+    packageStart <= Date.now();
 
   const serviceActions = [
     {
@@ -157,9 +164,11 @@ export const AccountDashboardView: React.FC<AccountDashboardViewProps> = ({
     },
     {
       title: 'حالة الباقة',
-      value: 'غير نشطة',
+      value: familyPackageActive ? 'نشطة' : 'غير نشطة',
       icon: <UsersRound className="h-5 w-5" />,
-      note: 'لا يوجد اشتراك مسجل',
+      note: familyPackageActive
+        ? `سارية حتى ${formatDate(currentUser.familyPackage!.endsAt)}`
+        : 'لا يوجد اشتراك فعّال في الحساب',
     },
   ];
 
