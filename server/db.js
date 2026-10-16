@@ -1,13 +1,14 @@
 import pg from 'pg';
 
 const { Pool } = pg;
+const connectionString = process.env.NEON_DATABASE_URL || process.env.DATABASE_URL;
 
-if (!process.env.DATABASE_URL) {
-  throw new Error('DATABASE_URL is required to start the platform API.');
+if (!connectionString) {
+  throw new Error('Set NEON_DATABASE_URL or DATABASE_URL to start the platform API.');
 }
 
 export const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
+  connectionString,
   max: 10,
   idleTimeoutMillis: 30_000,
   connectionTimeoutMillis: 10_000,

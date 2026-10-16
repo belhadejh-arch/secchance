@@ -21,6 +21,9 @@ ADMIN_PASSWORD=<كلمة مرور قوية جديدة>
 ADMIN_PHONE=0550000000
 ```
 
+في Replit، يمكن إبقاء `DATABASE_URL` المُدار كما هو وإضافة `NEON_DATABASE_URL`
+إلى Secrets؛ عند وجوده يستخدم الخادم اتصال Neon بدل قاعدة Replit.
+
 لا تضع `/api/v1` داخل `FRONTEND_URL`.
 
 ## 2. Vercel — Frontend
