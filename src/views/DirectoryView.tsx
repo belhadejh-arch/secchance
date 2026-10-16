@@ -151,13 +151,17 @@ export const DirectoryView: React.FC<DirectoryViewProps> = ({
   const [selectedAssociation, setSelectedAssociation] = useState<Association | null>(null);
 
   const filteredCenters = useMemo(() => {
-    if (!centerFilters) return initialTreatmentCenters;
+    if (!centerFilters) return [];
     const { wilaya, municipality, range } = centerFilters;
     const selected = wilaya ? getWilayaName(wilaya) : '';
     const neighbors = selected ? getNeighboringWilayas(selected) : [];
     const filtered = initialTreatmentCenters.filter((center) => {
       if (range === 'municipality') {
-        return Boolean(municipality && containsMunicipality(center, municipality));
+        return Boolean(
+          municipality &&
+            belongsToWilaya(center.wilayaName, selected) &&
+            containsMunicipality(center, municipality)
+        );
       }
       if (range === 'wilaya') return !selected || belongsToWilaya(center.wilayaName, selected);
       if (range === 'neighbors') {
@@ -187,7 +191,7 @@ export const DirectoryView: React.FC<DirectoryViewProps> = ({
   }, [centerFilters, userCoordinates]);
 
   const filteredAssociations = useMemo(
-    () =>
+    () => !associationFilters ? [] :
       initialAssociations
         .filter((association) => {
           if (
@@ -270,6 +274,10 @@ export const DirectoryView: React.FC<DirectoryViewProps> = ({
   const handleAssociationSearch = (event: FormEvent) => {
     event.preventDefault();
     setSearchError('');
+    if (!associationWilaya) {
+      setSearchError('اختر الولاية لعرض الجمعيات القريبة.');
+      return;
+    }
     setAssociationFilters({
       wilaya: associationWilaya,
       municipality: associationMunicipality,
@@ -278,6 +286,7 @@ export const DirectoryView: React.FC<DirectoryViewProps> = ({
   };
 
   const mapDetails = selectedCenter ?? selectedAssociation;
+  const detailTelephone = mapDetails ? getTelephone(mapDetails.phone) : null;
   const closeDetails = () => {
     setSelectedCenter(null);
     setSelectedAssociation(null);
@@ -415,10 +424,16 @@ export const DirectoryView: React.FC<DirectoryViewProps> = ({
           )}
 
           <div className="space-y-3">
-            <h2 className="text-base font-black text-[#203945]">
-              المراكز المتاحة ({filteredCenters.length})
-            </h2>
-            {filteredCenters.length === 0 && centerFilters?.range !== 'nearest' ? (
+            {!centerFilters ? (
+              <p className="rounded-2xl border border-[#E0E8E6] bg-white p-5 text-sm leading-relaxed text-[#203945]/70">
+                اختر الولاية والبلدية ونطاق البحث، ثم اضغط «بحث» لعرض المراكز المطابقة.
+              </p>
+            ) : (
+              <>
+                <h2 className="text-base font-black text-[#203945]">
+                  المراكز المتاحة ({filteredCenters.length})
+                </h2>
+                {filteredCenters.length === 0 && centerFilters.range !== 'nearest' ? (
               <p className="rounded-2xl border border-[#E0E8E6] bg-white p-6 text-sm text-[#203945]/70">
                 لم نعثر على مركز مطابق. جرّب توسيع نطاق البحث أو تحقق من تهجئة البلدية.
               </p>
@@ -499,6 +514,8 @@ export const DirectoryView: React.FC<DirectoryViewProps> = ({
                 })}
               </div>
             )}
+              </>
+            )}
           </div>
         </>
       ) : (
@@ -514,7 +531,7 @@ export const DirectoryView: React.FC<DirectoryViewProps> = ({
                 onChange={(event) => setAssociationWilaya(event.target.value)}
                 className="w-full rounded-xl border border-[#CCD8D5] bg-white px-3 py-2.5 font-normal"
               >
-                <option value="">كل الولايات</option>
+                <option value="">اختر الولاية</option>
                 {ALGERIA_WILAYAS.map((wilaya) => (
                   <option key={wilaya} value={wilaya}>
                     {wilaya}
@@ -562,10 +579,16 @@ export const DirectoryView: React.FC<DirectoryViewProps> = ({
           )}
 
           <div className="space-y-3">
-            <h2 className="text-base font-black text-[#203945]">
-              الجمعيات المتاحة ({filteredAssociations.length})
-            </h2>
-            {filteredAssociations.length === 0 ? (
+            {!associationFilters ? (
+              <p className="rounded-2xl border border-[#E0E8E6] bg-white p-5 text-sm leading-relaxed text-[#203945]/70">
+                اختر الولاية ومجال النشاط، ثم اضغط «بحث» لعرض الجمعيات المطابقة.
+              </p>
+            ) : (
+              <>
+                <h2 className="text-base font-black text-[#203945]">
+                  الجمعيات المتاحة ({filteredAssociations.length})
+                </h2>
+                {filteredAssociations.length === 0 ? (
               <p className="rounded-2xl border border-[#E0E8E6] bg-white p-6 text-sm leading-relaxed text-[#203945]/70">
                 لا توجد جمعية في الدليل تطابق هذه المعايير حالياً. الخيارات القريبة تساعدك في الوصول
                 إلى معلومات التواصل؛ اختر بنفسك الجهة التي ترغب في التواصل معها.
@@ -640,6 +663,8 @@ export const DirectoryView: React.FC<DirectoryViewProps> = ({
                 })}
               </div>
             )}
+              </>
+            )}
           </div>
         </>
       )}
@@ -688,15 +713,30 @@ export const DirectoryView: React.FC<DirectoryViewProps> = ({
                       .join('، ') || selectedAssociation.services
                   : ''}
             </p>
-            <a
-              href={getMapUrl(mapDetails.name, mapDetails.address, mapDetails.wilayaName)}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex items-center gap-2 rounded-xl bg-[#1766A6] px-4 py-2.5 text-sm font-bold text-white"
-            >
-              <ExternalLink className="h-4 w-4" />
-              فتح الموقع
-            </a>
+            <div className="flex flex-wrap gap-2">
+              <a
+                href={getMapUrl(mapDetails.name, mapDetails.address, mapDetails.wilayaName)}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-2 rounded-xl bg-[#1766A6] px-4 py-2.5 text-sm font-bold text-white"
+              >
+                <ExternalLink className="h-4 w-4" />
+                فتح الموقع
+              </a>
+              {detailTelephone ? (
+                <a
+                  href={`tel:${detailTelephone}`}
+                  className="inline-flex items-center gap-2 rounded-xl border border-[#25866D] px-4 py-2.5 text-sm font-bold text-[#1A5E4D]"
+                >
+                  <Phone className="h-4 w-4" />
+                  اتصال
+                </a>
+              ) : (
+                <span className="rounded-xl bg-slate-100 px-4 py-2.5 text-sm text-slate-600">
+                  رقم الاتصال غير متوفر
+                </span>
+              )}
+            </div>
           </section>
         </div>
       )}

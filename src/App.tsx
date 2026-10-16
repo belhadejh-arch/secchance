@@ -128,6 +128,7 @@ export function App() {
   const [selectedRequest, setSelectedRequest] = useState<CareRequest | null>(null);
   const [paymentTargetRequest, setPaymentTargetRequest] = useState<CareRequest | null>(null);
   const [preselectedServiceId, setPreselectedServiceId] = useState<number | undefined>(undefined);
+  const [pendingAuthServiceId, setPendingAuthServiceId] = useState<number | undefined>(undefined);
 
   // Modals
   const [isAuthOpen, setIsAuthOpen] = useState(false);
@@ -246,10 +247,11 @@ export function App() {
   };
 
   const handleRequestService = (service: ServiceItem) => {
-    setPreselectedServiceId(service.id);
     if (!currentUser) {
+      setPendingAuthServiceId(service.id);
       setIsAuthOpen(true);
     } else {
+      setPreselectedServiceId(service.id);
       handleNavigate('new-request');
     }
   };
@@ -296,6 +298,8 @@ export function App() {
   // Login handler with RBAC auto-routing
   const handleLogin = (user: User) => {
     setCurrentUser(user);
+    const requestedServiceId = pendingAuthServiceId;
+    setPendingAuthServiceId(undefined);
     if (user.roleSlug === 'admin') {
       handleNavigate('admin-dashboard');
     } else if (
@@ -304,6 +308,9 @@ export function App() {
       )
     ) {
       handleNavigate('specialist-dashboard');
+    } else if (requestedServiceId !== undefined) {
+      setPreselectedServiceId(requestedServiceId);
+      handleNavigate('new-request');
     } else {
       handleNavigate('portal');
     }
@@ -775,7 +782,10 @@ export function App() {
 
           {currentView === 'awareness' && (
             <AwarenessView
-              onNavigateToLegalAssistance={() => handleNavigate('legal-assistance')}
+              onRequestLegalConsultation={() => {
+                const legalService = services.find((service) => service.category === 'legal');
+                if (legalService) handleRequestService(legalService);
+              }}
             />
           )}
 
@@ -786,7 +796,10 @@ export function App() {
       {/* Modals */}
       <AuthModal
         isOpen={isAuthOpen}
-        onClose={() => setIsAuthOpen(false)}
+        onClose={() => {
+          setIsAuthOpen(false);
+          setPendingAuthServiceId(undefined);
+        }}
         onLogin={handleLogin}
       />
 

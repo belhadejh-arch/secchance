@@ -170,11 +170,11 @@ export const Navbar: React.FC<NavbarProps> = ({
           )}
 
           <button
-            onClick={() => onNavigate('legal-assistance')}
+            onClick={() => onNavigate('help-options')}
             className="flex items-center gap-1 hover:text-[#1766A6] transition-colors py-1 px-1 rounded-sm shrink-0 font-bold text-[#104A78]"
           >
             <Scale className="w-3.5 h-3.5 text-[#1766A6]" />
-            <span>المساعدة القانونية</span>
+            <span>الاستشارات</span>
           </button>
 
           <button

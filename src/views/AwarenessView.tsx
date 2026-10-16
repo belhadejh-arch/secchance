@@ -15,7 +15,7 @@ import {
 import { initialAwarenessArticles, initialLegalTopics } from '../data/initialData';
 
 interface AwarenessViewProps {
-  onNavigateToLegalAssistance?: () => void;
+  onRequestLegalConsultation?: () => void;
 }
 
 interface AwarenessMaterial {
@@ -129,7 +129,7 @@ function displayDate(value: string) {
 }
 
 export const AwarenessView: React.FC<AwarenessViewProps> = ({
-  onNavigateToLegalAssistance,
+  onRequestLegalConsultation,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('الكل');
@@ -188,10 +188,10 @@ export const AwarenessView: React.FC<AwarenessViewProps> = ({
           <strong>تنبيه:</strong> مواد التوعية لا تحل محل الاستشارة القانونية الفردية؛ تختلف
           الإجراءات باختلاف تفاصيل كل حالة.
         </div>
-        {onNavigateToLegalAssistance && (
+        {onRequestLegalConsultation && (
           <button
             type="button"
-            onClick={onNavigateToLegalAssistance}
+            onClick={onRequestLegalConsultation}
             className="shrink-0 text-xs font-bold text-[#1766A6] underline"
           >
             طلب استشارة

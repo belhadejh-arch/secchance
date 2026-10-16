@@ -20,7 +20,14 @@ interface FamilyGuidanceViewProps {
   onBack: () => void;
 }
 
-const guidanceTopics = [
+interface GuidanceTopic {
+  title: string;
+  icon: React.ReactNode;
+  advice: string;
+  nextStep?: 'legal' | 'psychological' | 'center';
+}
+
+const guidanceTopics: GuidanceTopic[] = [
   {
     title: 'كيف أتحدث مع أحد أفراد الأسرة؟',
     icon: <MessageCircle className="h-5 w-5" />,
@@ -30,18 +37,21 @@ const guidanceTopics = [
   {
     title: 'متى أطلب مساعدة متخصصة؟',
     icon: <HeartHandshake className="h-5 w-5" />,
+    nextStep: 'psychological',
     advice:
       'اطلب الدعم عندما تتكرر المشكلة، أو تؤثر في الصحة أو الدراسة أو العمل أو علاقات الأسرة، أو عندما تشعر أنكم لا تستطيعون التعامل معها وحدكم. لا يلزم انتظار تفاقم الوضع لطلب استشارة.',
   },
   {
     title: 'كيف أبحث عن مركز علاج قريب؟',
     icon: <MapPin className="h-5 w-5" />,
+    nextStep: 'center',
     advice:
       'ابدأ بالبحث حسب الولاية أو البلدية في دليل المراكز، ثم تواصل مع المركز مباشرة للتأكد من الخدمات المتاحة وشروط الاستقبال والمواعيد قبل التوجه إليه.',
   },
   {
     title: 'كيف أتعامل مع الضغط النفسي؟',
     icon: <Brain className="h-5 w-5" />,
+    nextStep: 'psychological',
     advice:
       'حاول الحفاظ على النوم والوجبات والراحة، واطلب مساندة شخص تثق به، وخذ وقتًا قصيرًا لنفسك دون الشعور بالذنب. إذا استمر الضغط أو أثّر في حياتك اليومية، تحدث مع مختص.',
   },
@@ -60,6 +70,7 @@ const guidanceTopics = [
   {
     title: 'متى أحتاج إلى استشارة قانونية؟',
     icon: <Scale className="h-5 w-5" />,
+    nextStep: 'legal',
     advice:
       'اطلب رأيًا قانونيًا عند وجود أسئلة عن الحقوق أو الإجراءات أو التعامل مع جهة رسمية. الاستشارة تساعد على فهم الخيارات، لكنها لا تعني تلقائيًا التمثيل أمام القضاء أو صدور قرار رسمي.',
   },
@@ -73,6 +84,10 @@ export const FamilyGuidanceView: React.FC<FamilyGuidanceViewProps> = ({
 }) => {
   const legalService = services.find((service) => service.category === 'legal');
   const psychologicalService = services.find((service) => service.category === 'psychological');
+  const requestTopicService = (category: 'legal' | 'psychological') => {
+    const service = category === 'legal' ? legalService : psychologicalService;
+    if (service) onRequestService(service);
+  };
 
   const directHelp = [
     {
@@ -148,6 +163,28 @@ export const FamilyGuidanceView: React.FC<FamilyGuidanceViewProps> = ({
               <p className="border-t border-[#E7EFEC] px-4 pb-4 pt-3 text-sm leading-7 text-[#203945]/80">
                 {topic.advice}
               </p>
+              {topic.nextStep && (
+                <div className="px-4 pb-4">
+                  {topic.nextStep === 'center' ? (
+                    <button
+                      type="button"
+                      onClick={onOpenDirectory}
+                      className="rounded-[10px] bg-[#1766A6] px-4 py-2.5 text-xs font-bold text-white hover:bg-[#125386]"
+                    >
+                      البحث عن مركز علاج
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      disabled={!(topic.nextStep === 'legal' ? legalService : psychologicalService)}
+                      onClick={() => requestTopicService(topic.nextStep as 'legal' | 'psychological')}
+                      className="rounded-[10px] bg-[#1766A6] px-4 py-2.5 text-xs font-bold text-white hover:bg-[#125386] disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {topic.nextStep === 'legal' ? 'طلب استشارة قانونية' : 'طلب استشارة نفسية'}
+                    </button>
+                  )}
+                </div>
+              )}
             </details>
           ))}
         </div>

@@ -50,13 +50,18 @@ export const LandingView: React.FC<LandingViewProps> = ({
   specialistsCount = 24,
 }) => {
   const visiblePartners = partners.filter((p) => p.isVisible);
+  const legalService = services.find((item) => item.category === 'legal');
+  const requestLegalConsultation = () => {
+    if (legalService) onRequestService(legalService);
+    else onNavigate('help-options');
+  };
   const mainServices = [
     {
       title: 'الاستشارة القانونية',
       price: '500 دج',
       description: 'استشارة مع محامٍ أو مستشار قانوني مختص.',
       icon: <Scale className="w-5 h-5" />,
-      action: () => onNavigate('legal-assistance'),
+      action: requestLegalConsultation,
     },
     {
       title: 'الاستشارة النفسية',
@@ -323,7 +328,7 @@ export const LandingView: React.FC<LandingViewProps> = ({
                 </button>
               </li>
               <li>
-                <button onClick={() => onNavigate('legal-assistance')} className="hover:text-white transition-colors">
+                <button onClick={requestLegalConsultation} className="hover:text-white transition-colors">
                   طلب مساعدة قانونية
                 </button>
               </li>
