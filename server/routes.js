@@ -789,7 +789,7 @@ async function updateAvailability(body, user, req) {
   await withTransaction(async (client) => {
     const result = await client.query(
       `UPDATE specialist_profiles
-          SET availability_schedule = $2::jsonb, updated_at = NOW()
+          SET availability_schedule = $2
         WHERE user_id = $1`,
       [user.id, JSON.stringify(slots)]
     );
