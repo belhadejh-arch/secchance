@@ -58,6 +58,13 @@ export const PaymentView: React.FC<PaymentViewProps> = ({
       <div className="bg-[#EAF3F8] rounded-[16px] p-4 space-y-2 border border-[#DCEBF4]">
           <span className="font-bold text-[13px] text-[#1766A6] block">تفاصيل العملية:</span>
         <p className="text-[13px] text-[#203945]">الخدمة: {request.serviceTitle}</p>
+        <p className="text-[13px] text-[#203945]">مقدم الخدمة: {request.providerName}</p>
+        {request.appointmentDate && request.appointmentTime && (
+          <p className="text-[13px] text-[#203945]">
+            الموعد: {request.appointmentTime} — {request.appointmentDate}
+          </p>
+        )}
+        <p className="text-[11px] text-[#203945]/70">رقم الطلب: {request.caseNumber}</p>
         <div className="border-t border-[#DCEBF4] pt-2 flex items-center justify-between">
             <span className="font-bold text-[14px] text-[#203945]">المبلغ المستحق:</span>
           <span className="font-black text-[16px] text-[#25866D]">

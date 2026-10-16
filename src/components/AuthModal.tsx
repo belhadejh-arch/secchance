@@ -33,8 +33,6 @@ import {
   createUserInDb,
   requestPasswordReset,
   verifyAndResetPassword,
-  DEFAULT_ADMIN_EMAIL,
-  DEFAULT_ADMIN_PASSWORD,
 } from '../services/dbService';
 
 export type AccountTypeOption =
@@ -174,7 +172,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [newPassword, setNewPassword] = useState('');
   const [confirmNewPassword, setConfirmNewPassword] = useState('');
   const [showNewPassword, setShowNewPassword] = useState(false);
-  const [generatedCodeHint, setGeneratedCodeHint] = useState<string | null>(null);
 
   // Feedback states
   const [loading, setLoading] = useState(false);
@@ -206,13 +203,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
     setLoading(true);
     try {
-      const result = await authenticateUser(loginEmail, loginPassword);
+      const result = await authenticateUser(loginEmail, loginPassword, rememberMe);
       if ('error' in result) {
         setErrorMsg(result.error);
       } else {
-        if (rememberMe) {
-          localStorage.setItem('secchance_user_id', String(result.user.id));
-        }
         onLogin(result.user);
         onClose();
       }
@@ -234,8 +228,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     }
 
     // Common password validation
-    if (regPassword.length < 6) {
-      setErrorMsg('يجب أن تتكون كلمة المرور من 6 أحرف على الأقل.');
+    if (regPassword.length < 10) {
+      setErrorMsg('يجب أن تتكون كلمة المرور من 10 أحرف على الأقل.');
       return;
     }
 
@@ -347,8 +341,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       const res = await requestPasswordReset(forgotEmail);
       if (res.success) {
         setSuccessMsg(res.message);
-        setGeneratedCodeHint(res.resetCode || null);
-        setMode('reset-code');
       } else {
         setErrorMsg(res.message);
       }
@@ -369,8 +361,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       return;
     }
 
-    if (newPassword.length < 6) {
-      setErrorMsg('كلمة المرور يجب أن لا تقل عن 6 أحرف.');
+    if (newPassword.length < 10) {
+      setErrorMsg('كلمة المرور يجب أن لا تقل عن 10 أحرف.');
       return;
     }
 
@@ -398,12 +390,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     } finally {
       setLoading(false);
     }
-  };
-
-  // Quick fill helper for testing/evaluation
-  const fillQuickAdmin = () => {
-    setLoginEmail(DEFAULT_ADMIN_EMAIL);
-    setLoginPassword(DEFAULT_ADMIN_PASSWORD);
   };
 
   const selectedTypeConfig = selectedType ? ACCOUNT_TYPES.find((t) => t.id === selectedType) : null;
@@ -522,13 +508,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 <span>تذكرني على هذا الجهاز</span>
               </label>
 
-              <button
-                type="button"
-                onClick={fillQuickAdmin}
-                className="text-[10px] text-[#1766A6] hover:underline bg-[#EAF3F8] px-2 py-1 rounded-[6px] font-bold"
-              >
-                تجربة بحساب الأدمن ⚡
-              </button>
             </div>
 
             <button
@@ -1284,12 +1263,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         {mode === 'reset-code' && (
           <form onSubmit={handleResetSubmit} className="p-6 space-y-4">
             <div className="bg-[#EAF3F8] p-3 rounded-[12px] text-xs text-[#104A78] space-y-1">
-              <p>تم إرسال رمز التحقق إلى: <strong>{forgotEmail}</strong></p>
-              {generatedCodeHint && (
-                <p className="font-mono bg-white/80 p-1.5 rounded border border-[#CCD8D5] text-center font-bold text-sm text-[#1766A6]">
-                  رمز التحقق السحابي: {generatedCodeHint}
-                </p>
-              )}
+              <p>تأكيد استعادة كلمة المرور لا يصبح متاحًا إلا بعد تهيئة خدمة بريد آمنة.</p>
             </div>
 
             <div className="space-y-1.5">

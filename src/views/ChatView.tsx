@@ -1,11 +1,11 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Conversation, Message } from '../types';
 import { Send } from 'lucide-react';
 
 interface ChatViewProps {
   conversations: Conversation[];
   messagesMap: Record<number, Message[]>;
-  onSendMessage: (convId: number, content: string) => void;
+  onSendMessage: (convId: number, content: string) => void | Promise<void>;
 }
 
 export const ChatView: React.FC<ChatViewProps> = ({
@@ -13,18 +13,34 @@ export const ChatView: React.FC<ChatViewProps> = ({
   messagesMap,
   onSendMessage,
 }) => {
-  const [selectedConvId, setSelectedConvId] = useState<number>(
-    conversations[0]?.id || 1
+  const [selectedConvId, setSelectedConvId] = useState<number | null>(
+    conversations[0]?.id ?? null
   );
   const [text, setText] = useState('');
+  const [sending, setSending] = useState(false);
+  const [sendError, setSendError] = useState('');
 
-  const currentMessages = messagesMap[selectedConvId] || [];
+  useEffect(() => {
+    if (!conversations.some((conversation) => conversation.id === selectedConvId)) {
+      setSelectedConvId(conversations[0]?.id ?? null);
+    }
+  }, [conversations, selectedConvId]);
 
-  const handleSend = (e: React.FormEvent) => {
+  const currentMessages = selectedConvId === null ? [] : messagesMap[selectedConvId] || [];
+
+  const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!text.trim()) return;
-    onSendMessage(selectedConvId, text);
-    setText('');
+    if (!text.trim() || selectedConvId === null || sending) return;
+    setSending(true);
+    setSendError('');
+    try {
+      await onSendMessage(selectedConvId, text);
+      setText('');
+    } catch (error) {
+      setSendError(error instanceof Error ? error.message : 'تعذر إرسال الرسالة.');
+    } finally {
+      setSending(false);
+    }
   };
 
   return (
@@ -63,6 +79,11 @@ export const ChatView: React.FC<ChatViewProps> = ({
       <div className="flex-1 flex flex-col bg-[#F3F7F6] p-3">
         {/* Messages List */}
         <div className="flex-1 overflow-y-auto space-y-2.5 p-2">
+          {conversations.length === 0 && (
+            <p className="rounded-xl border border-[#DCEBF4] bg-white p-4 text-center text-xs leading-6 text-[#203945]/70">
+              لا توجد محادثات مرتبطة بطلباتك بعد.
+            </p>
+          )}
           {currentMessages.map((msg) => (
             <div
               key={msg.id}
@@ -94,6 +115,11 @@ export const ChatView: React.FC<ChatViewProps> = ({
         </div>
 
         {/* Input Bar */}
+        {sendError && (
+          <p role="alert" className="mb-2 rounded-lg border border-red-200 bg-red-50 p-2 text-xs text-red-800">
+            {sendError}
+          </p>
+        )}
         <form
           onSubmit={handleSend}
           className="flex items-center gap-2 pt-2 border-t border-[#E5ECE9]"
@@ -103,11 +129,12 @@ export const ChatView: React.FC<ChatViewProps> = ({
             value={text}
             onChange={(e) => setText(e.target.value)}
             placeholder="اكتب رسالتك السرية هنا..."
+            disabled={selectedConvId === null || sending}
             className="flex-1 p-2.5 px-3 text-xs bg-white border border-[#CCD8D5] rounded-[12px] outline-hidden focus:border-[#1766A6]"
           />
           <button
             type="submit"
-            disabled={!text.trim()}
+            disabled={!text.trim() || selectedConvId === null || sending}
             className="w-11 h-11 rounded-[12px] bg-[#1766A6] hover:bg-[#125386] disabled:opacity-50 text-white flex items-center justify-center transition-colors shrink-0 shadow-xs"
           >
             <Send className="w-4 h-4" />

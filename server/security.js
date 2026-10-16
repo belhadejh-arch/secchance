@@ -2,6 +2,7 @@ import crypto from 'node:crypto';
 import bcrypt from 'bcryptjs';
 
 const SESSION_SECONDS = 8 * 60 * 60;
+const REMEMBERED_SESSION_SECONDS = 30 * 24 * 60 * 60;
 const secret = process.env.SESSION_SECRET || process.env.JWT_SECRET;
 
 if (!secret || secret.length < 32) {
@@ -30,10 +31,14 @@ export function verifyPassword(password, digest) {
   return bcrypt.compare(password, digest);
 }
 
-export function createSessionToken(user) {
+export function createSessionToken(user, rememberMe = false) {
   const now = Math.floor(Date.now() / 1000);
   const payload = Buffer.from(
-    JSON.stringify({ sub: Number(user.id), iat: now, exp: now + SESSION_SECONDS })
+    JSON.stringify({
+      sub: Number(user.id),
+      iat: now,
+      exp: now + (rememberMe ? REMEMBERED_SESSION_SECONDS : SESSION_SECONDS),
+    })
   ).toString('base64url');
   const signature = crypto.createHmac('sha256', secret).update(payload).digest('base64url');
   return `${payload}.${signature}`;
@@ -165,4 +170,6 @@ function parseAvailability(value) {
   }
 }
 
-export const sessionMaxAge = SESSION_SECONDS;
+export function sessionMaxAge(rememberMe = false) {
+  return rememberMe ? REMEMBERED_SESSION_SECONDS : SESSION_SECONDS;
+}

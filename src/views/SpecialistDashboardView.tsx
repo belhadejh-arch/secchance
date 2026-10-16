@@ -6,6 +6,7 @@ import {
   SpecialistReport,
   TreatmentFollowUp,
   PlatformNotification,
+  ConsultationAvailabilitySlot,
 } from '../types';
 import {
   FileText,
@@ -34,6 +35,7 @@ import {
   updateAppointmentStatusInDb,
   addTreatmentFollowUpInDb,
   markNotificationAsReadInDb,
+  saveAvailabilityInDb,
 } from '../services/dbService';
 
 interface SpecialistDashboardViewProps {
@@ -129,6 +131,39 @@ export const SpecialistDashboardView: React.FC<SpecialistDashboardViewProps> = (
     | 'profile'
     | 'settings'
   >('home');
+  const [availabilitySlots, setAvailabilitySlots] = useState<ConsultationAvailabilitySlot[]>(
+    currentUser.availabilitySlots || []
+  );
+  const [slotDate, setSlotDate] = useState('');
+  const [slotTime, setSlotTime] = useState('10:00');
+  const [availabilityError, setAvailabilityError] = useState('');
+  const [availabilitySaving, setAvailabilitySaving] = useState(false);
+
+  const persistAvailability = async (slots: ConsultationAvailabilitySlot[]) => {
+    setAvailabilitySaving(true);
+    setAvailabilityError('');
+    try {
+      const saved = await saveAvailabilityInDb(slots);
+      setAvailabilitySlots(saved);
+    } catch (error) {
+      setAvailabilityError(error instanceof Error ? error.message : 'تعذر حفظ المواعيد المتاحة.');
+    } finally {
+      setAvailabilitySaving(false);
+    }
+  };
+
+  const addAvailabilitySlot = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!slotDate || !slotTime) {
+      setAvailabilityError('اختر التاريخ والوقت أولًا.');
+      return;
+    }
+    const durationMinutes = currentUser.roleSlug === 'psychologist' ? 50 : 30;
+    await persistAvailability([
+      ...availabilitySlots,
+      { date: slotDate, time: slotTime, durationMinutes },
+    ]);
+  };
 
   // Selected case for viewing in-progress details
   const [selectedCaseForDetail, setSelectedCaseForDetail] = useState<CareRequest | null>(
@@ -855,6 +890,62 @@ export const SpecialistDashboardView: React.FC<SpecialistDashboardViewProps> = (
       {/* ===================== TAB 4: APPOINTMENTS ===================== */}
       {activeTab === 'appointments' && (
         <section className="space-y-3">
+          {['psychologist', 'lawyer', 'legal_advisor'].includes(currentUser.roleSlug) && (
+            <div className="rounded-[18px] border border-[#DCEBF4] bg-white p-4">
+              <h3 className="text-sm font-black text-[#203945]">إدارة أوقات الاستشارة المتاحة</h3>
+              <p className="mt-1 text-xs leading-5 text-[#203945]/65">
+                أضف المواعيد التي يمكن للمستفيدين حجزها. تُحفظ هذه الأوقات في ملفك المهني، ويُمنع حجز الموعد نفسه مرتين.
+              </p>
+              <form onSubmit={addAvailabilitySlot} className="mt-3 flex flex-wrap items-end gap-2">
+                <label className="grid gap-1 text-xs font-bold text-[#203945]">
+                  التاريخ
+                  <input
+                    type="date"
+                    min={new Date().toISOString().slice(0, 10)}
+                    value={slotDate}
+                    onChange={(event) => setSlotDate(event.target.value)}
+                    required
+                    className="h-10 rounded-lg border border-[#CCD8D5] bg-white px-3"
+                  />
+                </label>
+                <label className="grid gap-1 text-xs font-bold text-[#203945]">
+                  الوقت
+                  <input
+                    type="time"
+                    value={slotTime}
+                    onChange={(event) => setSlotTime(event.target.value)}
+                    required
+                    className="h-10 rounded-lg border border-[#CCD8D5] bg-white px-3"
+                  />
+                </label>
+                <button
+                  type="submit"
+                  disabled={availabilitySaving}
+                  className="h-10 rounded-lg bg-[#1766A6] px-4 text-xs font-bold text-white disabled:opacity-50"
+                >
+                  {availabilitySaving ? 'جارٍ الحفظ...' : 'إضافة موعد متاح'}
+                </button>
+              </form>
+              {availabilityError && <p role="alert" className="mt-2 text-xs text-red-700">{availabilityError}</p>}
+              <div className="mt-3 flex flex-wrap gap-2">
+                {availabilitySlots.map((slot, index) => (
+                  <span key={`${slot.date}-${slot.time}`} className="inline-flex items-center gap-2 rounded-lg bg-[#F3F7F6] px-3 py-2 text-xs text-[#203945]">
+                    {slot.date} — {slot.time}
+                    <button
+                      type="button"
+                      aria-label={`حذف موعد ${slot.date} ${slot.time}`}
+                      disabled={availabilitySaving}
+                      onClick={() => void persistAvailability(availabilitySlots.filter((_, slotIndex) => slotIndex !== index))}
+                      className="font-black text-red-700 disabled:opacity-50"
+                    >
+                      ×
+                    </button>
+                  </span>
+                ))}
+                {availabilitySlots.length === 0 && <span className="text-xs text-[#203945]/55">لا توجد مواعيد متاحة منشورة.</span>}
+              </div>
+            </div>
+          )}
           <div>
             <h2 className="text-lg font-black text-[#203945]">جدول المواعيد</h2>
             <p className="mt-1 text-sm text-[#203945]/65">مواعيدك المرتبطة بالحالات المسندة إليك.</p>
@@ -923,8 +1014,7 @@ export const SpecialistDashboardView: React.FC<SpecialistDashboardViewProps> = (
                                 onClick={() =>
                                   updateAppointmentStatusInDb(
                                     appointment.id,
-                                    'CONFIRMED',
-                                    currentUser.firstName
+                                    'CONFIRMED'
                                   )
                                 }
                                 className="whitespace-nowrap rounded-[9px] bg-[#25866D] px-3 py-2 font-bold text-white hover:bg-[#1E6F5A]"

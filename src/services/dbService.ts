@@ -3,6 +3,8 @@ import {
   Association,
   AuditLogEntry,
   CareRequest,
+  CaseFileDocument,
+  ConsultationAvailabilitySlot,
   Conversation,
   Message,
   PartnerOrganization,
@@ -199,11 +201,15 @@ export function subscribeToAssociations(callback: (items: Association[]) => void
   return subscribe('associations', callback);
 }
 
-export async function authenticateUser(email: string, password: string): Promise<{ user: User } | { error: string }> {
+export async function authenticateUser(
+  email: string,
+  password: string,
+  rememberMe = false
+): Promise<{ user: User } | { error: string }> {
   try {
     const result = await api<{ user: User }>('/auth/login', {
       method: 'POST',
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify({ email, password, rememberMe }),
     });
     await refreshSnapshot();
     return result;
@@ -212,7 +218,10 @@ export async function authenticateUser(email: string, password: string): Promise
   }
 }
 
-export async function createUserInDb(user: Omit<User, 'id'> & { password?: string }): Promise<User> {
+export async function createUserInDb(
+  user: Omit<User, 'id'> & { password?: string },
+  _actorName?: string
+): Promise<User> {
   const selfRegistration = Boolean(user.accountType);
   const result = await api<{ user: User }>(selfRegistration ? '/auth/register' : '/users', {
     method: 'POST',
@@ -233,16 +242,20 @@ export async function updateUserInDb(id: string | number, updates: Partial<User>
   await refreshSnapshot();
 }
 
-export async function deleteUserFromDb(id: string | number): Promise<void> {
+export async function deleteUserFromDb(id: string | number, _actorName?: string): Promise<void> {
   await api(`/users/${encodeURIComponent(String(id))}`, { method: 'DELETE' });
   await refreshSnapshot();
 }
 
-export async function approveUserInDb(id: string | number): Promise<void> {
+export async function approveUserInDb(id: string | number, _actorName?: string): Promise<void> {
   return updateUserInDb(id, { status: 'active' });
 }
 
-export async function rejectUserInDb(id: string | number, reason: string): Promise<void> {
+export async function rejectUserInDb(
+  id: string | number,
+  reason: string,
+  _actorName?: string
+): Promise<void> {
   await api(`/users/${encodeURIComponent(String(id))}`, {
     method: 'PATCH',
     body: JSON.stringify({ status: 'rejected', rejectionReason: reason }),
@@ -262,7 +275,11 @@ export async function requestPasswordReset(email: string): Promise<{ success: bo
   }
 }
 
-export async function verifyAndResetPassword(): Promise<{ success: false; message: string }> {
+export async function verifyAndResetPassword(
+  _email: string,
+  _code: string,
+  _password: string
+): Promise<{ success: false; message: string }> {
   return {
     success: false,
     message: 'إعادة تعيين كلمة المرور غير متاحة حتى تهيئة إرسال البريد بشكل آمن.',
@@ -291,7 +308,8 @@ export async function createCareRequestInDb(request: Omit<CareRequest, 'id'>): P
 
 export async function updateCareRequestInDb(
   id: string | number,
-  updates: Partial<CareRequest>
+  updates: Partial<CareRequest>,
+  _actorName?: string
 ): Promise<void> {
   if (updates.serviceRating) {
     await submitServiceRatingInDb(id, updates.serviceRating);
@@ -430,6 +448,48 @@ export async function submitServiceRatingInDb(
   await refreshSnapshot();
 }
 
+export async function listCaseDocumentsInDb(): Promise<CaseFileDocument[]> {
+  return api('/documents');
+}
+
+export async function uploadCaseDocumentInDb(
+  requestId: string | number,
+  file: File,
+  category: CaseFileDocument['fileCategory']
+): Promise<CaseFileDocument> {
+  if (file.size > 2 * 1024 * 1024) {
+    throw new Error('اختر ملفًا لا يتجاوز حجمه 2 ميغابايت.');
+  }
+  const dataUrl = await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('تعذر قراءة الملف المحدد.'));
+    reader.onload = () => resolve(String(reader.result || ''));
+    reader.readAsDataURL(file);
+  });
+  const base64 = dataUrl.slice(dataUrl.indexOf(',') + 1);
+  const result = await api<{ document: CaseFileDocument }>(
+    `/requests/${encodeURIComponent(String(requestId))}/documents`,
+    {
+      method: 'POST',
+      body: JSON.stringify({
+        fileName: file.name,
+        mimeType: file.type || 'application/octet-stream',
+        base64,
+        category,
+      }),
+    }
+  );
+  return result.document;
+}
+
+export async function downloadCaseDocumentInDb(id: string | number): Promise<{
+  fileName: string;
+  mimeType: string;
+  base64: string;
+}> {
+  return api(`/documents/${encodeURIComponent(String(id))}`);
+}
+
 export async function recordPrivacyConsent(): Promise<void> {
   await api('/privacy/consent', {
     method: 'POST',
@@ -439,4 +499,18 @@ export async function recordPrivacyConsent(): Promise<void> {
 
 export async function getPublicDirectory(type: 'centers' | 'associations'): Promise<TreatmentCenter[] | Association[]> {
   return api(`/public/directory?type=${type}`);
+}
+
+export async function getPublicServices(): Promise<BootstrapData['services']> {
+  return api('/public/services');
+}
+
+export async function saveAvailabilityInDb(
+  slots: ConsultationAvailabilitySlot[]
+): Promise<ConsultationAvailabilitySlot[]> {
+  const result = await api<{ availabilitySlots: ConsultationAvailabilitySlot[] }>(
+    '/profile/availability',
+    { method: 'PATCH', body: JSON.stringify({ slots }) }
+  );
+  return result.availabilitySlots;
 }

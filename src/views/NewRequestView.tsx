@@ -71,7 +71,6 @@ export const NewRequestView: React.FC<NewRequestViewProps> = ({
   );
   const [targetPerson, setTargetPerson] = useState<'self' | 'family'>(initialTargetPerson ?? 'self');
   const [problemDescription, setProblemDescription] = useState<string>(legalDraft?.description ?? '');
-  const [attachedFileName, setAttachedFileName] = useState<string | null>(legalDraft?.attachedDocs[0] ?? null);
   const legalTopics = [
     'استفسار قانوني.',
     'وضعية أحد أفراد الأسرة.',
@@ -167,12 +166,6 @@ export const NewRequestView: React.FC<NewRequestViewProps> = ({
   );
   const appointmentDuration = selectedService?.durationMinutes ?? selectedSlot?.durationMinutes;
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      setAttachedFileName(e.target.files[0].name);
-    }
-  };
-
   const handleCreateAppointmentRequest = async () => {
     if (!selectedService || !currentUser || !selectedSpecialist || !selectedSlot || !serviceTermsAccepted) {
       setSubmissionError('يرجى اختيار مختص وموعد متاح والموافقة على شروط الخدمة وسياسة الإلغاء.');
@@ -204,7 +197,6 @@ export const NewRequestView: React.FC<NewRequestViewProps> = ({
           durationMinutes: appointmentDuration,
           appointmentHoldExpiresAt: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
           consultationTopic,
-          attachedDocs: attachedFileName ? [attachedFileName] : [],
           paymentMethod,
           assessment:
             selectedService.category === 'legal'
@@ -446,36 +438,9 @@ export const NewRequestView: React.FC<NewRequestViewProps> = ({
             />
           </div>
 
-          {/* Document Upload (Optional per Prototype) */}
-          <div className="p-3.5 rounded-[14px] bg-[#F3F7F6] border border-[#E0E8E6] space-y-2">
-            <label className="block text-xs font-bold text-[#203945]">
-              {selectedService?.category === 'psychological'
-                ? 'إرفاق وثيقة عند الحاجة — اختياري:'
-                : 'إرفاق وثيقة عند الحاجة — اختياري:'}
-            </label>
-            <div className="flex items-center gap-3">
-              <label className="cursor-pointer px-3.5 py-2 rounded-[10px] bg-white border border-[#CCD8D5] hover:bg-[#EAF3F8] text-[#1766A6] font-bold text-xs flex items-center gap-1.5 transition-colors shadow-2xs">
-                <Upload className="w-3.5 h-3.5" />
-                <span>[ + رفع ملف ]</span>
-                <input
-                  type="file"
-                  accept=".pdf,.png,.jpg,.jpeg,.doc,.docx"
-                  onChange={handleFileUpload}
-                  className="hidden"
-                />
-              </label>
-              <span className="text-xs text-[#203945]/70 truncate max-w-[240px]">
-                {attachedFileName ? (
-                  <span className="text-emerald-700 font-bold flex items-center gap-1">
-                    <FileCheck className="w-3.5 h-3.5" />
-                    {attachedFileName}
-                  </span>
-                ) : (
-                  'لم يتم إرفاق ملف (اختياري)'
-                )}
-              </span>
-            </div>
-          </div>
+          <p className="rounded-[14px] border border-[#E0E8E6] bg-[#F3F7F6] p-3.5 text-xs leading-6 text-[#203945]/75">
+            يمكن رفع الوثائق المشفرة بعد إرسال الطلب من تبويب «الملفات» في حسابك؛ اختيار ملف هنا قبل إنشاء الطلب لن يحفظه.
+          </p>
 
           {selectedService?.category === 'psychological' && (
             <div className="rounded-[12px] border border-[#DCEBF4] bg-[#EAF3F8] p-3 text-xs leading-relaxed text-[#104A78]">

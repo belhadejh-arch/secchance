@@ -136,9 +136,9 @@ function sameSiteCookie() {
   }
 }
 
-function sessionCookie(token) {
+function sessionCookie(token, rememberMe = false) {
   const { sameSite, secure } = sameSiteCookie();
-  return `${COOKIE_NAME}=${encodeURIComponent(token)}; HttpOnly; SameSite=${sameSite}; Path=/; Max-Age=${sessionMaxAge}${secure}`;
+  return `${COOKIE_NAME}=${encodeURIComponent(token)}; HttpOnly; SameSite=${sameSite}; Path=/; Max-Age=${sessionMaxAge(rememberMe)}${secure}`;
 }
 
 function wilayaCode(value) {
@@ -318,7 +318,13 @@ async function updateRequest(requestId, body, user, req) {
   const target = await findRequestForUser(requestId, user);
   if (!target) throw new HttpError(404, 'الطلب غير موجود أو لا تملك صلاحية الوصول إليه.');
   const isProvider = Number(target.provider_id) === Number(user.id);
-  if (user.role_slug !== 'admin' && !isProvider) {
+  const isRequester = Number(target.requester_id) === Number(user.id);
+  const isAdmin = user.role_slug === 'admin';
+  const requesterCancellation =
+    isRequester && body.status === 'CANCELLED' &&
+    ['PENDING_PROVIDER', 'NEW', 'WAITING_PAYMENT'].includes(target.status) &&
+    target.payment_status !== 'PAID';
+  if (!isAdmin && !isProvider && !requesterCancellation) {
     throw new HttpError(403, 'لا يملك هذا الحساب صلاحية تحديث حالة الطلب.');
   }
   requireActive(user);
@@ -329,6 +335,7 @@ async function updateRequest(requestId, body, user, req) {
   let paymentStatus = target.payment_status;
   let action = 'REQUEST_UPDATED';
   let detail = '';
+  let refundPayment = null;
 
   if (body.priority !== undefined) {
     if (!allowedPriorities.has(body.priority)) throw new HttpError(400, 'درجة الأولوية غير صالحة.');
@@ -342,10 +349,12 @@ async function updateRequest(requestId, body, user, req) {
     if (user.role_slug !== 'admin' && !isProvider) throw new HttpError(403, 'غير مصرح بتغيير حالة الطلب.');
     if (body.status === 'ACCEPTED') {
       if (!['PENDING_PROVIDER', 'NEW'].includes(target.status)) throw new HttpError(409, 'لا يمكن قبول الطلب في حالته الحالية.');
-      nextStatus = 'ACCEPTED';
+      nextStatus = Number(target.amount_dzd) > 0 ? 'WAITING_PAYMENT' : 'ACCEPTED';
       paymentStatus = Number(target.amount_dzd) > 0 ? 'PENDING' : 'NOT_REQUIRED';
       action = 'REQUEST_ACCEPTED';
-      detail = 'وافق مقدم الخدمة على الطلب.';
+      detail = Number(target.amount_dzd) > 0
+        ? 'وافق مقدم الخدمة على الطلب؛ بانتظار الدفع لتأكيد الموعد.'
+        : 'وافق مقدم الخدمة على الطلب.';
     } else if (body.status === 'REJECTED') {
       const reason = String(body.rejectionReason || '').trim();
       if (reason.length < 5) throw new HttpError(400, 'أدخل سبب رفض واضحًا قبل المتابعة.');
@@ -357,14 +366,13 @@ async function updateRequest(requestId, body, user, req) {
         [requestId]
       );
       if (paid.rows[0]) {
-        await pool.query(
-          `INSERT INTO refunds (payment_id, requested_by, amount_dzd, status, reason, created_at, updated_at)
-           VALUES ($1, $2, $3, 'PENDING', $4, NOW(), NOW())`,
-          [paid.rows[0].id, user.id, paid.rows[0].amount_dzd, 'رفض مقدم الخدمة بعد تأكيد الدفع: ' + detail]
-        );
+        refundPayment = paid.rows[0];
         paymentStatus = 'REFUND_PENDING';
-        await pool.query(`UPDATE payments SET status = 'REFUND_PENDING' WHERE id = $1`, [paid.rows[0].id]);
       }
+    } else if (body.status === 'CANCELLED' && requesterCancellation) {
+      nextStatus = 'CANCELLED';
+      action = 'REQUEST_CANCELLED';
+      detail = 'ألغى المستفيد الطلب قبل تأكيد الدفع.';
     } else if (body.status === 'COMPLETED') {
       if (target.payment_status !== 'PAID' && Number(target.amount_dzd) > 0) {
         throw new HttpError(409, 'لا يمكن إكمال خدمة مدفوعة قبل تأكيد الدفع.');
@@ -372,6 +380,16 @@ async function updateRequest(requestId, body, user, req) {
       nextStatus = 'COMPLETED';
       action = 'REQUEST_COMPLETED';
       detail = 'تم تسجيل اكتمال الخدمة من مقدمها.';
+    } else if (body.status === 'IN_PROGRESS') {
+      if (Number(target.amount_dzd) > 0 && target.payment_status !== 'PAID') {
+        throw new HttpError(409, 'لا يمكن بدء خدمة مدفوعة قبل التحقق من الدفع.');
+      }
+      if (!['APPOINTMENT_CONFIRMED', 'IN_PROGRESS'].includes(target.status)) {
+        throw new HttpError(409, 'لا يمكن بدء الخدمة قبل تأكيد الموعد.');
+      }
+      nextStatus = 'IN_PROGRESS';
+      action = 'REQUEST_IN_PROGRESS';
+      detail = 'بدأ مقدم الخدمة متابعة الطلب.';
     } else {
       nextStatus = body.status;
       action = `REQUEST_${body.status}`;
@@ -392,6 +410,17 @@ async function updateRequest(requestId, body, user, req) {
   params.push(requestId);
 
   await withTransaction(async (client) => {
+    if (refundPayment) {
+      await client.query(
+        `INSERT INTO refunds (payment_id, requested_by, amount_dzd, status, reason, created_at, updated_at)
+         VALUES ($1, $2, $3, 'PENDING', $4, NOW(), NOW())`,
+        [refundPayment.id, user.id, refundPayment.amount_dzd, `رفض مقدم الخدمة بعد تأكيد الدفع: ${detail}`]
+      );
+      await client.query(
+        `UPDATE payments SET status = 'REFUND_PENDING' WHERE id = $1`,
+        [refundPayment.id]
+      );
+    }
     await client.query(
       `UPDATE service_requests SET ${updates.join(', ')}, updated_at = NOW() WHERE id = $${params.length}`,
       params
@@ -403,18 +432,27 @@ async function updateRequest(requestId, body, user, req) {
       'UPDATE case_files SET status = $2, priority = COALESCE($3, priority), updated_at = NOW() WHERE id = $1',
       [target.case_file_id, caseStatus, body.priority ?? null]
     );
+    if (nextStatus === 'REJECTED' || nextStatus === 'CANCELLED') {
+      await client.query(
+        `UPDATE appointments SET status = 'CANCELLED', cancellation_reason = $2
+          WHERE id = $1 AND status IN ('PENDING', 'CONFIRMED')`,
+        [target.appointment_id, detail]
+      );
+    }
     await client.query(
       `INSERT INTO request_history (request_id, user_id, action, from_status, to_status, details, created_at)
        VALUES ($1, $2, $3, $4, $5, $6, NOW())`,
       [requestId, user.id, action, target.status, nextStatus, detail || null]
     );
     await addAudit(client, user.id, action, 'service_request', requestId, detail, req);
-    if (nextStatus === 'ACCEPTED') {
+    if (nextStatus === 'ACCEPTED' || nextStatus === 'WAITING_PAYMENT') {
       await addNotification(
         client,
         target.requester_id,
         'تمت الموافقة على طلبك',
-        'وافق مقدم الخدمة على الطلب. أكمل الدفع لتأكيد الموعد.',
+        nextStatus === 'WAITING_PAYMENT'
+          ? 'وافق مقدم الخدمة على الطلب. أكمل الدفع لتأكيد الموعد.'
+          : 'وافق مقدم الخدمة على الطلب.',
         'REQUEST',
         `/requests/${requestId}`
       );
@@ -425,6 +463,15 @@ async function updateRequest(requestId, body, user, req) {
         'تم رفض الطلب',
         `سبب الرفض: ${detail}${paymentStatus === 'REFUND_PENDING' ? ' يجري تسجيل طلب استرجاع المبلغ.' : ''}`,
         'STATUS',
+        `/requests/${requestId}`
+      );
+    } else if (nextStatus === 'CANCELLED') {
+      await addNotification(
+        client,
+        target.provider_id,
+        'أُلغي طلب استشارة',
+        'ألغى المستفيد الطلب قبل تأكيد الدفع.',
+        'REQUEST',
         `/requests/${requestId}`
       );
     } else if (nextStatus === 'COMPLETED') {
@@ -480,6 +527,12 @@ async function createRequest(body, user, req) {
     ) {
       throw new HttpError(409, 'هذا المقدم غير متاح لهذه الخدمة أو لم يكتمل اعتماده.');
     }
+    const roleMatchesCategory = category === 'legal'
+      ? ['lawyer', 'legal_advisor'].includes(service.role_slug)
+      : service.role_slug === 'psychologist';
+    if (!roleMatchesCategory) {
+      throw new HttpError(409, 'لا يملك هذا الحساب الاعتماد المهني المطلوب لهذه الاستشارة.');
+    }
     if (Number(service.amount_dzd) !== 500) {
       throw new HttpError(409, 'تعذر إرسال الطلب لأن سعر الاستشارة لا يطابق السعر المعتمد 500 دج.');
     }
@@ -513,8 +566,18 @@ async function createRequest(body, user, req) {
     }
     const startTime = start.slice(0, 5);
     const [hour, minute] = startTime.split(':').map(Number);
+    if (
+      !Number.isInteger(hour) || !Number.isInteger(minute) ||
+      hour < 0 || hour > 23 || minute < 0 || minute > 59 ||
+      date < new Date().toISOString().slice(0, 10)
+    ) {
+      throw new HttpError(400, 'تاريخ أو وقت الموعد غير صالح.');
+    }
     const duration = category === 'psychological' ? 50 : 30;
     const endMinutes = hour * 60 + minute + duration;
+    if (endMinutes >= 24 * 60) {
+      throw new HttpError(400, 'اختر وقتًا يسمح بإكمال مدة الاستشارة في اليوم نفسه.');
+    }
     const endTime = `${String(Math.floor(endMinutes / 60) % 24).padStart(2, '0')}:${String(endMinutes % 60).padStart(2, '0')}`;
     const conflict = await client.query(
       `SELECT id FROM appointments
@@ -553,20 +616,21 @@ async function createRequest(body, user, req) {
       ]
     );
     const requestId = Number(requestResult.rows[0].id);
+    const conversation = await client.query(
+      `INSERT INTO conversations (case_file_id, title, created_at)
+       VALUES ($1, $2, NOW()) RETURNING id`,
+      [caseFileId, service.title]
+    );
+    await client.query(
+      `INSERT INTO conversation_participants (conversation_id, user_id, joined_at)
+       VALUES ($1, $2, NOW()), ($1, $3, NOW())
+       ON CONFLICT (conversation_id, user_id) DO NOTHING`,
+      [conversation.rows[0].id, user.id, providerId]
+    );
     await client.query(
       `INSERT INTO request_history (request_id, user_id, action, from_status, to_status, details, created_at)
        VALUES ($1, $2, 'REQUEST_CREATED', NULL, 'PENDING_PROVIDER', 'أرسل المستفيد طلب استشارة مع الموافقة على معالجة بياناتها.', NOW())`,
       [requestId, user.id]
-    );
-    const conversation = await client.query(
-      `INSERT INTO conversations (case_file_id, title, created_at)
-       VALUES ($1, $2, NOW()) RETURNING id`,
-      [caseFileId, `محادثة الطلب ${caseNumber}`]
-    );
-    await client.query(
-      `INSERT INTO conversation_participants (conversation_id, user_id, joined_at)
-       VALUES ($1, $2, NOW()), ($1, $3, NOW())`,
-      [conversation.rows[0].id, user.id, providerId]
     );
     const clientName = `${user.first_name} ${user.last_name}`.trim();
     await addNotification(
@@ -606,6 +670,16 @@ async function setAppointmentStatus(appointmentId, status, user, req) {
     if (status === 'CONFIRMED' && appointment.payment_status !== 'PAID' && Number(appointment.amount_dzd) > 0) {
       throw new HttpError(409, 'لا يمكن تأكيد موعد مدفوع قبل التحقق من الدفع.');
     }
+    if (
+      status === 'COMPLETED' &&
+      Number(appointment.amount_dzd) > 0 &&
+      appointment.payment_status !== 'PAID'
+    ) {
+      throw new HttpError(409, 'لا يمكن إنهاء خدمة مدفوعة قبل تأكيد الدفع.');
+    }
+    if (status === 'CONFIRMED' && !['WAITING_PAYMENT', 'APPOINTMENT_CONFIRMED'].includes(appointment.request_status)) {
+      throw new HttpError(409, 'لا يمكن تأكيد الموعد قبل قبول الطلب وإتمام الدفع.');
+    }
     await client.query('UPDATE appointments SET status = $2 WHERE id = $1', [appointmentId, status]);
     if (status === 'COMPLETED') {
       await client.query(
@@ -628,6 +702,186 @@ async function setAppointmentStatus(appointmentId, status, user, req) {
       `/requests/${appointment.request_id}`
     );
   });
+}
+
+function caseDocumentRecord(row) {
+  return {
+    id: Number(row.id),
+    caseNumber: row.case_number,
+    clientId: Number(row.requester_id),
+    clientName: `${row.client_first_name} ${row.client_last_name}`.trim(),
+    providerId: Number(row.provider_id),
+    providerName: `${row.provider_first_name} ${row.provider_last_name}`.trim(),
+    fileName: row.file_name,
+    fileCategory: row.file_category,
+    fileSize: `${Number(row.file_size || 0).toLocaleString('ar-DZ')} بايت`,
+    uploadDate: row.created_at ? new Date(row.created_at).toISOString().slice(0, 10) : '',
+    isConfidential: true,
+    uploadedBy: Number(row.uploaded_by),
+  };
+}
+
+async function listCaseDocuments(user) {
+  const result = await pool.query(
+    `SELECT DISTINCT ON (d.id) d.id, d.file_name, d.file_category, d.file_size,
+            d.created_at, d.uploaded_by, cf.number_case AS case_number,
+            sr.requester_id, sr.provider_id,
+            cu.first_name AS client_first_name, cu.last_name AS client_last_name,
+            pu.first_name AS provider_first_name, pu.last_name AS provider_last_name
+       FROM case_documents d
+       JOIN case_files cf ON cf.id = d.case_file_id
+       JOIN service_requests sr ON sr.case_file_id = cf.id
+       JOIN users cu ON cu.id = sr.requester_id
+       JOIN users pu ON pu.id = sr.provider_id
+      WHERE ($1::boolean OR sr.requester_id = $2 OR sr.provider_id = $2 OR sr.assigned_staff_id = $2)
+        AND (d.visibility <> 'admin_only' OR $1::boolean OR d.uploaded_by = $2)
+      ORDER BY d.id, d.created_at DESC`,
+    [user.role_slug === 'admin', user.id]
+  );
+  return result.rows.map(caseDocumentRecord);
+}
+
+async function updateAvailability(body, user, req) {
+  requireActive(user);
+  const durationMinutes = user.role_slug === 'psychologist'
+    ? 50
+    : ['lawyer', 'legal_advisor'].includes(user.role_slug)
+      ? 30
+      : null;
+  if (!durationMinutes) throw new HttpError(403, 'هذا الحساب لا يدير مواعيد الاستشارات.');
+  if (!Array.isArray(body.slots) || body.slots.length > 60) {
+    throw new HttpError(400, 'يمكن حفظ ما يصل إلى 60 موعدًا متاحًا.');
+  }
+  const today = new Date().toISOString().slice(0, 10);
+  const seen = new Set();
+  const slots = body.slots.map((slot) => {
+    const date = String(slot.date || '');
+    const time = String(slot.time || '').slice(0, 5);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || date < today || !/^\d{2}:\d{2}$/.test(time)) {
+      throw new HttpError(400, 'تحقق من تاريخ ووقت كل موعد متاح.');
+    }
+    const [hour, minute] = time.split(':').map(Number);
+    if (hour > 23 || minute > 59 || hour * 60 + minute + durationMinutes >= 24 * 60) {
+      throw new HttpError(400, 'أحد أوقات المواعيد غير صالح.');
+    }
+    const key = `${date}T${time}`;
+    if (seen.has(key)) throw new HttpError(400, 'لا يمكن تكرار الموعد نفسه.');
+    seen.add(key);
+    return { date, time, durationMinutes };
+  }).sort((a, b) => `${a.date}T${a.time}`.localeCompare(`${b.date}T${b.time}`));
+  for (let index = 1; index < slots.length; index += 1) {
+    const previous = slots[index - 1];
+    const current = slots[index];
+    const previousEnd = Number(previous.time.slice(0, 2)) * 60 + Number(previous.time.slice(3, 5)) + durationMinutes;
+    const currentStart = Number(current.time.slice(0, 2)) * 60 + Number(current.time.slice(3, 5));
+    if (previous.date === current.date && previousEnd > currentStart) {
+      throw new HttpError(409, 'تتداخل بعض المواعيد. اترك مدة الاستشارة كاملة بين المواعيد.');
+    }
+  }
+  await withTransaction(async (client) => {
+    const result = await client.query(
+      `UPDATE specialist_profiles
+          SET availability_schedule = $2::jsonb, updated_at = NOW()
+        WHERE user_id = $1`,
+      [user.id, JSON.stringify(slots)]
+    );
+    if (!result.rowCount) throw new HttpError(409, 'لا يوجد ملف مهني مرتبط بهذا الحساب.');
+    await addAudit(client, user.id, 'AVAILABILITY_UPDATED', 'specialist_profile', user.id, `${slots.length} slots`, req);
+  });
+  return { availabilitySlots: slots };
+}
+
+async function uploadCaseDocument(requestId, body, user, req) {
+  requireActive(user);
+  const request = await findRequestForUser(requestId, user);
+  if (!request) throw new HttpError(404, 'الطلب غير موجود أو لا تملك صلاحية الوصول إليه.');
+  const fileName = String(body.fileName || '').trim().replace(/[\\/]/g, '_').slice(0, 180);
+  const category = String(body.category || 'وثيقة شخصية');
+  const mimeType = String(body.mimeType || '').toLowerCase();
+  const allowedCategories = new Set(['وثيقة شخصية', 'شهادة طبية', 'تقرير طبي', 'وثيقة قضائية', 'محضر رسمي']);
+  const allowedMimeTypes = new Set([
+    'application/pdf',
+    'image/jpeg',
+    'image/png',
+    'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  ]);
+  const base64 = String(body.base64 || '');
+  if (!fileName || !allowedCategories.has(category) || !allowedMimeTypes.has(mimeType)) {
+    throw new HttpError(400, 'اسم الملف أو تصنيفه أو نوعه غير مدعوم.');
+  }
+  if (!/^[A-Za-z0-9+/]*={0,2}$/.test(base64) || base64.length > 2_800_000) {
+    throw new HttpError(413, 'حجم الملف يتجاوز الحد الآمن المسموح به.');
+  }
+  const content = Buffer.from(base64, 'base64');
+  if (!content.length || content.length > 2 * 1024 * 1024) {
+    throw new HttpError(413, 'اختر ملفًا لا يتجاوز حجمه 2 ميغابايت.');
+  }
+
+  const saved = await withTransaction(async (client) => {
+    const result = await client.query(
+      `INSERT INTO case_documents
+         (case_file_id, uploaded_by, file_name, file_category, file_type, file_size,
+          storage_path, encrypted_content, visibility, created_at)
+       VALUES ($1, $2, $3, $4, $5, $6, 'postgres-encrypted', $7, 'all', NOW())
+       RETURNING id, file_name, file_category, file_size, created_at, uploaded_by`,
+      [
+        request.case_file_id,
+        user.id,
+        fileName,
+        category,
+        mimeType,
+        content.length,
+        encryptValue(content.toString('base64')),
+      ]
+    );
+    const row = result.rows[0];
+    await addAudit(client, user.id, 'CASE_DOCUMENT_UPLOADED', 'case_file', request.case_file_id, fileName, req);
+    const otherParty = Number(user.id) === Number(request.requester_id)
+      ? request.provider_id
+      : request.requester_id;
+    await addNotification(
+      client,
+      otherParty,
+      'وثيقة جديدة مرتبطة بالطلب',
+      'أضيفت وثيقة مشفرة إلى الطلب. افتح الطلب لمراجعتها.',
+      'STATUS',
+      `/requests/${request.id}`
+    );
+    return row;
+  });
+  return {
+    document: caseDocumentRecord({
+      ...saved,
+      case_number: request.case_number,
+      requester_id: request.requester_id,
+      provider_id: request.provider_id,
+      client_first_name: request.client_first_name,
+      client_last_name: request.client_last_name,
+      provider_first_name: request.provider_first_name,
+      provider_last_name: request.provider_last_name,
+    }),
+  };
+}
+
+async function downloadCaseDocument(documentId, user) {
+  const result = await pool.query(
+    `SELECT d.*, sr.id AS request_id, sr.requester_id, sr.provider_id, sr.assigned_staff_id
+       FROM case_documents d
+       JOIN service_requests sr ON sr.case_file_id = d.case_file_id
+      WHERE d.id = $1
+        AND ($2::boolean OR sr.requester_id = $3 OR sr.provider_id = $3 OR sr.assigned_staff_id = $3)
+        AND (d.visibility <> 'admin_only' OR $2::boolean OR d.uploaded_by = $3)
+      LIMIT 1`,
+    [documentId, user.role_slug === 'admin', user.id]
+  );
+  const document = result.rows[0];
+  if (!document) throw new HttpError(404, 'الوثيقة غير موجودة أو لا تملك صلاحية الوصول إليها.');
+  return {
+    fileName: document.file_name,
+    mimeType: document.file_type || 'application/octet-stream',
+    base64: decryptValue(document.encrypted_content || ''),
+  };
 }
 
 async function createReport(body, user, req) {
@@ -822,6 +1076,31 @@ async function getPublicDirectory(url) {
   }));
 }
 
+async function getPublicServices() {
+  const result = await pool.query(
+    `SELECT s.id, s.title, s.description, s.amount_dzd, s.category, s.provider_id,
+            u.first_name AS provider_first_name, u.last_name AS provider_last_name
+       FROM services s
+       JOIN users u ON u.id = s.provider_id
+       LEFT JOIN specialist_profiles sp ON sp.user_id = u.id
+       LEFT JOIN centers c ON c.user_id = u.id
+       LEFT JOIN associations a ON a.user_id = u.id
+      WHERE s.is_active = 1 AND u.status = 'active' AND COALESCE(u.is_verified, 0) = 1
+        AND s.category IN ('legal', 'psychological') AND s.amount_dzd = 500
+        AND COALESCE(sp.verification_status, c.verification_status, a.verification_status, 'approved') = 'approved'
+      ORDER BY s.category, s.title`
+  );
+  return result.rows.map((row) => ({
+    id: Number(row.id),
+    title: row.title,
+    category: row.category,
+    description: row.description,
+    amountDzd: Number(row.amount_dzd),
+    providerId: Number(row.provider_id),
+    providerName: `${row.provider_first_name} ${row.provider_last_name}`.trim(),
+  }));
+}
+
 async function getPartners() {
   const result = await pool.query(`SELECT value FROM system_settings WHERE key = 'public_partners' LIMIT 1`);
   if (!result.rows[0]) return [];
@@ -879,6 +1158,12 @@ export async function dispatchApi(req, res) {
   if (method === 'GET' && pathname === '/api/v1/public/directory') {
     return json(res, 200, await getPublicDirectory(url));
   }
+  if (method === 'GET' && pathname === '/api/v1/public/services') {
+    return json(res, 200, await getPublicServices());
+  }
+  if (method === 'PATCH' && pathname === '/api/v1/profile/availability') {
+    return json(res, 200, await updateAvailability(await bodyJson(req), user, req));
+  }
   if (method === 'POST' && pathname === '/api/v1/payments/webhook') {
     const bytes = await rawBody(req, 256 * 1024);
     await handleChargilyWebhook(bytes, String(req.headers.signature || ''));
@@ -909,7 +1194,13 @@ export async function dispatchApi(req, res) {
     globalThis.loginAttempts.delete(attemptsKey);
     const profile = await getUserProfile(userRow.id);
     await addAudit(pool, userRow.id, 'LOGIN_SUCCESS', 'user', userRow.id, 'تم تسجيل الدخول بنجاح.', req);
-    return json(res, 200, { user: safeUser(profile) }, { 'Set-Cookie': sessionCookie(createSessionToken(userRow)) });
+    const rememberMe = body.rememberMe === true;
+    return json(
+      res,
+      200,
+      { user: safeUser(profile) },
+      { 'Set-Cookie': sessionCookie(createSessionToken(userRow, rememberMe), rememberMe) }
+    );
   }
   if (method === 'POST' && pathname === '/api/v1/auth/register') {
     const body = await bodyJson(req);
@@ -937,6 +1228,8 @@ export async function dispatchApi(req, res) {
   const userRoute = pathname.match(/^\/api\/v1\/users\/(\d+)$/);
   const requestRoute = pathname.match(/^\/api\/v1\/requests\/(\d+)$/);
   const paymentRoute = pathname.match(/^\/api\/v1\/requests\/(\d+)\/payment$/);
+  const requestDocumentsRoute = pathname.match(/^\/api\/v1\/requests\/(\d+)\/documents$/);
+  const documentRoute = pathname.match(/^\/api\/v1\/documents\/(\d+)$/);
   const appointmentRoute = pathname.match(/^\/api\/v1\/appointments\/(\d+)$/);
   const conversationRoute = pathname.match(/^\/api\/v1\/conversations\/(\d+)\/messages$/);
   const notificationRoute = pathname.match(/^\/api\/v1\/notifications\/(\d+)\/read$/);
@@ -959,6 +1252,21 @@ export async function dispatchApi(req, res) {
   if (method === 'POST' && pathname === '/api/v1/requests') {
     const result = await createRequest(await bodyJson(req), user, req);
     return json(res, 201, result);
+  }
+  if (method === 'GET' && pathname === '/api/v1/documents') {
+    return json(res, 200, await listCaseDocuments(user));
+  }
+  if (method === 'POST' && requestDocumentsRoute) {
+    const result = await uploadCaseDocument(
+      Number(requestDocumentsRoute[1]),
+      await bodyJson(req, 4 * 1024 * 1024),
+      user,
+      req
+    );
+    return json(res, 201, result);
+  }
+  if (method === 'GET' && documentRoute) {
+    return json(res, 200, await downloadCaseDocument(Number(documentRoute[1]), user));
   }
   if (method === 'PATCH' && requestRoute) {
     await updateRequest(Number(requestRoute[1]), await bodyJson(req), user, req);

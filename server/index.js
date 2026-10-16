@@ -3,6 +3,8 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { dispatchApi } from './routes.js';
+import { pool, withTransaction } from './db.js';
+import { hashPassword } from './security.js';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const port = Number(process.env.PORT || 5000);
@@ -53,6 +55,41 @@ async function serveProductionFile(req, res) {
 
 const server = http.createServer();
 let vite;
+
+async function ensureConfiguredAdmin() {
+  const email = String(process.env.ADMIN_EMAIL || '').trim().toLowerCase();
+  const password = process.env.ADMIN_PASSWORD || '';
+  if (!email || password.length < 12) {
+    console.warn('Initial administrator is not configured; set ADMIN_EMAIL and ADMIN_PASSWORD in Secrets.');
+    return;
+  }
+
+  const existing = await pool.query('SELECT id FROM users WHERE lower(email) = $1 LIMIT 1', [email]);
+  if (existing.rowCount) return;
+  const role = await pool.query("SELECT id FROM roles WHERE slug = 'admin' LIMIT 1");
+  if (!role.rowCount) throw new Error('The admin role is missing from the database schema.');
+
+  await withTransaction(async (client) => {
+    const inserted = await client.query(
+      `INSERT INTO users
+         (first_name, last_name, email, phone, password, role_id, role_slug,
+          is_verified, status, created_at, updated_at)
+       VALUES ('إدارة', 'المنصة', $1, $2, $3, $4, 'admin', 1, 'active', NOW(), NOW())
+       ON CONFLICT (email) DO NOTHING
+       RETURNING id`,
+      [email, process.env.ADMIN_PHONE || '', await hashPassword(password), role.rows[0].id]
+    );
+    if (inserted.rowCount) {
+      await client.query(
+        `INSERT INTO audit_logs (user_id, action, entity_type, entity_id, details, created_at)
+         VALUES ($1, 'INITIAL_ADMIN_CREATED', 'user', $1, 'تم إنشاء حساب الإدارة عبر إعدادات البيئة.', NOW())`,
+        [inserted.rows[0].id]
+      );
+    }
+  });
+}
+
+await ensureConfiguredAdmin();
 
 if (!isProduction) {
   const { createServer: createViteServer } = await import('vite');

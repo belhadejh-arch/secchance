@@ -165,7 +165,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
   const [newSpecWilaya, setNewSpecWilaya] = useState(ALGERIA_WILAYAS[15]);
   const [newSpecAddress, setNewSpecAddress] = useState('');
   const [newSpecLicense, setNewSpecLicense] = useState('');
-  const [newSpecPassword, setNewSpecPassword] = useState('pass123456');
+  const [newSpecPassword, setNewSpecPassword] = useState('');
   const [newSpecStatus, setNewSpecStatus] = useState<UserStatus>('active');
 
   // New Partner form state (Requirement 15)
@@ -201,6 +201,10 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
   const handleSaveSpecialist = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newSpecFirstName.trim() || !newSpecLastName.trim() || !newSpecEmail.trim()) return;
+    if (newSpecPassword.length < 10) {
+      alert('أدخل كلمة مرور مؤقتة من 10 أحرف على الأقل.');
+      return;
+    }
 
     await createUserInDb({
       firstName: newSpecFirstName.trim(),
@@ -214,7 +218,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
       address: newSpecAddress.trim() || undefined,
       licenseNumber: newSpecLicense.trim() || undefined,
       status: newSpecStatus,
-      password: newSpecPassword || 'pass123456',
+      password: newSpecPassword,
     });
 
     setIsCreateSpecialistOpen(false);
@@ -232,6 +236,10 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
   const handleSaveAssociation = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newSpecFirstName.trim() || !newSpecEmail.trim()) return;
+    if (newSpecPassword.length < 10) {
+      alert('أدخل كلمة مرور مؤقتة من 10 أحرف على الأقل.');
+      return;
+    }
 
     await createUserInDb({
       firstName: newSpecFirstName.trim(),
@@ -243,7 +251,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
       wilayaName: newSpecWilaya,
       address: newSpecAddress.trim(),
       status: 'active',
-      password: newSpecPassword || 'pass123456',
+      password: newSpecPassword,
     });
 
     setIsCreateAssociationOpen(false);
@@ -2125,7 +2133,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                     type="text"
                     value={newSpecPassword}
                     onChange={(e) => setNewSpecPassword(e.target.value)}
-                    placeholder="pass123456"
+                    placeholder="10 أحرف على الأقل"
                     className="w-full h-10 px-3 bg-white border border-[#CCD8D5] rounded-[10px] outline-hidden focus:border-[#1766A6]"
                   />
                 </div>

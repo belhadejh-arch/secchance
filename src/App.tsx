@@ -15,15 +15,12 @@ import {
   PlatformNotification,
 } from './types';
 import {
-  initialUsers,
-  initialServices,
-  initialConversations,
-  initialMessages,
-} from './data/initialData';
-
-import {
   initializeDatabase,
+  getCurrentUser,
+  getPublicServices,
+  logoutUser,
   subscribeToUsers,
+  subscribeToServices,
   subscribeToCareRequests,
   subscribeToAppointments,
   subscribeToSpecialistReports,
@@ -32,10 +29,13 @@ import {
   subscribeToPartners,
   subscribeToTreatmentFollowUps,
   subscribeToNotifications,
+  subscribeToConversations,
+  subscribeToMessages,
   createCareRequestInDb,
   updateCareRequestInDb,
   addSpecialistReportInDb,
-  initialPartners,
+  startPaymentInDb,
+  sendMessageInDb,
 } from './services/dbService';
 
 import { Navbar } from './components/Navbar';
@@ -59,7 +59,6 @@ import { ChatView } from './views/ChatView';
 import { DirectoryView } from './views/DirectoryView';
 import { AwarenessView } from './views/AwarenessView';
 import { EmergencyView } from './views/EmergencyView';
-import { LegalAssistanceView } from './views/LegalAssistanceView';
 import { FamilyGuidanceView } from './views/FamilyGuidanceView';
 import { AdminDashboardView } from './views/AdminDashboardView';
 import { SpecialistDashboardView } from './views/SpecialistDashboardView';
@@ -113,17 +112,17 @@ export function App() {
 
   // Database-backed state
   const [users, setUsers] = useState<User[]>([]);
-  const [services] = useState<ServiceItem[]>(initialServices);
+  const [services, setServices] = useState<ServiceItem[]>([]);
   const [careRequests, setCareRequests] = useState<CareRequest[]>([]);
   const [paymentTransactions, setPaymentTransactions] = useState<PaymentTransaction[]>([]);
   const [specialistReports, setSpecialistReports] = useState<SpecialistReport[]>([]);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>([]);
-  const [partners, setPartners] = useState<PartnerOrganization[]>(initialPartners);
+  const [partners, setPartners] = useState<PartnerOrganization[]>([]);
   const [followUps, setFollowUps] = useState<TreatmentFollowUp[]>([]);
   const [notifications, setNotifications] = useState<PlatformNotification[]>([]);
-  const [conversations] = useState<Conversation[]>(initialConversations);
-  const [messagesMap, setMessagesMap] = useState<Record<number, Message[]>>(initialMessages);
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [messagesMap, setMessagesMap] = useState<Record<number, Message[]>>({});
 
   const [selectedRequest, setSelectedRequest] = useState<CareRequest | null>(null);
   const [paymentTargetRequest, setPaymentTargetRequest] = useState<CareRequest | null>(null);
@@ -135,13 +134,30 @@ export function App() {
   const [isAiOpen, setIsAiOpen] = useState(false);
   const [rejectionTargetId, setRejectionTargetId] = useState<number | string | null>(null);
 
-  // Real-time Database initialization and subscriptions
+  // Restore the server-owned session and load the public catalogue.
   useEffect(() => {
-    if (currentUser) {
-      initializeDatabase().catch(console.error);
-    }
+    let active = true;
+    getCurrentUser()
+      .then((user) => {
+        if (active) setCurrentUser(user);
+      })
+      .catch((error) => console.error('تعذر استعادة جلسة الدخول:', error));
+    getPublicServices()
+      .then((data) => {
+        if (active) setServices(data as ServiceItem[]);
+      })
+      .catch((error) => console.error('تعذر تحميل الخدمات المتاحة:', error));
+    return () => {
+      active = false;
+    };
+  }, []);
 
+  // Database subscriptions are scoped to the authenticated account.
+  useEffect(() => {
+    if (!currentUser) return;
+    initializeDatabase().catch(console.error);
     const unsubUsers = subscribeToUsers((data) => setUsers(data));
+    const unsubServices = subscribeToServices((data) => setServices(data));
 
     const unsubRequests = subscribeToCareRequests((data) => {
       setCareRequests(data);
@@ -174,9 +190,12 @@ export function App() {
     const unsubNotifs = subscribeToNotifications((data) => {
       setNotifications(data);
     });
+    const unsubConversations = subscribeToConversations((data) => setConversations(data));
+    const unsubMessages = subscribeToMessages((data) => setMessagesMap(data));
 
     return () => {
       unsubUsers();
+      unsubServices();
       unsubRequests();
       unsubAppts();
       unsubReports();
@@ -185,19 +204,10 @@ export function App() {
       unsubPartners();
       unsubFollowUps();
       unsubNotifs();
+      unsubConversations();
+      unsubMessages();
     };
   }, [currentUser]);
-
-  // Restore remember-me user if available
-  useEffect(() => {
-    const savedUserId = localStorage.getItem('secchance_user_id');
-    if (savedUserId && users.length > 0) {
-      const found = users.find((u) => String(u.id) === savedUserId);
-      if (found && String(currentUser?.id) !== savedUserId) {
-        setCurrentUser(found);
-      }
-    }
-  }, [users, currentUser]);
 
   useEffect(() => {
     if (currentView !== 'payment' || !paymentTargetRequest || !currentUser) return;
@@ -214,8 +224,34 @@ export function App() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, [currentView, paymentTargetRequest, currentUser, careRequests, paymentTransactions, appointments]);
 
+  // Payment providers return to the app before the signed webhook necessarily arrives.
+  // Restore the related request from the server snapshot, never from query-string payment data.
+  useEffect(() => {
+    if (!currentUser) return;
+    const params = new URLSearchParams(window.location.search);
+    const outcome = params.get('payment');
+    const requestId = params.get('request');
+    if (!['success', 'failure'].includes(outcome || '') || !requestId) return;
+    const request = careRequests.find((item) => String(item.id) === requestId);
+    if (!request || String(request.clientId) !== String(currentUser.id)) return;
+    setSelectedRequest(request);
+    setPaymentTargetRequest(request);
+    setCurrentView(outcome === 'success' ? 'booking-confirmation' : 'case-detail');
+  }, [currentUser, careRequests]);
+
   // Navigation handlers
   const handleNavigate = (view: string) => {
+    if (view === 'legal-assistance') {
+      const legalService = services.find((service) => service.category === 'legal');
+      if (!legalService) {
+        setCurrentView('services');
+        return;
+      }
+      setPreselectedServiceId(legalService.id);
+      setCurrentView('new-request');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
     // RBAC Security Gate: prevent unauthorized access to dashboards
     if (view === 'admin-dashboard' && currentUser?.roleSlug !== 'admin') {
       setCurrentView('portal');
@@ -317,7 +353,7 @@ export function App() {
   };
 
   const handleLogout = () => {
-    localStorage.removeItem('secchance_user_id');
+    void logoutUser().catch((error) => console.error('تعذر إنهاء الجلسة:', error));
     setCurrentUser(null);
     handleNavigate('landing');
   };
@@ -340,20 +376,22 @@ export function App() {
     }
   ) => {
     if (!currentUser) return;
-    const service = services.find((s) => s.id === serviceId) || services[0];
+    const service = services.find((s) => s.id === serviceId);
+    if (!service) throw new Error('الخدمة المطلوبة غير متاحة الآن.');
     const selectedSpecialist = users.find(
       (user) => String(user.id) === String(extraData?.specialistId)
     );
-    const newCaseNo = `SC-2026-${Math.floor(1000 + Math.random() * 9000)}`;
+    const provider = selectedSpecialist || users.find(
+      (user) => String(user.id) === String(service.providerId)
+    );
+    if (!provider) throw new Error('اختر مقدم خدمة معتمدًا قبل إرسال الطلب.');
 
-    const newReqData: Omit<CareRequest, 'id'> = {
-      caseNumber: newCaseNo,
+    const saved = await createCareRequestInDb({
+      caseNumber: '',
       clientId: currentUser.id,
       clientName: `${currentUser.firstName} ${currentUser.lastName}`,
-      providerId: selectedSpecialist?.id ?? service.providerId,
-      providerName: selectedSpecialist
-        ? `${selectedSpecialist.firstName} ${selectedSpecialist.lastName}`.trim()
-        : service.providerName,
+      providerId: provider.id,
+      providerName: `${provider.firstName} ${provider.lastName}`.trim(),
       serviceId: service.id,
       serviceTitle: service.title,
       category: service.category,
@@ -361,66 +399,29 @@ export function App() {
       priority,
       status: 'PENDING_PROVIDER',
       rejectionReason: null,
-      paymentStatus: service.amountDzd > 0 ? 'PENDING' : 'NOT_REQUIRED',
+      paymentStatus: 'PENDING',
       wilayaName: wilaya,
       description,
       caseType: extraData?.consultationTopic,
-      attachedDocuments: extraData?.attachedDocs ?? [],
+      attachedDocuments: [],
       appointmentDate: extraData?.appointmentDate ?? null,
       appointmentTime: extraData?.appointmentTime ?? null,
       durationMinutes: extraData?.durationMinutes,
       appointmentHoldExpiresAt: extraData?.appointmentHoldExpiresAt,
-      createdAt: new Date().toLocaleDateString('ar-DZ'),
-    };
-
-    const saved = await createCareRequestInDb(newReqData);
+      createdAt: new Date().toISOString(),
+    });
     setPreselectedServiceId(undefined);
-    setSelectedRequest(saved);
-  };
-
-  const handleCreateLegalCase = async (data: {
-    serviceId: number;
-    caseType: string;
-    description: string;
-    wilaya: string;
-    lawyerId: number;
-    attachedDocs: string[];
-    priority: Priority;
-  }) => {
-    if (!currentUser) return;
-    const lawyer = users.find((u) => u.id === data.lawyerId) || initialUsers[2];
-    const service = services.find((s) => s.id === data.serviceId) || services[1];
-    const newCaseNo = `SC-LEG-${Math.floor(1000 + Math.random() * 9000)}`;
-
-    const newReqData: Omit<CareRequest, 'id'> = {
-      caseNumber: newCaseNo,
-      clientId: currentUser.id,
-      clientName: `${currentUser.firstName} ${currentUser.lastName}`,
-      providerId: lawyer.id,
-      providerName: `${lawyer.firstName} ${lawyer.lastName}`,
-      serviceId: service.id,
-      serviceTitle: `${service.title} (${data.caseType})`,
-      category: 'استشارة ومرافقة قانونية',
-      amountDzd: service.amountDzd,
-      priority: data.priority,
-      status: 'PENDING_PROVIDER',
-      rejectionReason: null,
-      paymentStatus: 'PENDING',
-      wilayaName: data.wilaya,
-      description: `${requestTargetPerson === 'family' ? '[لمن الحالة: أحد أفراد الأسرة] ' : ''}${data.description}`,
-      caseType: data.caseType,
-      attachedDocuments: data.attachedDocs,
-      createdAt: new Date().toLocaleDateString('ar-DZ'),
-    };
-
-    const saved = await createCareRequestInDb(newReqData);
     setSelectedRequest(saved);
     handleNavigate('portal');
   };
 
   // Provider status updates
-  const handleAcceptRequest = async (requestId: number | string) => {
-    await updateCareRequestInDb(requestId, { status: 'ACCEPTED' }, currentUser?.firstName || 'المختص');
+  const handleAcceptRequest = async (requestId: number | string, priority?: Priority) => {
+    await updateCareRequestInDb(
+      requestId,
+      { status: 'ACCEPTED', ...(priority ? { priority } : {}) },
+      currentUser?.firstName || 'مقدم الخدمة'
+    );
   };
 
   const handleConfirmReject = async (reason: string) => {
@@ -433,9 +434,12 @@ export function App() {
     setRejectionTargetId(null);
   };
 
-  // No local payment simulation: only a verified provider callback may mark a request paid.
-  const handleProcessPayment = async (_requestId: number | string, _paymentMethod: 'EDAHABIA' | 'CIB') => {
-    throw new Error('بوابة الدفع غير مهيأة؛ لم يتم تحصيل أي مبلغ.');
+  const handleProcessPayment = async (requestId: number | string, paymentMethod: 'EDAHABIA' | 'CIB') => {
+    const checkoutUrl = await startPaymentInDb(requestId, paymentMethod);
+    if (!/^https:\/\//i.test(checkoutUrl)) {
+      throw new Error('رابط الدفع غير صالح. لم يتم تحصيل أي مبلغ.');
+    }
+    window.location.assign(checkoutUrl);
   };
 
   // Add specialist report in database
@@ -497,24 +501,9 @@ export function App() {
   };
 
   // Send message in chat
-  const handleSendMessage = (convId: number, content: string) => {
-    const sender = currentUser
-      ? `${currentUser.firstName} ${currentUser.lastName}`
-      : 'مستخدم';
-
-    const newMsg: Message = {
-      id: (messagesMap[convId]?.length || 0) + 1,
-      conversationId: convId,
-      senderName: sender,
-      content,
-      timestamp: 'الآن',
-      isFromMe: true,
-    };
-
-    setMessagesMap((prev) => ({
-      ...prev,
-      [convId]: [...(prev[convId] || []), newMsg],
-    }));
+  const handleSendMessage = async (convId: number, content: string) => {
+    if (!currentUser) throw new Error('يرجى تسجيل الدخول لإرسال رسالة.');
+    await sendMessageInDb(convId, content);
   };
 
   const latestSelectedRequest = selectedRequest
@@ -550,11 +539,11 @@ export function App() {
               services={services}
               partners={partners}
               usersCount={users.length}
-              completedCasesCount={careRequests.filter((r) => r.status === 'COMPLETED').length || 38}
+              completedCasesCount={careRequests.filter((r) => r.status === 'COMPLETED').length}
               specialistsCount={
                 users.filter((u) =>
                   ['psychologist', 'doctor', 'lawyer', 'legal_advisor', 'clinic', 'hospital'].includes(u.roleSlug)
-                ).length || 24
+                ).length
               }
             />
           )}
@@ -760,15 +749,6 @@ export function App() {
               conversations={conversations}
               messagesMap={messagesMap}
               onSendMessage={handleSendMessage}
-            />
-          )}
-
-          {currentView === 'legal-assistance' && (
-            <LegalAssistanceView
-              currentUser={currentUser}
-              onSubmitLegalCase={handleCreateLegalCase}
-              onOpenAuth={() => setIsAuthOpen(true)}
-              onBack={() => handleNavigate('portal')}
             />
           )}
 

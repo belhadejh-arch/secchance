@@ -1,4 +1,4 @@
-import React, { FormEvent, useMemo, useState } from 'react';
+import React, { FormEvent, useEffect, useMemo, useState } from 'react';
 import {
   AlertCircle,
   Hospital,
@@ -11,8 +11,8 @@ import {
   X,
 } from 'lucide-react';
 import { ALGERIA_WILAYAS, Association, TreatmentCenter } from '../types';
-import { initialAssociations, initialTreatmentCenters } from '../data/initialData';
 import { getNeighboringWilayas, getWilayaName } from '../data/wilayaNeighbors';
+import { getPublicDirectory } from '../services/dbService';
 
 type DirectoryTab = 'centers' | 'associations';
 type CenterRange = 'municipality' | 'wilaya' | 'neighbors' | 'nearest';
@@ -149,13 +149,38 @@ export const DirectoryView: React.FC<DirectoryViewProps> = ({
   const [searchError, setSearchError] = useState('');
   const [selectedCenter, setSelectedCenter] = useState<TreatmentCenter | null>(null);
   const [selectedAssociation, setSelectedAssociation] = useState<Association | null>(null);
+  const [centers, setCenters] = useState<TreatmentCenter[]>([]);
+  const [associations, setAssociations] = useState<Association[]>([]);
+  const [directoryLoading, setDirectoryLoading] = useState(true);
+  const [directoryError, setDirectoryError] = useState('');
+
+  useEffect(() => {
+    let active = true;
+    Promise.all([getPublicDirectory('centers'), getPublicDirectory('associations')])
+      .then(([centerRows, associationRows]) => {
+        if (!active) return;
+        setCenters(centerRows as TreatmentCenter[]);
+        setAssociations(associationRows as Association[]);
+        setDirectoryError('');
+      })
+      .catch((error) => {
+        if (!active) return;
+        setDirectoryError(error instanceof Error ? error.message : 'تعذر تحميل الدليل.');
+      })
+      .finally(() => {
+        if (active) setDirectoryLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const filteredCenters = useMemo(() => {
     if (!centerFilters) return [];
     const { wilaya, municipality, range } = centerFilters;
     const selected = wilaya ? getWilayaName(wilaya) : '';
     const neighbors = selected ? getNeighboringWilayas(selected) : [];
-    const filtered = initialTreatmentCenters.filter((center) => {
+    const filtered = centers.filter((center) => {
       if (range === 'municipality') {
         return Boolean(
           municipality &&
@@ -188,11 +213,11 @@ export const DirectoryView: React.FC<DirectoryViewProps> = ({
       };
       return rank(a) - rank(b);
     });
-  }, [centerFilters, userCoordinates]);
+  }, [centerFilters, userCoordinates, centers]);
 
   const filteredAssociations = useMemo(
     () => !associationFilters ? [] :
-      initialAssociations
+      associations
         .filter((association) => {
           if (
             associationFilters?.wilaya &&
@@ -219,7 +244,7 @@ export const DirectoryView: React.FC<DirectoryViewProps> = ({
           return Number(!belongsToWilaya(a.wilayaName, associationFilters.wilaya)) -
             Number(!belongsToWilaya(b.wilayaName, associationFilters.wilaya));
         }),
-    [associationFilters]
+    [associationFilters, associations]
   );
 
   const handleCenterSearch = (event: FormEvent) => {

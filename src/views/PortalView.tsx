@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   User,
   CareRequest,
@@ -46,9 +46,13 @@ import {
 } from 'lucide-react';
 import {
   initialLegalTopics,
-  initialCaseDocuments,
 } from '../data/initialData';
-import { markNotificationAsReadInDb } from '../services/dbService';
+import {
+  downloadCaseDocumentInDb,
+  listCaseDocumentsInDb,
+  markNotificationAsReadInDb,
+  uploadCaseDocumentInDb,
+} from '../services/dbService';
 import { AccountDashboardView } from './AccountDashboardView';
 import { FamilyPackageView } from './FamilyPackageView';
 import { getCustomerRequestProgress } from '../lib/requestProgress';
@@ -137,35 +141,65 @@ export const PortalView: React.FC<PortalViewProps> = ({
   );
 
   // Documents state
-  const [myDocuments, setMyDocuments] = useState<CaseFileDocument[]>(
-    initialCaseDocuments.filter((d) => String(d.clientId) === String(currentUser.id))
-  );
-  const [newDocName, setNewDocName] = useState('');
+  const [myDocuments, setMyDocuments] = useState<CaseFileDocument[]>([]);
+  const [newDocFile, setNewDocFile] = useState<File | null>(null);
   const [newDocCategory, setNewDocCategory] = useState<CaseFileDocument['fileCategory']>('وثيقة شخصية');
+  const [documentError, setDocumentError] = useState('');
+  const [documentUploading, setDocumentUploading] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    listCaseDocumentsInDb()
+      .then((documents) => {
+        if (active) {
+          setMyDocuments(documents.filter((document) => String(document.clientId) === String(currentUser.id)));
+        }
+      })
+      .catch((error) => {
+        if (active) setDocumentError(error instanceof Error ? error.message : 'تعذر تحميل الوثائق.');
+      });
+    return () => {
+      active = false;
+    };
+  }, [currentUser.id]);
 
   // Selected Invoice Modal State
   const [selectedInvoice, setSelectedInvoice] = useState<PaymentTransaction | null>(null);
 
-  const handleUploadDoc = (e: React.FormEvent) => {
+  const handleUploadDoc = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newDocName.trim() || !myRequests[0]) return;
+    if (!newDocFile || !myRequests[0] || documentUploading) {
+      setDocumentError('اختر ملفًا وطلبًا محفوظًا أولًا.');
+      return;
+    }
+    setDocumentUploading(true);
+    setDocumentError('');
+    try {
+      const savedDoc = await uploadCaseDocumentInDb(myRequests[0].id, newDocFile, newDocCategory);
+      setMyDocuments((previous) => [savedDoc, ...previous]);
+      setNewDocFile(null);
+      const fileInput = document.getElementById('case-document-file') as HTMLInputElement | null;
+      if (fileInput) fileInput.value = '';
+    } catch (error) {
+      setDocumentError(error instanceof Error ? error.message : 'تعذر رفع الوثيقة.');
+    } finally {
+      setDocumentUploading(false);
+    }
+  };
 
-    const newDoc: CaseFileDocument = {
-      id: Date.now(),
-      caseNumber: myRequests[0].caseNumber,
-      clientId: currentUser.id as any,
-      clientName: `${currentUser.firstName} ${currentUser.lastName}`,
-      providerId: myRequests[0].providerId,
-      providerName: myRequests[0].providerName,
-      fileName: newDocName.trim(),
-      fileCategory: newDocCategory,
-      fileSize: 'غير متاح',
-      uploadDate: new Date().toISOString().split('T')[0],
-      isConfidential: true,
-    };
-
-    setMyDocuments([newDoc, ...myDocuments]);
-    setNewDocName('');
+  const handleDownloadDocument = async (id: string | number) => {
+    try {
+      const result = await downloadCaseDocumentInDb(id);
+      const bytes = Uint8Array.from(atob(result.base64), (character) => character.charCodeAt(0));
+      const url = URL.createObjectURL(new Blob([bytes], { type: result.mimeType }));
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = result.fileName;
+      link.click();
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      setDocumentError(error instanceof Error ? error.message : 'تعذر تنزيل الوثيقة.');
+    }
   };
 
   const getPriorityText = (prio: Priority) => {
@@ -662,16 +696,18 @@ export const PortalView: React.FC<PortalViewProps> = ({
             <h4 className="font-bold text-sm text-[#203945]">إيداع ملف أو وثيقة جديدة</h4>
             <form onSubmit={handleUploadDoc} className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
               <input
-                type="text"
+                id="case-document-file"
+                type="file"
                 required
-                value={newDocName}
-                onChange={(e) => setNewDocName(e.target.value)}
-                placeholder="اسم الوثيقة (مثل: تقرير طبي، استدعاء...)"
+                accept=".pdf,.png,.jpg,.jpeg,.doc,.docx"
+                onChange={(e) => setNewDocFile(e.target.files?.[0] || null)}
+                disabled={!myRequests.length || documentUploading}
                 className="w-full h-10 px-3 bg-white border border-[#CCD8D5] rounded-[10px]"
               />
               <select
                 value={newDocCategory}
                 onChange={(e) => setNewDocCategory(e.target.value as any)}
+                disabled={!myRequests.length || documentUploading}
                 className="w-full h-10 px-3 bg-white border border-[#CCD8D5] rounded-[10px]"
               >
                 <option value="وثيقة شخصية">وثيقة شخصية</option>
@@ -682,11 +718,19 @@ export const PortalView: React.FC<PortalViewProps> = ({
               </select>
               <button
                 type="submit"
+                disabled={!myRequests.length || !newDocFile || documentUploading}
                 className="px-5 py-2.5 rounded-[10px] bg-[#1766A6] text-white font-bold hover:bg-[#125386]"
               >
-                إرفاق الوثيقة
+                {documentUploading ? 'جارٍ الرفع والتشفير...' : 'رفع الوثيقة إلى أحدث طلب'}
               </button>
             </form>
+            <p className="text-[11px] leading-5 text-[#203945]/70">
+              تُحفظ الوثيقة مشفرة ومربوطة بأحدث طلب لديك. الحد الأقصى 2 ميغابايت، ويقتصر الوصول على أطراف الطلب المخولين.
+            </p>
+            {documentError && <p role="alert" className="text-xs font-bold text-red-700">{documentError}</p>}
+            {!myRequests.length && (
+              <p className="text-xs text-amber-800">أنشئ طلبًا أولًا لربط الوثيقة بملف حالة حقيقي.</p>
+            )}
           </div>
 
           <div className="space-y-2">
@@ -706,9 +750,14 @@ export const PortalView: React.FC<PortalViewProps> = ({
                     </p>
                   </div>
                 </div>
-                <span className="px-2 py-0.5 rounded-md bg-[#E8F4EF] text-[#25866D] text-[10px] font-bold">
-                  محمي بالسر المهني
-                </span>
+                <button
+                  type="button"
+                  onClick={() => void handleDownloadDocument(doc.id)}
+                  className="flex items-center gap-1 rounded-md bg-[#E8F4EF] px-2 py-1 text-[10px] font-bold text-[#25866D] hover:bg-[#d6ede3]"
+                >
+                  <Download className="h-3 w-3" />
+                  تنزيل الوثيقة
+                </button>
               </div>
             ))}
           </div>

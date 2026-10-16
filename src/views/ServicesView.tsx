@@ -79,16 +79,23 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
           <article key={item.category} className="space-y-3 rounded-[16px] border border-[#E0E8E6] bg-[#FBFDFC] p-4 shadow-xs">
             <div className="flex items-start justify-between gap-3">
               <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px] bg-[#EAF3F8] text-[#1766A6]">{item.icon}</span>
-              <span className="text-sm font-black text-[#25866D]">{item.title} — {item.service?.amountDzd.toLocaleString() ?? 500} دج</span>
+              <span className="text-sm font-black text-[#25866D]">{item.title} — 500 دج</span>
             </div>
             <p className="text-sm leading-relaxed text-[#203945]/80">{item.description}</p>
             <button
               disabled={!item.service}
+              aria-disabled={!item.service}
+              title={!item.service ? 'لا يوجد مقدم خدمة معتمد متاح لهذه الاستشارة حاليًا.' : undefined}
               onClick={() => item.service && onRequestService(item.service)}
               className="w-full rounded-[10px] bg-[#1766A6] px-4 py-2.5 text-sm font-bold text-white hover:bg-[#125386] disabled:cursor-not-allowed disabled:opacity-50"
             >
               احجز الآن
             </button>
+            {!item.service && (
+              <p className="text-xs text-amber-800" role="status">
+                الخدمة بسعرها المعتمد 500 دج، لكن لا يوجد مقدم خدمة معتمد متاح للحجز الآن.
+              </p>
+            )}
           </article>
         ))}
       </section>
