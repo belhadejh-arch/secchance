@@ -102,6 +102,8 @@ export interface CareRequest {
   durationMinutes?: number;
   paymentMethod?: 'EDAHABIA' | 'CIB';
   appointmentHoldExpiresAt?: string;
+  serviceRating?: 1 | 2 | 3 | 4 | 5;
+  serviceRatingSubmittedAt?: string;
 }
 
 export interface PaymentTransaction {

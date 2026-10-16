@@ -461,6 +461,34 @@ export function App() {
     });
   };
 
+  const handleSubmitServiceRating = async (
+    requestId: number | string,
+    rating: 1 | 2 | 3 | 4 | 5
+  ) => {
+    if (!currentUser) throw new Error('يجب تسجيل الدخول لتقييم الخدمة.');
+    const request = careRequests.find((item) => String(item.id) === String(requestId));
+    const completedAppointment = appointments.some(
+      (appointment) =>
+        appointment.caseNumber === request?.caseNumber && appointment.status === 'COMPLETED'
+    );
+
+    if (!request || String(request.clientId) !== String(currentUser.id)) {
+      throw new Error('لا يمكن تقييم هذا الطلب من الحساب الحالي.');
+    }
+    if (request.status !== 'COMPLETED' && !completedAppointment) {
+      throw new Error('يمكن تقييم الخدمة بعد تأكيد اكتمال الاستشارة فقط.');
+    }
+    if (request.serviceRating) {
+      throw new Error('تم تسجيل تقييم لهذا الطلب مسبقًا.');
+    }
+
+    await updateCareRequestInDb(
+      request.id,
+      { serviceRating: rating, serviceRatingSubmittedAt: new Date().toISOString() },
+      `${currentUser.firstName} ${currentUser.lastName}`
+    );
+  };
+
   // Send message in chat
   const handleSendMessage = (convId: number, content: string) => {
     const sender = currentUser
@@ -660,10 +688,18 @@ export function App() {
 
           {currentView === 'case-detail' && (
             <CaseDetailView
-              request={selectedRequest}
+              request={
+                selectedRequest
+                  ? careRequests.find((request) => String(request.id) === String(selectedRequest.id)) ||
+                    selectedRequest
+                  : null
+              }
               currentUser={currentUser}
               reports={specialistReports}
+              appointments={appointments}
+              transactions={paymentTransactions}
               onStartPayment={handleStartPayment}
+              onSubmitRating={handleSubmitServiceRating}
               onAddReport={handleAddReport}
               onOpenChat={() => handleNavigate('messages')}
               onBack={() => handleNavigate('portal')}

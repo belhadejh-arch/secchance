@@ -1,12 +1,15 @@
-import React, { useState } from 'react';
-import { CareRequest, SpecialistReport, User } from '../types';
-import { ArrowRight, CreditCard, MessageSquare } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { Appointment, CareRequest, PaymentTransaction, SpecialistReport, User } from '../types';
+import { ArrowRight, CalendarDays, Check, Circle, Clock3, CreditCard, MessageSquare, Star } from 'lucide-react';
 
 interface CaseDetailViewProps {
   request: CareRequest | null;
   currentUser: User | null;
   reports: SpecialistReport[];
+  appointments: Appointment[];
+  transactions: PaymentTransaction[];
   onStartPayment: (request: CareRequest) => void;
+  onSubmitRating: (requestId: number | string, rating: 1 | 2 | 3 | 4 | 5) => Promise<void>;
   onAddReport: (
     caseNumber: string,
     evaluation: string,
@@ -23,7 +26,10 @@ export const CaseDetailView: React.FC<CaseDetailViewProps> = ({
   request,
   currentUser,
   reports,
+  appointments,
+  transactions,
   onStartPayment,
+  onSubmitRating,
   onAddReport,
   onOpenChat,
   onBack,
@@ -33,6 +39,16 @@ export const CaseDetailView: React.FC<CaseDetailViewProps> = ({
   const [recommendations, setRecommendations] = useState('');
   const [treatmentPlan, setTreatmentPlan] = useState('');
   const [nextAppt, setNextAppt] = useState('2026-10-10');
+  const [ratingSelection, setRatingSelection] = useState<number>(request?.serviceRating ?? 0);
+  const [locallySavedRating, setLocallySavedRating] = useState<number | null>(null);
+  const [savingRating, setSavingRating] = useState(false);
+  const [ratingError, setRatingError] = useState('');
+
+  useEffect(() => {
+    setRatingSelection(request?.serviceRating ?? 0);
+    setLocallySavedRating(null);
+    setRatingError('');
+  }, [request?.id, request?.serviceRating]);
 
   if (!request) {
     return (
@@ -49,11 +65,82 @@ export const CaseDetailView: React.FC<CaseDetailViewProps> = ({
   }
 
   const caseReports = reports.filter((r) => r.caseNumber === request.caseNumber);
-  const isSpecialist =
-    currentUser?.roleSlug &&
-    ['psychologist', 'lawyer', 'treatment_center', 'clinic'].includes(
-      currentUser.roleSlug
+  const isSpecialist = Boolean(
+    currentUser &&
+      ['psychologist', 'doctor', 'lawyer', 'legal_advisor', 'treatment_center', 'clinic', 'hospital', 'association', 'admin'].includes(
+        currentUser.roleSlug
+      )
+  );
+  const appointment = appointments
+    .filter((item) => item.caseNumber === request.caseNumber && item.status !== 'CANCELLED')
+    .sort((a, b) => `${b.date} ${b.time}`.localeCompare(`${a.date} ${a.time}`))[0];
+  const appointmentDate = appointment?.date || request.appointmentDate || undefined;
+  const appointmentTime = appointment?.time || request.appointmentTime || undefined;
+  const consultantName = appointment?.specialistName || request.providerName;
+  const paymentConfirmed =
+    request.paymentStatus === 'PAID' ||
+    transactions.some(
+      (transaction) =>
+        transaction.caseNumber === request.caseNumber && transaction.status === 'SUCCESSFUL'
     );
+  const paymentNotRequired = request.paymentStatus === 'NOT_REQUIRED';
+  const consultationStarted =
+    request.status === 'IN_PROGRESS' ||
+    request.status === 'COMPLETED' ||
+    appointment?.status === 'COMPLETED';
+  const appointmentBooked =
+    appointment?.status === 'CANCELLED'
+      ? consultationStarted
+      : appointment?.status === 'CONFIRMED' ||
+        appointment?.status === 'COMPLETED' ||
+        ['APPOINTMENT_CONFIRMED', 'IN_PROGRESS', 'COMPLETED'].includes(request.status);
+  const consultationComplete =
+    request.status === 'COMPLETED' || appointment?.status === 'COMPLETED';
+  const statusLabels: Record<CareRequest['status'], string> = {
+    NEW: 'تم إرسال الطلب',
+    PENDING_PROVIDER: 'بانتظار رد مقدم الخدمة',
+    ACCEPTED: 'تم قبول الطلب',
+    WAITING_PAYMENT: 'بانتظار الدفع',
+    PAID: 'تم الدفع',
+    APPOINTMENT_CONFIRMED: 'تم حجز الموعد',
+    IN_PROGRESS: 'الاستشارة جارية',
+    COMPLETED: 'الاستشارة مكتملة',
+    REJECTED: 'رُفض الطلب',
+    CANCELLED: 'أُلغي الطلب',
+  };
+  const journey = [
+    { label: 'تم إرسال الطلب', done: true, detail: 'تم تسجيل الطلب في المنصة.' },
+    {
+      label: paymentNotRequired ? 'الدفع غير مطلوب' : 'تم الدفع',
+      done: paymentConfirmed || paymentNotRequired,
+      detail: paymentConfirmed
+        ? 'تم تأكيد الدفع من بيانات المعاملة.'
+        : paymentNotRequired
+          ? 'لا توجد رسوم مطلوبة لهذا الطلب.'
+          : 'لم يُؤكد الدفع بعد.',
+    },
+    {
+      label: 'تم حجز الموعد',
+      done: appointmentBooked,
+      detail: appointment?.status === 'CANCELLED'
+        ? 'أُلغي الموعد المسجل.'
+        : appointmentBooked
+          ? 'تم تأكيد حجز الموعد.'
+          : 'بانتظار تأكيد الموعد.',
+    },
+    {
+      label: 'موعد الاستشارة',
+      done: consultationStarted,
+      detail: appointmentDate
+        ? `${appointmentDate}${appointmentTime ? ` — ${appointmentTime}` : ''}`
+        : 'لم يُحدد الموعد بعد.',
+    },
+    {
+      label: 'الاستشارة مكتملة',
+      done: consultationComplete,
+      detail: consultationComplete ? 'أكدت البيانات اكتمال الاستشارة.' : 'لم تُسجل الاستشارة مكتملة بعد.',
+    },
+  ];
 
   const handleSaveReport = (e: React.FormEvent) => {
     e.preventDefault();
@@ -70,6 +157,30 @@ export const CaseDetailView: React.FC<CaseDetailViewProps> = ({
     setNotes('');
     setRecommendations('');
     setTreatmentPlan('');
+  };
+
+  const handleSaveRating = async () => {
+    if (
+      !consultationComplete ||
+      isSpecialist ||
+      request.serviceRating ||
+      locallySavedRating ||
+      ratingSelection < 1 ||
+      ratingSelection > 5
+    ) {
+      return;
+    }
+
+    setSavingRating(true);
+    setRatingError('');
+    try {
+      await onSubmitRating(request.id, ratingSelection as 1 | 2 | 3 | 4 | 5);
+      setLocallySavedRating(ratingSelection);
+    } catch {
+      setRatingError('تعذر حفظ التقييم. حاول مرة أخرى.');
+    } finally {
+      setSavingRating(false);
+    }
   };
 
   return (
@@ -92,7 +203,7 @@ export const CaseDetailView: React.FC<CaseDetailViewProps> = ({
             {request.caseNumber}
           </span>
           <span className="font-bold text-[12px] text-[#203945]">
-            الحالة: {request.status}
+            الحالة: {statusLabels[request.status]}
           </span>
         </div>
 
@@ -161,6 +272,160 @@ export const CaseDetailView: React.FC<CaseDetailViewProps> = ({
           </button>
         </div>
       </div>
+
+      <section
+        aria-labelledby="consultation-follow-up-title"
+        className="space-y-4 rounded-[20px] border border-[#DCEBF4] bg-[#FBFDFC] p-5 shadow-xs sm:p-6"
+        dir="rtl"
+      >
+        <div>
+          <p className="text-xs font-bold text-[#25866D]">متابعة الطلب</p>
+          <h2 id="consultation-follow-up-title" className="mt-1 text-xl font-black text-[#104A78]">
+            متابعة الاستشارة
+          </h2>
+        </div>
+
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div className="rounded-[14px] bg-[#F3F7F6] p-3">
+            <p className="text-[11px] text-[#203945]/60">نوع الاستشارة</p>
+            <p className="mt-1 text-sm font-bold text-[#203945]">{request.serviceTitle}</p>
+          </div>
+          <div className="rounded-[14px] bg-[#F3F7F6] p-3">
+            <p className="text-[11px] text-[#203945]/60">حالة الطلب</p>
+            <p className="mt-1 text-sm font-bold text-[#203945]">{statusLabels[request.status]}</p>
+          </div>
+          <div className="rounded-[14px] bg-[#F3F7F6] p-3">
+            <p className="text-[11px] text-[#203945]/60">الموعد</p>
+            <p className="mt-1 flex items-center gap-2 text-sm font-bold text-[#203945]">
+              <CalendarDays className="h-4 w-4 shrink-0 text-[#1766A6]" />
+              {appointmentDate || 'لم يُحدد بعد'}
+            </p>
+          </div>
+          <div className="rounded-[14px] bg-[#F3F7F6] p-3">
+            <p className="text-[11px] text-[#203945]/60">الساعة</p>
+            <p className="mt-1 flex items-center gap-2 text-sm font-bold text-[#203945]">
+              <Clock3 className="h-4 w-4 shrink-0 text-[#1766A6]" />
+              {appointmentTime || 'لم تُحدد بعد'}
+            </p>
+          </div>
+          <div className="rounded-[14px] bg-[#F3F7F6] p-3 sm:col-span-2">
+            <p className="text-[11px] text-[#203945]/60">اسم المستشار</p>
+            <p className="mt-1 text-sm font-bold text-[#203945]">{consultantName || 'غير محدد'}</p>
+          </div>
+        </div>
+
+        <div>
+          <h3 className="mb-3 text-sm font-black text-[#203945]">مسار الطلب</h3>
+          <ol className="grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
+            {journey.map((step, index) => (
+              <li
+                key={step.label}
+                className={`rounded-[12px] border p-3 ${
+                  step.done ? 'border-[#CFE5DA] bg-[#F3FAF6]' : 'border-[#E5ECE9] bg-white'
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  {step.done ? (
+                    <Check className="h-4 w-4 shrink-0 text-[#25866D]" />
+                  ) : (
+                    <Circle className="h-4 w-4 shrink-0 text-[#9AABA6]" />
+                  )}
+                  <span className="text-xs font-bold text-[#203945]">
+                    {index + 1}. {step.label}
+                  </span>
+                </div>
+                <p className="mt-2 text-[11px] leading-relaxed text-[#203945]/65">{step.detail}</p>
+              </li>
+            ))}
+          </ol>
+        </div>
+
+        <div className="space-y-2 border-t border-[#E0E8E6] pt-4">
+          <button
+            type="button"
+            onClick={() => onOpenChat(1)}
+            disabled={!appointmentBooked || consultationComplete}
+            aria-describedby="consultation-entry-note"
+            className="w-full rounded-[12px] bg-[#1766A6] px-4 py-3 text-sm font-bold text-white transition-colors hover:bg-[#125386] disabled:cursor-not-allowed disabled:bg-slate-300"
+          >
+            الدخول إلى الاستشارة
+          </button>
+          <p id="consultation-entry-note" className="text-center text-xs text-[#203945]/65">
+            {consultationComplete
+              ? 'اكتملت الاستشارة.'
+              : appointment?.status === 'CANCELLED'
+                ? 'أُلغي الموعد؛ يتاح الدخول بعد تأكيد موعد جديد.'
+              : appointmentBooked
+                ? 'يفتح زر الدخول قناة التواصل المتاحة للاستشارة.'
+                : 'يتاح الدخول بعد تأكيد حجز الموعد.'}
+          </p>
+        </div>
+      </section>
+
+      {consultationComplete && !isSpecialist && (
+        <section
+          aria-labelledby="consultation-rating-title"
+          className="space-y-3 rounded-[20px] border border-[#DCEBF4] bg-white p-5 shadow-xs"
+          dir="rtl"
+        >
+          <div>
+            <h3 id="consultation-rating-title" className="font-black text-[#203945]">
+              تقييم الخدمة
+            </h3>
+            <p className="mt-1 text-sm text-[#203945]/70">
+              مشاركة تقييمك تساعدنا على تحسين الخدمة
+            </p>
+          </div>
+          {(request.serviceRating || locallySavedRating) ? (
+            <div className="flex items-center gap-1" aria-label={`تقييمك ${request.serviceRating || locallySavedRating} من 5`}>
+              {[1, 2, 3, 4, 5].map((star) => (
+                <Star
+                  key={star}
+                  className={`h-7 w-7 ${
+                    star <= (request.serviceRating || locallySavedRating || 0)
+                      ? 'fill-amber-400 text-amber-500'
+                      : 'text-slate-300'
+                  }`}
+                />
+              ))}
+              <span className="mr-2 text-xs font-bold text-[#25866D]">تم حفظ تقييمك، شكرًا لك.</span>
+            </div>
+          ) : (
+            <>
+              <div className="flex items-center gap-1" role="radiogroup" aria-label="اختر تقييمًا من نجمة إلى خمس نجوم">
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <button
+                    key={star}
+                    type="button"
+                    role="radio"
+                    aria-checked={ratingSelection === star}
+                    aria-label={`${star} ${star === 1 ? 'نجمة' : 'نجوم'} من 5`}
+                    onClick={() => setRatingSelection(star)}
+                    className="rounded-md p-1 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1766A6]"
+                  >
+                    <Star
+                      className={`h-8 w-8 transition-colors ${
+                        star <= ratingSelection
+                          ? 'fill-amber-400 text-amber-500'
+                          : 'text-slate-300 hover:text-amber-400'
+                      }`}
+                    />
+                  </button>
+                ))}
+              </div>
+              {ratingError && <p role="alert" className="text-xs font-bold text-red-700">{ratingError}</p>}
+              <button
+                type="button"
+                onClick={handleSaveRating}
+                disabled={!ratingSelection || savingRating}
+                className="rounded-[10px] bg-[#25866D] px-4 py-2.5 text-sm font-bold text-white hover:bg-[#1E6F5A] disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {savingRating ? 'جارٍ حفظ التقييم…' : 'إرسال التقييم'}
+              </button>
+            </>
+          )}
+        </section>
+      )}
 
       {/* Specialist Report Section */}
       {isSpecialist && (
