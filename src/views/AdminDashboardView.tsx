@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Users,
   UserCheck,
@@ -52,6 +52,7 @@ import {
   UserStatus,
   RequestStatus,
   Priority,
+  LegalReference,
 } from '../types';
 import {
   createUserInDb,
@@ -63,6 +64,8 @@ import {
   deletePartnerFromDb,
   approveUserInDb,
   rejectUserInDb,
+  getPublicLegalReferences,
+  updateLegalReferencesInDb,
 } from '../services/dbService';
 
 interface AdminDashboardViewProps {
@@ -133,6 +136,80 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
     | 'settings'
     | 'audit'
   >('overview');
+
+  const [legalReferences, setLegalReferences] = useState<LegalReference[]>([]);
+  const [legalReferencesLoading, setLegalReferencesLoading] = useState(true);
+  const [legalReferencesError, setLegalReferencesError] = useState('');
+  const [legalReferencesUpdatedAt, setLegalReferencesUpdatedAt] = useState<string | null>(null);
+  const [lawDraft, setLawDraft] = useState<LegalReference | null>(null);
+  const [lawSaving, setLawSaving] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    getPublicLegalReferences()
+      .then((result) => {
+        if (!active) return;
+        setLegalReferences(result.legalReferences);
+        setLegalReferencesUpdatedAt(result.updatedAt);
+      })
+      .catch((error) => {
+        if (active) {
+          setLegalReferencesError(error instanceof Error ? error.message : 'تعذر تحميل المراجع القانونية.');
+        }
+      })
+      .finally(() => {
+        if (active) setLegalReferencesLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const persistLegalReferences = async (next: LegalReference[]) => {
+    setLawSaving(true);
+    setLegalReferencesError('');
+    try {
+      const result = await updateLegalReferencesInDb(next);
+      const savedReferences = result.legalReferences.map((law) => ({
+        ...law,
+        updatedAt: result.updatedAt || undefined,
+      }));
+      setLegalReferences(savedReferences);
+      setLegalReferencesUpdatedAt(result.updatedAt);
+      setLawDraft(null);
+    } catch (error) {
+      setLegalReferencesError(error instanceof Error ? error.message : 'تعذر حفظ المراجع القانونية.');
+    } finally {
+      setLawSaving(false);
+    }
+  };
+
+  const saveLawDraft = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!lawDraft) return;
+    const cleaned = {
+      ...lawDraft,
+      title: lawDraft.title.trim(),
+      ref: lawDraft.ref.trim(),
+      summary: lawDraft.summary.trim(),
+    };
+    if (!cleaned.title || !cleaned.ref || !cleaned.summary) {
+      setLegalReferencesError('أدخل عنوان القانون ومرجعه وملخصه قبل الحفظ.');
+      return;
+    }
+    const exists = legalReferences.some((law) => law.id === cleaned.id);
+    const next = exists
+      ? legalReferences.map((law) => law.id === cleaned.id ? cleaned : law)
+      : [...legalReferences, cleaned];
+    await persistLegalReferences(next);
+  };
+
+  const removeLegalReference = async (law: LegalReference) => {
+    if (!window.confirm(`سيؤدي حذف «${law.title}» إلى إزالته من المراجع المعروضة للزوار. هل تريد المتابعة؟`)) {
+      return;
+    }
+    await persistLegalReferences(legalReferences.filter((item) => item.id !== law.id));
+  };
 
   // Search & Filter States
   const [userSearch, setUserSearch] = useState('');
@@ -1891,46 +1968,150 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
       {/* ===================== TAB: LEGAL FRAMEWORK (المراجع القانونية) ===================== */}
       {activeTab === 'legal-framework' && (
         <div className="bg-[#FBFDFC] border border-[#E0E8E6] rounded-[20px] p-5 shadow-xs space-y-4 text-xs">
-          <div className="flex items-center justify-between pb-3 border-b border-[#E0E8E6]">
+          <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-[#E0E8E6]">
             <div>
               <h3 className="font-bold text-sm text-[#203945]">⚖️ إدارة وتحديث المراجع والنصوص القانونية الوطنية</h3>
-              <p className="text-[11px] text-[#203945]/70">تحديث القوانين المعتمدة المنشورة في الجريدة الرسمية للجمهورية الجزائرية</p>
+              <p className="text-[11px] text-[#203945]/70">التعديلات المحفوظة تظهر مباشرة في مركز التوعية القانونية للزوار.</p>
             </div>
-            <span className="px-3 py-1 rounded-full bg-[#E8F4EF] text-[#25866D] font-bold">4 نصوص تشريعية سارية</span>
+            <button
+              type="button"
+              onClick={() => setLawDraft({ id: `custom-${Date.now()}`, title: '', ref: '', summary: '' })}
+              className="flex min-h-10 items-center gap-1.5 rounded-xl bg-[#1766A6] px-3.5 font-bold text-white hover:bg-[#125386]"
+            >
+              <Plus className="h-4 w-4" />
+              إضافة مرجع
+            </button>
           </div>
 
+          <div className="flex flex-wrap items-center justify-between gap-2 text-[11px]">
+            <span className="rounded-full bg-[#E8F4EF] px-3 py-1 font-bold text-[#25866D]">
+              {legalReferences.length} مراجع محفوظة
+            </span>
+            <span className="text-[#203945]/60">
+              {legalReferencesUpdatedAt
+                ? `آخر تحديث: ${new Date(legalReferencesUpdatedAt).toLocaleString('ar-DZ')}`
+                : 'لم تُعدّل المراجع بعد'}
+            </span>
+          </div>
+
+          {legalReferencesError && (
+            <p role="alert" className="rounded-xl bg-red-50 p-3 font-semibold text-red-800">{legalReferencesError}</p>
+          )}
+          {legalReferencesLoading ? (
+            <p className="rounded-xl bg-white p-5 text-center text-[#203945]/70">جارٍ تحميل المراجع القانونية…</p>
+          ) : legalReferences.length === 0 ? (
+            <p className="rounded-xl border border-dashed border-[#CCD8D5] bg-white p-5 text-center text-[#203945]/70">
+              لا توجد مراجع قانونية. أضف مرجعًا ليظهر للزوار.
+            </p>
+          ) : (
           <div className="space-y-3">
-            {[
-              {
-                title: 'القانون رقم 04-18 المؤرخ في 25 ديسمبر 2004',
-                ref: 'الجريدة الرسمية عدد 83',
-                summary: 'الوقاية من المخدرات والمؤثرات العقلية وقمع الاستعمال والاتجار غير المشروعين بها، وتعزيز سبل التكفل بالعلاج الطوعي.',
-              },
-              {
-                title: 'القانون رقم 25-03 المؤرخ في 1 يوليو 2025',
-                ref: 'الجريدة الرسمية عدد 43',
-                summary: 'تعديل وتتميم القانون 04-18 بإدراج فحوصات الكشف المسبق عند التوظيف، تعزيز حماية القصر، والتكفل بإعادة الإدماج الاجتماعي.',
-              },
-              {
-                title: 'المرسوم التنفيذي رقم 26-76 المؤرخ في 14 جانفي 2026',
-                ref: 'الجريدة الرسمية عدد 08',
-                summary: 'تحديد شروط وكيفيات إجراء التحاليل الطبية عند التوظيف والسر المهني ومعاقبة إفشاء النتائج وضمان عدم إقصاء المتعافين.',
-              },
-              {
-                title: 'القانون رقم 18-07 المؤرخ في 10 يونيو 2018 (25 رمضان 1439)',
-                ref: 'الجريدة الرسمية عدد 34',
-                summary: 'حماية الأشخاص الطبيعيين في مجال معالجة المعطيات ذات الطابع الشخصي، المعدل والمتمم، وفرض التشفير الكامل للملفات الطبية والقضائية.',
-              },
-            ].map((law, idx) => (
-              <div key={idx} className="bg-white border border-[#CCD8D5] p-4 rounded-[14px] space-y-1.5 shadow-2xs">
+            {legalReferences.map((law) => (
+              <div key={law.id} className="bg-white border border-[#CCD8D5] p-4 rounded-[14px] space-y-2.5 shadow-2xs">
                 <div className="flex items-center justify-between">
                   <h4 className="font-black text-sm text-[#203945]">📜 {law.title}</h4>
                   <span className="text-[10px] bg-[#EAF3F8] text-[#1766A6] font-mono px-2 py-0.5 rounded-md font-bold">{law.ref}</span>
                 </div>
                 <p className="text-[#203945]/80 leading-relaxed text-[11px]">{law.summary}</p>
+                <div className="flex flex-wrap gap-2 border-t border-[#E0E8E6] pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setLawDraft({ ...law })}
+                    className="flex min-h-9 items-center gap-1 rounded-lg border border-[#CCD8D5] px-3 font-bold text-[#1766A6] hover:bg-[#EAF3F8]"
+                  >
+                    <Edit2 className="h-3.5 w-3.5" />
+                    تعديل
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void removeLegalReference(law)}
+                    disabled={lawSaving}
+                    className="flex min-h-9 items-center gap-1 rounded-lg border border-red-200 px-3 font-bold text-red-700 hover:bg-red-50 disabled:opacity-50"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                    حذف
+                  </button>
+                </div>
               </div>
             ))}
           </div>
+          )}
+
+          {lawDraft && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-950/60 p-4">
+              <form
+                onSubmit={saveLawDraft}
+                className="my-auto max-h-[92vh] w-full max-w-2xl space-y-4 overflow-y-auto rounded-2xl border border-[#E0E8E6] bg-white p-5 shadow-2xl"
+                aria-labelledby="legal-reference-editor-title"
+              >
+                <div className="flex items-center justify-between gap-3 border-b border-[#E0E8E6] pb-3">
+                  <div>
+                    <h4 id="legal-reference-editor-title" className="font-black text-base text-[#203945]">
+                      {legalReferences.some((law) => law.id === lawDraft.id) ? 'تعديل مرجع قانوني' : 'إضافة مرجع قانوني'}
+                    </h4>
+                    <p className="mt-1 text-xs text-[#203945]/60">سيظهر المحتوى المحفوظ في صفحة المراجع العامة.</p>
+                  </div>
+                  <button
+                    type="button"
+                    aria-label="إغلاق"
+                    onClick={() => setLawDraft(null)}
+                    className="rounded-lg p-2 text-[#203945]/65 hover:bg-slate-100"
+                  >
+                    <X className="h-5 w-5" />
+                  </button>
+                </div>
+                <label className="block space-y-1.5 text-xs font-bold text-[#203945]">
+                  عنوان القانون أو المرسوم
+                  <input
+                    autoFocus
+                    required
+                    maxLength={250}
+                    value={lawDraft.title}
+                    onChange={(event) => setLawDraft({ ...lawDraft, title: event.target.value })}
+                    className="min-h-11 w-full rounded-xl border border-[#CCD8D5] px-3 text-sm font-normal outline-none focus:border-[#1766A6]"
+                  />
+                </label>
+                <label className="block space-y-1.5 text-xs font-bold text-[#203945]">
+                  المرجع الرسمي
+                  <input
+                    required
+                    maxLength={250}
+                    value={lawDraft.ref}
+                    onChange={(event) => setLawDraft({ ...lawDraft, ref: event.target.value })}
+                    placeholder="مثال: الجريدة الرسمية عدد ..."
+                    className="min-h-11 w-full rounded-xl border border-[#CCD8D5] px-3 text-sm font-normal outline-none focus:border-[#1766A6]"
+                  />
+                </label>
+                <label className="block space-y-1.5 text-xs font-bold text-[#203945]">
+                  ملخص وتفاصيل التحديث
+                  <textarea
+                    required
+                    maxLength={5000}
+                    rows={6}
+                    value={lawDraft.summary}
+                    onChange={(event) => setLawDraft({ ...lawDraft, summary: event.target.value })}
+                    className="w-full rounded-xl border border-[#CCD8D5] p-3 text-sm font-normal leading-relaxed outline-none focus:border-[#1766A6]"
+                  />
+                </label>
+                {legalReferencesError && <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-800">{legalReferencesError}</p>}
+                <div className="flex flex-wrap justify-end gap-2 border-t border-[#E0E8E6] pt-3">
+                  <button
+                    type="button"
+                    onClick={() => setLawDraft(null)}
+                    className="min-h-10 rounded-xl border border-[#CCD8D5] px-4 font-bold text-[#203945]"
+                  >
+                    إلغاء
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={lawSaving}
+                    className="min-h-10 rounded-xl bg-[#1766A6] px-5 font-bold text-white disabled:opacity-60"
+                  >
+                    {lawSaving ? 'جارٍ الحفظ…' : 'حفظ ونشر التحديث'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          )}
         </div>
       )}
 

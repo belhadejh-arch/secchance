@@ -27,6 +27,32 @@ const allowedStatuses = new Set([
   'CANCELLED',
 ]);
 const providerRoles = new Set(professionalRoles);
+const defaultLegalReferences = [
+  {
+    id: '04-18',
+    title: 'القانون رقم 04-18 المؤرخ في 25 ديسمبر 2004',
+    ref: 'الجريدة الرسمية عدد 83',
+    summary: 'الوقاية من المخدرات والمؤثرات العقلية وقمع الاستعمال والاتجار غير المشروعين بها، وتعزيز سبل التكفل بالعلاج الطوعي.',
+  },
+  {
+    id: '25-03',
+    title: 'القانون رقم 25-03 المؤرخ في 1 يوليو 2025',
+    ref: 'الجريدة الرسمية عدد 43',
+    summary: 'تعديل وتتميم القانون 04-18 بإدراج فحوصات الكشف المسبق عند التوظيف، تعزيز حماية القصر، والتكفل بإعادة الإدماج الاجتماعي.',
+  },
+  {
+    id: '26-76',
+    title: 'المرسوم التنفيذي رقم 26-76 المؤرخ في 14 جانفي 2026',
+    ref: 'الجريدة الرسمية عدد 08',
+    summary: 'تحديد شروط وكيفيات إجراء التحاليل الطبية عند التوظيف والسر المهني ومعاقبة إفشاء النتائج وضمان عدم إقصاء المتعافين.',
+  },
+  {
+    id: '18-07',
+    title: 'القانون رقم 18-07 المؤرخ في 10 يونيو 2018 (25 رمضان 1439)',
+    ref: 'الجريدة الرسمية عدد 34',
+    summary: 'حماية الأشخاص الطبيعيين في مجال معالجة المعطيات ذات الطابع الشخصي، المعدل والمتمم، وفرض التشفير الكامل للملفات الطبية والقضائية.',
+  },
+];
 
 function json(res, status, body, headers = {}) {
   if (res.writableEnded) return;
@@ -1059,6 +1085,119 @@ async function changeUser(id, body, user, req) {
   await addAudit(pool, user.id, 'USER_UPDATED', 'user', id, 'تم تحديث ملف الحساب.', req);
 }
 
+async function updateOwnAccountSettings(body, user, req) {
+  const phone = String(body.phone || '').trim();
+  const phoneDigits = phone.replace(/\D/g, '');
+  if (!/^\+?[0-9\s().-]+$/.test(phone) || phoneDigits.length < 7 || phoneDigits.length > 15) {
+    throw new HttpError(400, 'أدخل رقم هاتف صالحًا يتكون من 7 إلى 15 رقمًا.');
+  }
+
+  const currentPassword = body.currentPassword;
+  const newPassword = body.newPassword;
+  const changingPassword = currentPassword !== undefined || newPassword !== undefined;
+  if (changingPassword && (!currentPassword || !validatePassword(newPassword))) {
+    throw new HttpError(400, 'لتغيير كلمة المرور، أدخل كلمة المرور الحالية وكلمة مرور جديدة من 10 أحرف على الأقل.');
+  }
+
+  await withTransaction(async (client) => {
+    const existing = await client.query('SELECT password, phone FROM users WHERE id = $1 FOR UPDATE', [user.id]);
+    const account = existing.rows[0];
+    if (!account) throw new HttpError(404, 'الحساب غير موجود.');
+    if (changingPassword && !await verifyPassword(String(currentPassword), account.password)) {
+      throw new HttpError(401, 'كلمة المرور الحالية غير صحيحة.');
+    }
+
+    const values = [user.id, phone];
+    let passwordSql = '';
+    if (changingPassword) {
+      values.push(await hashPassword(newPassword));
+      passwordSql = ', password = $3';
+    }
+    await client.query(
+      `UPDATE users SET phone = $2${passwordSql}, updated_at = NOW() WHERE id = $1`,
+      values
+    );
+
+    if (phone !== account.phone) {
+      await addAudit(client, user.id, 'PHONE_UPDATED', 'user', user.id, 'تم تحديث رقم الهاتف من إعدادات الحساب.', req);
+    }
+    if (changingPassword) {
+      await addAudit(client, user.id, 'PASSWORD_CHANGED', 'user', user.id, 'تم تغيير كلمة المرور من إعدادات الحساب.', req);
+    }
+  });
+
+  const updated = await getUserProfile(user.id);
+  return safeUser(updated);
+}
+
+function parseLegalReferences(value) {
+  let parsed;
+  try {
+    parsed = JSON.parse(value);
+  } catch {
+    throw new HttpError(500, 'تعذر قراءة المراجع القانونية المحفوظة.');
+  }
+  if (!Array.isArray(parsed)) throw new HttpError(500, 'تنسيق المراجع القانونية المحفوظة غير صالح.');
+  return parsed;
+}
+
+async function getLegalReferences() {
+  const result = await pool.query(
+    `SELECT value, updated_at FROM system_settings WHERE key = 'legal_references' LIMIT 1`
+  );
+  if (!result.rows[0]) return { legalReferences: defaultLegalReferences, updatedAt: null };
+  return {
+    legalReferences: parseLegalReferences(result.rows[0].value),
+    updatedAt: result.rows[0].updated_at ? new Date(result.rows[0].updated_at).toISOString() : null,
+  };
+}
+
+async function saveLegalReferences(body, user, req) {
+  if (!Array.isArray(body.legalReferences) || body.legalReferences.length > 50) {
+    throw new HttpError(400, 'قائمة القوانين غير صالحة أو تجاوزت الحد المسموح.');
+  }
+
+  const ids = new Set();
+  const legalReferences = body.legalReferences.map((entry) => {
+    const id = String(entry?.id || '').trim().slice(0, 80);
+    const title = String(entry?.title || '').trim();
+    const ref = String(entry?.ref || '').trim();
+    const summary = String(entry?.summary || '').trim();
+    if (!id || ids.has(id) || !title || !ref || !summary) {
+      throw new HttpError(400, 'تأكد من إدخال عنوان ومرجع وملخص فريد لكل قانون.');
+    }
+    if (title.length > 250 || ref.length > 250 || summary.length > 5000) {
+      throw new HttpError(400, 'تجاوز أحد حقول القانون الحد الأقصى المسموح.');
+    }
+    ids.add(id);
+    return { id, title, ref, summary };
+  });
+
+  const updatedAt = await withTransaction(async (client) => {
+    const saved = await client.query(
+      `INSERT INTO system_settings (key, value, updated_at)
+       VALUES ('legal_references', $1, NOW())
+       ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()
+       RETURNING updated_at`,
+      [JSON.stringify(legalReferences)]
+    );
+    await addAudit(
+      client,
+      user.id,
+      'LEGAL_REFERENCES_UPDATED',
+      'system_setting',
+      'legal_references',
+      `تم تحديث ${legalReferences.length} مرجعًا قانونيًا.`,
+      req
+    );
+    return saved.rows[0].updated_at;
+  });
+  return {
+    legalReferences,
+    updatedAt: updatedAt ? new Date(updatedAt).toISOString() : new Date().toISOString(),
+  };
+}
+
 async function adminUsersCreate(body, user, req) {
   requireAdmin(user);
   const row = await createUser(body, user, req, false);
@@ -1169,6 +1308,9 @@ export async function dispatchApi(req, res) {
   if (method === 'GET' && pathname === '/api/v1/public/services') {
     return json(res, 200, await getPublicServices());
   }
+  if (method === 'GET' && pathname === '/api/v1/public/legal-references') {
+    return json(res, 200, await getLegalReferences());
+  }
   if (method === 'PATCH' && pathname === '/api/v1/profile/availability') {
     return json(res, 200, await updateAvailability(await bodyJson(req), user, req));
   }
@@ -1241,6 +1383,15 @@ export async function dispatchApi(req, res) {
   const appointmentRoute = pathname.match(/^\/api\/v1\/appointments\/(\d+)$/);
   const conversationRoute = pathname.match(/^\/api\/v1\/conversations\/(\d+)\/messages$/);
   const notificationRoute = pathname.match(/^\/api\/v1\/notifications\/(\d+)\/read$/);
+
+  if (method === 'PATCH' && pathname === '/api/v1/profile/settings') {
+    const updatedUser = await updateOwnAccountSettings(await bodyJson(req), user, req);
+    return json(res, 200, { user: updatedUser });
+  }
+  if (method === 'PATCH' && pathname === '/api/v1/admin/legal-references') {
+    requireAdmin(user);
+    return json(res, 200, await saveLegalReferences(await bodyJson(req), user, req));
+  }
 
   if (method === 'POST' && pathname === '/api/v1/users') {
     const created = await adminUsersCreate(await bodyJson(req), user, req);

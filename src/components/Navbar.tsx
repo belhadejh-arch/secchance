@@ -11,6 +11,7 @@ import {
   Stethoscope,
   LogOut,
   User as UserIcon,
+  Settings,
 } from 'lucide-react';
 import { User } from '../types';
 
@@ -114,6 +115,16 @@ export const Navbar: React.FC<NavbarProps> = ({
                 <span>
                   {isAdmin ? 'لوحة الإدارة' : isSpecialist ? 'لوحة المختص' : currentUser.firstName}
                 </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => onNavigate('account-settings')}
+                aria-label="إعدادات الحساب"
+                title="إعدادات الحساب"
+                className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg text-[#1766A6] hover:bg-[#EAF3F8] transition-colors"
+              >
+                <Settings className="h-4 w-4" />
               </button>
 
               {onLogout && (

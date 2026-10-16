@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   BookOpen,
   CalendarDays,
@@ -13,6 +13,8 @@ import {
   X,
 } from 'lucide-react';
 import { initialAwarenessArticles, initialLegalTopics } from '../data/initialData';
+import { getPublicLegalReferences } from '../services/dbService';
+import { LegalReference } from '../types';
 
 interface AwarenessViewProps {
   onRequestLegalConsultation?: () => void;
@@ -85,35 +87,6 @@ const topicCategories: Record<number, string[]> = {
   4: ['القوانين', 'حقوق الفرد والأسرة'],
 };
 
-const legalMaterials: AwarenessMaterial[] = [
-  ...initialLegalTopics.map((topic) => ({
-    id: `law-${topic.id}`,
-    title: topic.title,
-    summary: topic.plainSummary,
-    source: `${topic.legalReference}. ${topic.officialSource}`,
-    publishedAt: topic.officialSource.match(/\(([^()]+)\)/)?.[1] ?? topic.lawDate,
-    lastUpdated: topic.lastReviewedDate,
-    categories: topicCategories[topic.id] ?? ['القوانين'],
-    sections: [
-      { title: 'شرح مبسط', content: topic.plainExplanation },
-      { title: topic.relevantArticle, content: topic.officialText },
-      { title: 'التعديلات التشريعية', content: topic.amendments.join('\n') },
-      { title: 'المرسوم أو التنظيم المرتبط', content: topic.executiveDecree },
-    ],
-    pdfUrl: topic.pdfUrl,
-  })),
-  ...initialAwarenessArticles.map((article) => ({
-    id: `article-${article.id}`,
-    title: article.title,
-    summary: article.summary,
-    source: article.legalSource ?? article.category,
-    publishedAt: article.date,
-    lastUpdated: article.lastUpdated ?? article.date,
-    categories: [article.category],
-    sections: [{ title: 'معلومة قانونية مبسطة', content: article.content }],
-  })),
-];
-
 function normalizeSearch(value: string) {
   return value
     .toLocaleLowerCase('ar')
@@ -131,12 +104,94 @@ function displayDate(value: string) {
 export const AwarenessView: React.FC<AwarenessViewProps> = ({
   onRequestLegalConsultation,
 }) => {
+  const [legalReferences, setLegalReferences] = useState<LegalReference[] | null>(null);
+  const [legalReferencesError, setLegalReferencesError] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('الكل');
   const [selectedMaterial, setSelectedMaterial] = useState<AwarenessMaterial | null>(null);
   const [selectedPdfToRead, setSelectedPdfToRead] = useState<{ title: string; url: string } | null>(
     null
   );
+
+  useEffect(() => {
+    let active = true;
+    getPublicLegalReferences()
+      .then((result) => {
+        if (active) {
+          setLegalReferences(
+            result.legalReferences.map((law) => ({
+              ...law,
+              updatedAt: law.updatedAt || result.updatedAt || undefined,
+            }))
+          );
+        }
+      })
+      .catch((error) => {
+        if (active) {
+          setLegalReferencesError(error instanceof Error ? error.message : 'تعذر تحميل آخر تحديثات القوانين.');
+        }
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const legalMaterials = useMemo<AwarenessMaterial[]>(() => {
+    const topics = legalReferences === null
+      ? initialLegalTopics.map((topic) => ({
+          id: `law-${topic.id}`,
+          title: topic.title,
+          summary: topic.plainSummary,
+          source: `${topic.legalReference}. ${topic.officialSource}`,
+          publishedAt: topic.officialSource.match(/\(([^()]+)\)/)?.[1] ?? topic.lawDate,
+          lastUpdated: topic.lastReviewedDate,
+          categories: topicCategories[topic.id] ?? ['القوانين'],
+          sections: [
+            { title: 'شرح مبسط', content: topic.plainExplanation },
+            { title: topic.relevantArticle, content: topic.officialText },
+            { title: 'التعديلات التشريعية', content: topic.amendments.join('\n') },
+            { title: 'المرسوم أو التنظيم المرتبط', content: topic.executiveDecree },
+          ],
+          pdfUrl: topic.pdfUrl,
+        }))
+      : legalReferences.map((reference) => {
+          const topic = initialLegalTopics.find(
+            (item) => item.legalReference.match(/\d{2}-\d{2}/)?.[0] === reference.id
+          );
+          return {
+            id: `law-${reference.id}`,
+            title: reference.title,
+            summary: reference.summary,
+            source: reference.ref,
+            publishedAt: topic?.lawDate || '',
+            lastUpdated: reference.updatedAt?.slice(0, 10) || topic?.lastReviewedDate || '',
+            categories: topic ? topicCategories[topic.id] ?? ['القوانين'] : ['القوانين'],
+            sections: topic
+              ? [
+                  { title: 'شرح مبسط', content: topic.plainExplanation },
+                  { title: topic.relevantArticle, content: topic.officialText },
+                  { title: 'التعديلات التشريعية', content: topic.amendments.join('\n') },
+                  { title: 'المرسوم أو التنظيم المرتبط', content: topic.executiveDecree },
+                ]
+              : [{ title: 'ملخص المرجع القانوني', content: reference.summary }],
+            pdfUrl: topic?.pdfUrl,
+          };
+        });
+
+    return [
+      ...topics,
+      ...initialAwarenessArticles.map((article) => ({
+        id: `article-${article.id}`,
+        title: article.title,
+        summary: article.summary,
+        source: article.legalSource ?? article.category,
+        publishedAt: article.date,
+        lastUpdated: article.lastUpdated ?? article.date,
+        categories: [article.category],
+        sections: [{ title: 'معلومة قانونية مبسطة', content: article.content }],
+      })),
+    ];
+  }, [legalReferences]);
 
   const filteredMaterials = useMemo(() => {
     const query = normalizeSearch(searchQuery);
@@ -158,16 +213,26 @@ export const AwarenessView: React.FC<AwarenessViewProps> = ({
     return selectedCategory === 'آخر التحديثات'
       ? matches.sort((a, b) => b.lastUpdated.localeCompare(a.lastUpdated))
       : matches;
-  }, [searchQuery, selectedCategory]);
+  }, [legalMaterials, searchQuery, selectedCategory]);
 
-  const visiblePdfs = pdfDocuments.filter((document) => {
+  const visiblePdfs = pdfDocuments.flatMap((document) => {
+    const managedId = document.id === '18-04'
+      ? '04-18'
+      : document.id === '76-26'
+        ? '26-76'
+        : document.id;
+    const managed = legalReferences?.find((reference) => reference.id === managedId);
+    if (legalReferences && !managed) return [];
+    const currentDocument = managed
+      ? { ...document, title: managed.title, subtitle: managed.summary, pages: managed.ref }
+      : document;
     const matchesCategory =
-      selectedCategory === 'الكل' || document.categories.includes(selectedCategory);
+      selectedCategory === 'الكل' || currentDocument.categories.includes(selectedCategory);
     const query = normalizeSearch(searchQuery);
     const matchesSearch =
       !query ||
-      normalizeSearch(`${document.title} ${document.subtitle} ${document.pages}`).includes(query);
-    return matchesCategory && matchesSearch;
+      normalizeSearch(`${currentDocument.title} ${currentDocument.subtitle} ${currentDocument.pages}`).includes(query);
+    return matchesCategory && matchesSearch ? [currentDocument] : [];
   });
 
   return (
@@ -178,6 +243,12 @@ export const AwarenessView: React.FC<AwarenessViewProps> = ({
           معلومات مبسطة ومراجع قانونية رسمية حول القوانين والإجراءات وحقوق الفرد والأسرة.
         </p>
       </header>
+
+      {legalReferencesError && (
+        <p role="status" className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+          تعذر جلب آخر تحديثات المراجع القانونية من الخادم: {legalReferencesError}
+        </p>
+      )}
 
       <aside
         role="note"

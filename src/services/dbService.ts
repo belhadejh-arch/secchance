@@ -13,6 +13,7 @@ import {
   SpecialistReport,
   TreatmentCenter,
   TreatmentFollowUp,
+  LegalReference,
   User,
 } from '../types';
 
@@ -135,6 +136,37 @@ export async function initializeDatabase(): Promise<void> {
 export async function getCurrentUser(): Promise<User | null> {
   const result = await api<{ user: User | null }>('/auth/me');
   return result.user;
+}
+
+export interface AccountSettingsUpdate {
+  phone: string;
+  currentPassword?: string;
+  newPassword?: string;
+}
+
+export async function updateAccountSettingsInDb(updates: AccountSettingsUpdate): Promise<User> {
+  const result = await api<{ user: User }>('/profile/settings', {
+    method: 'PATCH',
+    body: JSON.stringify(updates),
+  });
+  await refreshSnapshot();
+  return result.user;
+}
+
+export async function getPublicLegalReferences(): Promise<{
+  legalReferences: LegalReference[];
+  updatedAt: string | null;
+}> {
+  return api('/public/legal-references');
+}
+
+export async function updateLegalReferencesInDb(
+  legalReferences: LegalReference[]
+): Promise<{ legalReferences: LegalReference[]; updatedAt: string | null }> {
+  return api('/admin/legal-references', {
+    method: 'PATCH',
+    body: JSON.stringify({ legalReferences }),
+  });
 }
 
 export async function logoutUser(): Promise<void> {

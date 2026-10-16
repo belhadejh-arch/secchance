@@ -36,6 +36,7 @@ import {
   addSpecialistReportInDb,
   startPaymentInDb,
   sendMessageInDb,
+  updateAccountSettingsInDb,
 } from './services/dbService';
 
 import { Navbar } from './components/Navbar';
@@ -62,6 +63,7 @@ import { EmergencyView } from './views/EmergencyView';
 import { FamilyGuidanceView } from './views/FamilyGuidanceView';
 import { AdminDashboardView } from './views/AdminDashboardView';
 import { SpecialistDashboardView } from './views/SpecialistDashboardView';
+import { AccountSettingsView } from './views/AccountSettingsView';
 
 function findProviderConfirmedBooking(
   request: CareRequest | null,
@@ -241,6 +243,10 @@ export function App() {
 
   // Navigation handlers
   const handleNavigate = (view: string) => {
+    if (view === 'account-settings' && !currentUser) {
+      setIsAuthOpen(true);
+      return;
+    }
     if (view === 'legal-assistance') {
       const legalService = services.find((service) => service.category === 'legal');
       if (!legalService) {
@@ -356,6 +362,14 @@ export function App() {
     void logoutUser().catch((error) => console.error('تعذر إنهاء الجلسة:', error));
     setCurrentUser(null);
     handleNavigate('landing');
+  };
+
+  const handleUpdateAccountSettings = async (
+    updates: Parameters<typeof updateAccountSettingsInDb>[0]
+  ) => {
+    const updatedUser = await updateAccountSettingsInDb(updates);
+    setCurrentUser(updatedUser);
+    return updatedUser;
   };
 
   // Request creation in real database
@@ -665,6 +679,23 @@ export function App() {
               onRequestService={handleRequestService}
               onOpenDirectory={handleOpenDirectory}
               onLogout={handleLogout}
+              onUpdateAccountSettings={handleUpdateAccountSettings}
+            />
+          )}
+
+          {currentView === 'account-settings' && currentUser && (
+            <AccountSettingsView
+              currentUser={currentUser}
+              onSave={handleUpdateAccountSettings}
+              onBack={() =>
+                handleNavigate(
+                  currentUser.roleSlug === 'admin'
+                    ? 'admin-dashboard'
+                    : ['psychologist', 'doctor', 'lawyer', 'legal_advisor', 'clinic', 'hospital', 'association', 'treatment_center'].includes(currentUser.roleSlug)
+                      ? 'specialist-dashboard'
+                      : 'portal'
+                )
+              }
             />
           )}
 

@@ -208,6 +208,14 @@ export interface AwarenessArticle {
   lastUpdated?: string;
 }
 
+export interface LegalReference {
+  id: string;
+  title: string;
+  ref: string;
+  summary: string;
+  updatedAt?: string;
+}
+
 export interface ServiceItem {
   id: number;
   title: string;

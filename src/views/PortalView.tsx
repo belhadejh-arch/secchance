@@ -11,6 +11,7 @@ import {
   CaseFileDocument,
   ServiceItem,
 } from '../types';
+import { AccountSettingsUpdate } from '../services/dbService';
 import {
   User as UserIcon,
   House,
@@ -55,6 +56,7 @@ import {
 } from '../services/dbService';
 import { AccountDashboardView } from './AccountDashboardView';
 import { FamilyPackageView } from './FamilyPackageView';
+import { AccountSettingsView } from './AccountSettingsView';
 import { getCustomerRequestProgress } from '../lib/requestProgress';
 
 interface PortalViewProps {
@@ -74,6 +76,7 @@ interface PortalViewProps {
   onRequestService: (service: ServiceItem) => void;
   onOpenDirectory: (tab: 'centers' | 'associations') => void;
   onLogout: () => void;
+  onUpdateAccountSettings: (updates: AccountSettingsUpdate) => Promise<User>;
 }
 
 export const PortalView: React.FC<PortalViewProps> = ({
@@ -93,6 +96,7 @@ export const PortalView: React.FC<PortalViewProps> = ({
   onRequestService,
   onOpenDirectory,
   onLogout,
+  onUpdateAccountSettings,
 }) => {
   // Main navigation for the beneficiary account.
   const [beneficiaryTab, setBeneficiaryTab] = useState<
@@ -798,50 +802,7 @@ export const PortalView: React.FC<PortalViewProps> = ({
 
       {/* ================= 10. TAB: PROFILE (الملف الشخصي) ================= */}
       {beneficiaryTab === 'settings' && (
-        <div className="bg-[#FBFDFC] border border-[#E0E8E6] rounded-[20px] p-6 shadow-xs space-y-4 text-xs">
-          <div className="flex items-center gap-3 pb-3 border-b border-[#E0E8E6]">
-            <div className="w-12 h-12 rounded-full bg-[#EAF3F8] text-[#1766A6] flex items-center justify-center text-lg font-bold">
-              {currentUser.firstName.charAt(0)}
-            </div>
-            <div>
-              <h3 className="font-black text-base text-[#203945]">
-                {currentUser.firstName} {currentUser.lastName}
-              </h3>
-              <p className="text-[#1766A6] font-bold">
-                حساب مستفيد • الولاية: {currentUser.wilayaName || 'غير محددة'}
-              </p>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-            <div className="bg-[#F3F7F6] p-3.5 rounded-[12px] space-y-1">
-              <span className="text-[#203945]/70 block font-semibold">البريد الإلكتروني:</span>
-              <p className="font-bold text-[#203945]">{currentUser.email || 'غير مسجل'}</p>
-            </div>
-
-            <div className="bg-[#F3F7F6] p-3.5 rounded-[12px] space-y-1">
-              <span className="text-[#203945]/70 block font-semibold">رقم الهاتف:</span>
-              <p className="font-bold text-[#203945]">{currentUser.phone || 'غير مسجل'}</p>
-            </div>
-
-            <div className="bg-[#F3F7F6] p-3.5 rounded-[12px] space-y-1">
-              <span className="text-[#203945]/70 block font-semibold">الموقع / الولاية:</span>
-              <p className="font-bold text-[#203945]">{currentUser.wilayaName || 'غير محددة'}</p>
-            </div>
-
-            <div className="bg-[#F3F7F6] p-3.5 rounded-[12px] space-y-1">
-              <span className="text-[#203945]/70 block font-semibold">حالة الحساب:</span>
-              <p className="font-bold text-[#25866D]">{currentUser.status}</p>
-            </div>
-          </div>
-
-          <div className="bg-[#EAF3F8] p-3.5 rounded-[14px] border border-[#DCEBF4] text-[11px] text-[#104A78] space-y-1">
-            <strong className="block font-bold">معلومات حسابك:</strong>
-            <p className="leading-relaxed">
-              يمكنك مراجعة بيانات الحساب المسجلة هنا. القيم غير المتوفرة تظهر بوضوح ولا تُستبدل ببيانات افتراضية.
-            </p>
-          </div>
-        </div>
+        <AccountSettingsView currentUser={currentUser} onSave={onUpdateAccountSettings} />
       )}
 
       </main>
