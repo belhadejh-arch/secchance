@@ -6,7 +6,6 @@ import {
   SpecialistReport,
   TreatmentFollowUp,
   PlatformNotification,
-  RequestStatus,
 } from '../types';
 import {
   FileText,
@@ -26,10 +25,8 @@ import {
   Activity,
   History,
   User as UserIcon,
-  ChevronRight,
-  Phone,
-  MapPin,
-  FileCheck,
+  Home,
+  Settings,
 } from 'lucide-react';
 import {
   updateCareRequestInDb,
@@ -62,37 +59,54 @@ export const SpecialistDashboardView: React.FC<SpecialistDashboardViewProps> = (
   onOpenChat,
   onOpenRequestDetail,
 }) => {
+  const specialistLastName = currentUser.lastName?.trim().toLowerCase();
+  const matchesSpecialistName = (name?: string) =>
+    Boolean(specialistLastName && name?.toLowerCase().includes(specialistLastName));
+
   // Filter cases assigned to this specialist
   const myRequests = requests.filter(
     (r) =>
       String(r.providerId) === String(currentUser.id) ||
-      r.providerName?.toLowerCase().includes(currentUser.lastName?.toLowerCase() || '')
+      matchesSpecialistName(r.providerName)
   );
 
   const newCases = myRequests.filter(
     (r) => r.status === 'NEW' || r.status === 'PENDING_PROVIDER'
   );
   const inProgressCases = myRequests.filter(
-    (r) => r.status === 'IN_PROGRESS' || r.status === 'ACCEPTED' || r.status === 'APPOINTMENT_CONFIRMED'
+    (r) =>
+      r.status === 'IN_PROGRESS' ||
+      r.status === 'ACCEPTED' ||
+      r.status === 'WAITING_PAYMENT' ||
+      r.status === 'PAID' ||
+      r.status === 'APPOINTMENT_CONFIRMED'
   );
   const completedCases = myRequests.filter((r) => r.status === 'COMPLETED');
 
-  const myAppointments = appointments.filter(
-    (a) =>
+  const myAppointments = appointments
+    .filter(
+      (a) =>
       String(a.specialistId) === String(currentUser.id) ||
-      a.specialistName?.toLowerCase().includes(currentUser.lastName?.toLowerCase() || '')
+      matchesSpecialistName(a.specialistName)
+    )
+    .sort((a, b) => `${a.date} ${a.time}`.localeCompare(`${b.date} ${b.time}`));
+  const todayDate = new Date();
+  const todayDateKey = `${todayDate.getFullYear()}-${String(todayDate.getMonth() + 1).padStart(2, '0')}-${String(todayDate.getDate()).padStart(2, '0')}`;
+  const appointmentsToday = myAppointments.filter(
+    (appointment) =>
+      appointment.date.slice(0, 10) === todayDateKey && appointment.status !== 'CANCELLED'
   );
 
   const myReports = reports.filter(
     (rep) =>
       String(rep.specialistId) === String(currentUser.id) ||
-      rep.specialistName?.toLowerCase().includes(currentUser.lastName?.toLowerCase() || '')
+      matchesSpecialistName(rep.specialistName)
   );
 
   const myFollowUps = followUps.filter(
     (f) =>
       String(f.specialistId) === String(currentUser.id) ||
-      f.specialistName?.toLowerCase().includes(currentUser.lastName?.toLowerCase() || '')
+      matchesSpecialistName(f.specialistName)
   );
 
   const myNotifications = notifications.filter(
@@ -102,10 +116,19 @@ export const SpecialistDashboardView: React.FC<SpecialistDashboardViewProps> = (
       n.recipientRole === 'ALL'
   );
 
-  // Active sub-tab (Dashboard, الحالات الجديدة، الحالات الجارية، المواعيد، كتابة التقرير، متابعة العلاج، الرسائل، الإشعارات، الملف الشخصي)
+  // Specialist workspace sections
   const [activeTab, setActiveTab] = useState<
-    'new-cases' | 'in-progress' | 'completed' | 'appointments' | 'write-report' | 'followup' | 'notifications' | 'profile'
-  >('in-progress');
+    | 'home'
+    | 'new-cases'
+    | 'in-progress'
+    | 'appointments'
+    | 'consultations'
+    | 'write-report'
+    | 'followup'
+    | 'notifications'
+    | 'profile'
+    | 'settings'
+  >('home');
 
   // Selected case for viewing in-progress details
   const [selectedCaseForDetail, setSelectedCaseForDetail] = useState<CareRequest | null>(
@@ -228,16 +251,88 @@ export const SpecialistDashboardView: React.FC<SpecialistDashboardViewProps> = (
   };
 
   const isLawyer = currentUser.roleSlug === 'lawyer' || currentUser.roleSlug === 'legal_advisor';
+  const isPsychologist = currentUser.roleSlug === 'psychologist';
+  const professionalTitle = isPsychologist
+    ? 'مختص نفسي عيادي'
+    : currentUser.specialty || (isLawyer ? 'مستشار قانوني ومحامٍ معتمد' : 'مختص عيادي');
   const unreadNotifsCount = myNotifications.filter((n) => !n.isRead).length;
+  const specialistNavItems: Array<{
+    key: typeof activeTab;
+    label: string;
+    icon: React.ReactNode;
+  }> = [
+    { key: 'home', label: 'الرئيسية', icon: <Home className="h-4 w-4" /> },
+    { key: 'new-cases', label: 'الطلبات الجديدة', icon: <Clock className="h-4 w-4" /> },
+    { key: 'in-progress', label: 'الحالات', icon: <UserIcon className="h-4 w-4" /> },
+    { key: 'appointments', label: 'المواعيد', icon: <Calendar className="h-4 w-4" /> },
+    { key: 'consultations', label: 'الاستشارات', icon: <CheckCircle className="h-4 w-4" /> },
+    { key: 'write-report', label: 'الملاحظات', icon: <FileText className="h-4 w-4" /> },
+    { key: 'followup', label: 'المتابعة', icon: <Activity className="h-4 w-4" /> },
+    { key: 'profile', label: 'الملف المهني', icon: <UserIcon className="h-4 w-4" /> },
+    { key: 'settings', label: 'الإعدادات', icon: <Settings className="h-4 w-4" /> },
+  ];
 
   return (
-    <div className="space-y-6">
+    <div
+      className="mx-auto grid max-w-7xl gap-5 lg:grid-cols-[245px_minmax(0,1fr)]"
+      dir="rtl"
+    >
+      <aside className="h-fit rounded-[18px] border border-[#E0E8E6] bg-[#FBFDFC] p-3 shadow-xs lg:sticky lg:top-4">
+        <div className="mb-3 flex items-center gap-3 px-2 py-2">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#EAF3F8] text-[#1766A6]">
+            {isLawyer ? <Scale className="h-5 w-5" /> : <Stethoscope className="h-5 w-5" />}
+          </span>
+          <div className="min-w-0">
+            <p className="truncate text-sm font-black text-[#203945]">
+              {currentUser.firstName} {currentUser.lastName}
+            </p>
+            <p className="mt-0.5 truncate text-[11px] text-[#203945]/60">{professionalTitle}</p>
+          </div>
+        </div>
+        <nav
+          aria-label="قائمة لوحة المختص"
+          className="grid grid-cols-2 gap-1 sm:grid-cols-3 lg:flex lg:flex-col"
+        >
+          {specialistNavItems.map((item) => (
+            <button
+              key={item.key}
+              type="button"
+              onClick={() => setActiveTab(item.key)}
+              aria-current={activeTab === item.key ? 'page' : undefined}
+              className={`flex min-h-10 items-center gap-2 rounded-[10px] px-2.5 py-2 text-right text-xs font-bold transition-colors ${
+                activeTab === item.key
+                  ? 'bg-[#1766A6] text-white'
+                  : 'text-[#203945]/80 hover:bg-[#EAF3F8] hover:text-[#104A78]'
+              }`}
+            >
+              <span className="shrink-0">{item.icon}</span>
+              <span>{item.label}</span>
+              {item.key === 'new-cases' && newCases.length > 0 && (
+                <span className="mr-auto rounded-full bg-white/20 px-1.5 py-0.5 text-[10px]">
+                  {newCases.length}
+                </span>
+              )}
+            </button>
+          ))}
+          <button
+            type="button"
+            onClick={() => setActiveTab('notifications')}
+            className="mt-1 flex min-h-10 items-center gap-2 rounded-[10px] px-2.5 py-2 text-right text-xs font-bold text-[#203945]/70 hover:bg-[#EAF3F8] lg:hidden"
+          >
+            <Bell className="h-4 w-4" />
+            <span>الإشعارات</span>
+            {unreadNotifsCount > 0 && <span className="mr-auto">{unreadNotifsCount}</span>}
+          </button>
+        </nav>
+      </aside>
+
+      <main className="min-w-0 space-y-6">
       {/* Top Header Card */}
       <div className="bg-[#FBFDFC] border border-[#E0E8E6] rounded-[22px] p-5 sm:p-6 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
             <span className="px-2.5 py-0.5 rounded-full bg-[#1766A6]/10 text-[#1766A6] text-[11px] font-black uppercase">
-              لوحة تحكم الأخصائي والمختص
+              لوحة المختص
             </span>
             <span className="px-2 py-0.5 rounded-md bg-[#E8F4EF] text-[#25866D] text-[11px] font-bold flex items-center gap-1">
               <Shield className="w-3.5 h-3.5" />
@@ -252,7 +347,7 @@ export const SpecialistDashboardView: React.FC<SpecialistDashboardViewProps> = (
             </span>
           </h1>
           <p className="text-xs text-[#203945]/70 mt-1">
-            {currentUser.specialty || (isLawyer ? 'مستشار قانوني ومحامٍ معتمد' : 'أخصائي نفسي عيادي وعلاج الإدمان')} • {currentUser.wilayaName || 'الجزائر'}
+            {professionalTitle} • {currentUser.wilayaName || 'غير محددة'}
           </p>
         </div>
 
@@ -271,48 +366,77 @@ export const SpecialistDashboardView: React.FC<SpecialistDashboardViewProps> = (
             className="px-4 py-2.5 rounded-[12px] bg-[#1766A6] hover:bg-[#125386] text-white font-bold text-xs shadow-xs transition-colors flex items-center gap-1.5"
           >
             <Activity className="w-4 h-4" />
-            <span>تسجيل متابعة علاجية</span>
+            <span>{isLawyer ? 'تسجيل متابعة الطلب' : 'تسجيل متابعة علاجية'}</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => onOpenChat(1)}
+            aria-label="الرسائل"
+            className="flex h-10 items-center gap-2 rounded-[12px] border border-[#E0E8E6] bg-white px-3 text-xs font-bold text-[#1766A6] hover:bg-[#EAF3F8]"
+          >
+            <MessageSquare className="h-4 w-4" />
+            <span>الرسائل</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('notifications')}
+            aria-label={`الإشعارات${unreadNotifsCount ? `، ${unreadNotifsCount} غير مقروءة` : ''}`}
+            className="relative flex h-10 w-10 items-center justify-center rounded-[12px] border border-[#E0E8E6] bg-white text-[#1766A6] hover:bg-[#EAF3F8]"
+          >
+            <Bell className="h-4 w-4" />
+            {unreadNotifsCount > 0 && (
+              <span className="absolute -left-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#A64842] px-1 text-[9px] font-black text-white">
+                {unreadNotifsCount}
+              </span>
+            )}
           </button>
         </div>
       </div>
 
-      {/* Metrics Bar */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div
-          onClick={() => setActiveTab('new-cases')}
-          className="bg-[#FBFDFC] border border-[#E0E8E6] p-4 rounded-[18px] shadow-xs cursor-pointer hover:border-[#1766A6] transition-colors"
-        >
-          <span className="text-[11px] font-bold text-[#E65100]">الحالات الجديدة (بانتظار الرد)</span>
-          <p className="text-2xl font-black text-[#E65100] mt-1">{newCases.length}</p>
-        </div>
-
-        <div
-          onClick={() => setActiveTab('in-progress')}
-          className="bg-[#FBFDFC] border border-[#E0E8E6] p-4 rounded-[18px] shadow-xs cursor-pointer hover:border-[#1766A6] transition-colors"
-        >
-          <span className="text-[11px] font-bold text-[#1766A6]">الحالات الجارية</span>
-          <p className="text-2xl font-black text-[#1766A6] mt-1">{inProgressCases.length}</p>
-        </div>
-
-        <div
-          onClick={() => setActiveTab('completed')}
-          className="bg-[#FBFDFC] border border-[#E0E8E6] p-4 rounded-[18px] shadow-xs cursor-pointer hover:border-[#25866D] transition-colors"
-        >
-          <span className="text-[11px] font-bold text-[#25866D]">الحالات المكتملة</span>
-          <p className="text-2xl font-black text-[#25866D] mt-1">{completedCases.length}</p>
-        </div>
-
-        <div
-          onClick={() => setActiveTab('appointments')}
-          className="bg-[#FBFDFC] border border-[#E0E8E6] p-4 rounded-[18px] shadow-xs cursor-pointer hover:border-[#1766A6] transition-colors"
-        >
-          <span className="text-[11px] font-bold text-[#203945]/70">المواعيد القادمة</span>
-          <p className="text-2xl font-black text-[#203945] mt-1">{myAppointments.length}</p>
-        </div>
-      </div>
+      {activeTab === 'home' && (
+        <section aria-labelledby="specialist-metrics-title" className="space-y-3">
+          <h2 id="specialist-metrics-title" className="text-lg font-black text-[#203945]">
+            مؤشرات العمل
+          </h2>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <button
+              type="button"
+              onClick={() => setActiveTab('new-cases')}
+              className="rounded-[18px] border border-[#E0E8E6] bg-[#FBFDFC] p-4 text-right shadow-xs transition-colors hover:border-[#1766A6]"
+            >
+              <span className="text-[11px] font-bold text-[#E65100]">الطلبات الجديدة</span>
+              <p className="mt-1 text-2xl font-black text-[#E65100]">{newCases.length}</p>
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('appointments')}
+              className="rounded-[18px] border border-[#E0E8E6] bg-[#FBFDFC] p-4 text-right shadow-xs transition-colors hover:border-[#1766A6]"
+            >
+              <span className="text-[11px] font-bold text-[#1766A6]">مواعيد اليوم</span>
+              <p className="mt-1 text-2xl font-black text-[#1766A6]">{appointmentsToday.length}</p>
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('consultations')}
+              className="rounded-[18px] border border-[#E0E8E6] bg-[#FBFDFC] p-4 text-right shadow-xs transition-colors hover:border-[#25866D]"
+            >
+              <span className="text-[11px] font-bold text-[#25866D]">الاستشارات المكتملة</span>
+              <p className="mt-1 text-2xl font-black text-[#25866D]">{completedCases.length}</p>
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('in-progress')}
+              className="rounded-[18px] border border-[#E0E8E6] bg-[#FBFDFC] p-4 text-right shadow-xs transition-colors hover:border-[#1766A6]"
+            >
+              <span className="text-[11px] font-bold text-[#203945]/70">الحالات قيد المتابعة</span>
+              <p className="mt-1 text-2xl font-black text-[#203945]">{inProgressCases.length}</p>
+            </button>
+          </div>
+        </section>
+      )}
 
       {/* Navigation Sub-Tabs */}
-      <div className="flex items-center gap-1.5 overflow-x-auto pb-2 no-scrollbar text-xs font-bold border-b border-[#E0E8E6]">
+      <div className="hidden">
         <button
           onClick={() => setActiveTab('new-cases')}
           className={`px-3.5 py-2 rounded-[10px] transition-colors shrink-0 flex items-center gap-1.5 ${
@@ -338,9 +462,9 @@ export const SpecialistDashboardView: React.FC<SpecialistDashboardViewProps> = (
         </button>
 
         <button
-          onClick={() => setActiveTab('completed')}
+          onClick={() => setActiveTab('consultations')}
           className={`px-3.5 py-2 rounded-[10px] transition-colors shrink-0 flex items-center gap-1.5 ${
-            activeTab === 'completed'
+            activeTab === 'consultations'
               ? 'bg-[#25866D] text-white shadow-xs'
               : 'bg-[#FBFDFC] text-[#203945]/70 hover:bg-[#EAF3F8]'
           }`}
@@ -687,75 +811,145 @@ export const SpecialistDashboardView: React.FC<SpecialistDashboardViewProps> = (
         </div>
       )}
 
-      {/* ===================== TAB 3: COMPLETED CASES ===================== */}
-      {activeTab === 'completed' && (
-        <div className="space-y-3">
-          {completedCases.length === 0 ? (
-            <div className="bg-[#FBFDFC] border border-[#E0E8E6] rounded-[20px] p-8 text-center text-xs text-[#203945]/70">
-              لا توجد حالات مكتملة حتى الآن.
+      {/* Consultation records */}
+      {activeTab === 'consultations' && (
+        <section className="space-y-3">
+          <div>
+            <h2 className="text-lg font-black text-[#203945]">الاستشارات</h2>
+            <p className="mt-1 text-sm text-[#203945]/65">طلبات الخدمة المرتبطة بملفك المهني.</p>
+          </div>
+          {myRequests.length === 0 ? (
+            <div className="rounded-[20px] border border-dashed border-[#CCD8D5] bg-[#FBFDFC] p-8 text-center text-sm text-[#203945]/70">
+              لا توجد استشارات مسجلة.
             </div>
           ) : (
-            completedCases.map((c) => (
-              <div
-                key={c.id}
-                className="bg-[#FBFDFC] border border-[#E0E8E6] rounded-[20px] p-5 shadow-xs space-y-2 text-xs"
-              >
-                <div className="flex items-center justify-between">
-                  <span className="font-mono font-bold text-[#1766A6]">{c.caseNumber}</span>
-                  <span className="px-2.5 py-0.5 rounded-full bg-[#E8F4EF] text-[#25866D] font-bold">
-                    مكتملة ومؤرشفة
-                  </span>
-                </div>
-                <h4 className="font-black text-sm text-[#203945]">{c.serviceTitle}</h4>
-                <p className="text-[#203945]/70">المستفيد: {c.clientName} • الولاية: {c.wilayaName}</p>
-                <p className="bg-[#F3F7F6] p-2.5 rounded-[10px] text-[#203945]/80">{c.description}</p>
-              </div>
-            ))
+            <div className="space-y-2">
+              {myRequests.map((request) => (
+                <article
+                  key={request.id}
+                  className="flex flex-col gap-3 rounded-[18px] border border-[#E0E8E6] bg-[#FBFDFC] p-4 shadow-xs sm:flex-row sm:items-center sm:justify-between"
+                >
+                  <div>
+                    <p className="font-mono text-xs font-bold text-[#1766A6]" dir="ltr">
+                      {request.caseNumber}
+                    </p>
+                    <h3 className="mt-1 text-sm font-bold text-[#203945]">{request.serviceTitle}</h3>
+                    <p className="mt-1 text-xs text-[#203945]/65">
+                      {request.clientName} • {request.status === 'COMPLETED' ? 'مكتملة' : request.status === 'CANCELLED' ? 'ملغاة' : request.status === 'REJECTED' ? 'مرفوضة' : 'قيد الإجراء'}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => onOpenRequestDetail(request)}
+                    className="shrink-0 rounded-[10px] bg-[#EAF3F8] px-4 py-2 text-xs font-bold text-[#1766A6] hover:bg-[#DCEBF4]"
+                  >
+                    فتح الاستشارة
+                  </button>
+                </article>
+              ))}
+            </div>
           )}
-        </div>
+        </section>
       )}
 
       {/* ===================== TAB 4: APPOINTMENTS ===================== */}
       {activeTab === 'appointments' && (
-        <div className="space-y-3">
-          {myAppointments.map((appt) => (
-            <div
-              key={appt.id}
-              className="bg-[#FBFDFC] border border-[#E0E8E6] rounded-[18px] p-4 shadow-xs flex items-center justify-between gap-3 text-xs"
-            >
-              <div className="space-y-1">
-                <div className="flex items-center gap-2">
-                  <span className="font-mono font-bold text-[#1766A6]">{appt.caseNumber}</span>
-                  <span className="font-bold text-[#203945]">{appt.specialty}</span>
-                </div>
-                <p className="text-[#203945]/70">
-                  📅 التاريخ: {appt.date} • ⏰ الوقت: {appt.time}
-                </p>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <span
-                  className={`px-2.5 py-1 rounded-full font-bold ${
-                    appt.status === 'CONFIRMED'
-                      ? 'bg-[#E8F4EF] text-[#25866D]'
-                      : 'bg-amber-100 text-amber-800'
-                  }`}
-                >
-                  {appt.status}
-                </span>
-
-                {appt.status !== 'CONFIRMED' && (
-                  <button
-                    onClick={() => updateAppointmentStatusInDb(appt.id, 'CONFIRMED', currentUser.firstName)}
-                    className="px-3 py-1 rounded-[8px] bg-[#25866D] text-white font-bold hover:bg-[#1E6F5A]"
-                  >
-                    تأكيد الموعد
-                  </button>
-                )}
-              </div>
+        <section className="space-y-3">
+          <div>
+            <h2 className="text-lg font-black text-[#203945]">جدول المواعيد</h2>
+            <p className="mt-1 text-sm text-[#203945]/65">مواعيدك المرتبطة بالحالات المسندة إليك.</p>
+          </div>
+          {myAppointments.length === 0 ? (
+            <div className="rounded-[20px] border border-dashed border-[#CCD8D5] bg-[#FBFDFC] p-8 text-center text-sm text-[#203945]/70">
+              لا توجد مواعيد مسجلة.
             </div>
-          ))}
-        </div>
+          ) : (
+            <div className="overflow-x-auto rounded-[18px] border border-[#E0E8E6] bg-[#FBFDFC] shadow-xs">
+              <table className="w-full min-w-[760px] border-collapse text-right text-xs">
+                <thead className="bg-[#F3F7F6] text-[#203945]/70">
+                  <tr>
+                    <th scope="col" className="px-4 py-3 font-bold">العميل</th>
+                    <th scope="col" className="px-4 py-3 font-bold">الخدمة</th>
+                    <th scope="col" className="px-4 py-3 font-bold">الوقت</th>
+                    <th scope="col" className="px-4 py-3 font-bold">حالة الموعد</th>
+                    <th scope="col" className="px-4 py-3 font-bold">الإجراء</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {myAppointments.map((appointment) => {
+                    const request = myRequests.find(
+                      (item) => item.caseNumber === appointment.caseNumber
+                    );
+                    const appointmentStatusLabels: Record<Appointment['status'], string> = {
+                      PENDING: 'بانتظار التأكيد',
+                      CONFIRMED: 'مؤكد',
+                      COMPLETED: 'مكتمل',
+                      CANCELLED: 'ملغى',
+                    };
+                    const canOpenConsultation =
+                      Boolean(request) &&
+                      (appointment.status === 'CONFIRMED' || appointment.status === 'COMPLETED');
+
+                    return (
+                      <tr key={appointment.id} className="border-t border-[#E5ECE9]">
+                        <td className="px-4 py-3 font-bold text-[#203945]">
+                          {appointment.clientName || request?.clientName || 'غير مسجل'}
+                        </td>
+                        <td className="px-4 py-3 text-[#203945]/80">
+                          {request?.serviceTitle || appointment.type || 'غير مسجل'}
+                        </td>
+                        <td className="whitespace-nowrap px-4 py-3 text-[#203945]/80">
+                          <span className="block">{appointment.time || 'غير محدد'}</span>
+                          <span className="mt-1 block text-[10px] text-[#203945]/55">{appointment.date}</span>
+                        </td>
+                        <td className="px-4 py-3">
+                          <span
+                            className={`rounded-full px-2.5 py-1 font-bold ${
+                              appointment.status === 'CONFIRMED'
+                                ? 'bg-[#E8F4EF] text-[#25866D]'
+                                : appointment.status === 'CANCELLED'
+                                  ? 'bg-[#FBECEB] text-[#A64842]'
+                                  : 'bg-amber-100 text-amber-800'
+                            }`}
+                          >
+                            {appointmentStatusLabels[appointment.status]}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex flex-wrap items-center gap-2">
+                            {appointment.status === 'PENDING' && (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  updateAppointmentStatusInDb(
+                                    appointment.id,
+                                    'CONFIRMED',
+                                    currentUser.firstName
+                                  )
+                                }
+                                className="whitespace-nowrap rounded-[9px] bg-[#25866D] px-3 py-2 font-bold text-white hover:bg-[#1E6F5A]"
+                              >
+                                تأكيد الموعد
+                              </button>
+                            )}
+                            <button
+                              type="button"
+                              disabled={!canOpenConsultation}
+                              onClick={() => request && onOpenRequestDetail(request)}
+                              className="whitespace-nowrap rounded-[9px] bg-[#1766A6] px-3 py-2 font-bold text-white hover:bg-[#125386] disabled:cursor-not-allowed disabled:bg-slate-300"
+                            >
+                              فتح الاستشارة
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
       )}
 
       {/* ===================== TAB 5: WRITE REPORT (Requirement 12) ===================== */}
@@ -1070,7 +1264,7 @@ export const SpecialistDashboardView: React.FC<SpecialistDashboardViewProps> = (
         </div>
       )}
 
-      {/* ===================== TAB 8: SPECIALIST PROFILE (الملف الشخصي) ===================== */}
+      {/* Professional profile */}
       {activeTab === 'profile' && (
         <div className="bg-[#FBFDFC] border border-[#E0E8E6] rounded-[22px] p-6 shadow-xs space-y-4 max-w-2xl mx-auto text-xs">
           <div className="flex items-center gap-3 pb-3 border-b border-[#E0E8E6]">
@@ -1082,7 +1276,7 @@ export const SpecialistDashboardView: React.FC<SpecialistDashboardViewProps> = (
                 {currentUser.firstName} {currentUser.lastName}
               </h3>
               <p className="text-[#25866D] font-bold">
-                {currentUser.specialty || (isLawyer ? 'محامٍ ومستشار قانوني معتمد' : 'أخصائي نفسي عيادي وعلاج إدمان')}
+                {professionalTitle}
               </p>
             </div>
           </div>
@@ -1100,19 +1294,19 @@ export const SpecialistDashboardView: React.FC<SpecialistDashboardViewProps> = (
 
             <div className="bg-[#F3F7F6] p-3.5 rounded-[12px] space-y-1">
               <span className="text-[#203945]/70 block font-semibold">الولاية الجغرافية:</span>
-              <p className="font-bold text-[#203945]">{currentUser.wilayaName || 'الجزائر العاصمة'}</p>
+              <p className="font-bold text-[#203945]">{currentUser.wilayaName || 'غير محددة'}</p>
             </div>
 
             <div className="bg-[#F3F7F6] p-3.5 rounded-[12px] space-y-1">
               <span className="text-[#203945]/70 block font-semibold">رقم الاعتماد المهني:</span>
               <p className="font-bold text-[#1766A6] font-mono">
-                {currentUser.licenseNumber || 'ALG-SPEC-2026-CONF'}
+                {currentUser.licenseNumber || 'غير مسجل'}
               </p>
             </div>
 
             <div className="bg-[#F3F7F6] p-3.5 rounded-[12px] space-y-1 sm:col-span-2">
               <span className="text-[#203945]/70 block font-semibold">عنوان العيادة أو المكتب:</span>
-              <p className="font-bold text-[#203945]">{currentUser.address || 'وسط المدينة'}</p>
+              <p className="font-bold text-[#203945]">{currentUser.address || 'غير مسجل'}</p>
             </div>
           </div>
 
@@ -1123,6 +1317,34 @@ export const SpecialistDashboardView: React.FC<SpecialistDashboardViewProps> = (
             </p>
           </div>
         </div>
+      )}
+
+      {activeTab === 'settings' && (
+        <section className="mx-auto max-w-2xl space-y-4 rounded-[22px] border border-[#E0E8E6] bg-[#FBFDFC] p-6 shadow-xs">
+          <div>
+            <h2 className="text-lg font-black text-[#203945]">إعدادات الحساب</h2>
+            <p className="mt-1 text-sm text-[#203945]/65">
+              مراجعة حالة الحساب والبيانات المهنية المسجلة.
+            </p>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="rounded-[12px] bg-[#F3F7F6] p-3">
+              <p className="text-xs text-[#203945]/60">حالة الحساب</p>
+              <p className="mt-1 font-bold text-[#203945]">{currentUser.status}</p>
+            </div>
+            <div className="rounded-[12px] bg-[#F3F7F6] p-3">
+              <p className="text-xs text-[#203945]/60">الصفة المهنية</p>
+              <p className="mt-1 font-bold text-[#203945]">{professionalTitle}</p>
+            </div>
+            <div className="rounded-[12px] bg-[#F3F7F6] p-3 sm:col-span-2">
+              <p className="text-xs text-[#203945]/60">البريد المهني</p>
+              <p className="mt-1 font-bold text-[#203945]">{currentUser.email || 'غير مسجل'}</p>
+            </div>
+          </div>
+          <p className="rounded-[12px] border border-[#DCEBF4] bg-[#EAF3F8] p-3 text-xs leading-relaxed text-[#104A78]">
+            تُحدَّث البيانات المهنية من الملف المهني. لا تتوفر في هذه الشاشة إعدادات إضافية لتغيير الحساب.
+          </p>
+        </section>
       )}
 
       {/* ===================== MODAL: REJECT CASE WITH MANDATORY REASON ===================== */}
@@ -1188,6 +1410,7 @@ export const SpecialistDashboardView: React.FC<SpecialistDashboardViewProps> = (
           </div>
         </div>
       )}
+      </main>
     </div>
   );
 };
