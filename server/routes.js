@@ -1,0 +1,1053 @@
+import crypto from 'node:crypto';
+import { pool, withTransaction } from './db.js';
+import {
+  clearCookieHeader,
+  cookieHeader,
+  createSessionToken,
+  decryptValue,
+  encryptValue,
+  hashPassword,
+  HttpError,
+  parseCookies,
+  readSessionToken,
+  safeUser,
+  sessionMaxAge,
+  verifyPassword,
+} from './security.js';
+import { loadBootstrap, findRequestForUser, professionalRoles } from './data.js';
+import { createChargilyCheckout, handleChargilyWebhook } from './payments.js';
+
+const COOKIE_NAME = 'scp_session';
+const allowedPriorities = new Set(['Critical', 'High', 'Medium', 'Low']);
+const allowedStatuses = new Set([
+  'ACCEPTED',
+  'REJECTED',
+  'IN_PROGRESS',
+  'COMPLETED',
+  'CANCELLED',
+]);
+const providerRoles = new Set(professionalRoles);
+
+function json(res, status, body, headers = {}) {
+  if (res.writableEnded) return;
+  res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8', ...headers });
+  res.end(JSON.stringify(body));
+}
+
+async function rawBody(req, limit = 2 * 1024 * 1024) {
+  const chunks = [];
+  let bytes = 0;
+  for await (const chunk of req) {
+    bytes += chunk.length;
+    if (bytes > limit) throw new HttpError(413, 'حجم الطلب أكبر من الحد المسموح.');
+    chunks.push(chunk);
+  }
+  return Buffer.concat(chunks);
+}
+
+async function bodyJson(req, limit) {
+  const raw = await rawBody(req, limit);
+  if (!raw.length) return {};
+  try {
+    return JSON.parse(raw.toString('utf8'));
+  } catch {
+    throw new HttpError(400, 'صيغة البيانات المرسلة غير صالحة.');
+  }
+}
+
+function normalizeEmail(email) {
+  return typeof email === 'string' ? email.trim().toLowerCase() : '';
+}
+
+function validatePassword(value) {
+  return typeof value === 'string' && value.length >= 10 && value.length <= 128;
+}
+
+function clientIp(req) {
+  return req.socket?.remoteAddress || null;
+}
+
+async function addAudit(client, userId, action, entityType, entityId, details, req) {
+  await client.query(
+    `INSERT INTO audit_logs (user_id, action, entity_type, entity_id, details, ip_address, created_at)
+     VALUES ($1, $2, $3, $4, $5, $6, NOW())`,
+    [userId || null, action, entityType, entityId == null ? null : String(entityId), details || null, clientIp(req)]
+  );
+}
+
+async function addNotification(client, userId, title, message, type = 'STATUS', link = null) {
+  if (!userId) return;
+  await client.query(
+    `INSERT INTO notifications (user_id, title, message, type, link, is_read, created_at)
+     VALUES ($1, $2, $3, $4, $5, 0, NOW())`,
+    [userId, title, message, type, link]
+  );
+}
+
+async function getUserProfile(userId, client = pool) {
+  const result = await client.query(
+    `SELECT u.*, w.name_ar AS wilaya_name, sp.specialty, sp.license_number,
+            sp.years_of_experience, sp.bio, sp.availability_schedule,
+            c.name AS organization_name, c.address,
+            COALESCE(sp.verification_status, c.verification_status, a.verification_status) AS verification_status
+       FROM users u
+       LEFT JOIN wilayas w ON w.id = u.wilaya_id
+       LEFT JOIN specialist_profiles sp ON sp.user_id = u.id
+       LEFT JOIN centers c ON c.user_id = u.id
+       LEFT JOIN associations a ON a.user_id = u.id
+      WHERE u.id = $1`,
+    [userId]
+  );
+  return result.rows[0] || null;
+}
+
+async function currentUser(req) {
+  const token = parseCookies(req.headers.cookie)[COOKIE_NAME];
+  const session = readSessionToken(token);
+  if (!session) return null;
+  const row = await getUserProfile(session.sub);
+  if (!row || ['suspended', 'inactive', 'rejected'].includes(row.status)) return null;
+  return row;
+}
+
+async function requireUser(req) {
+  const user = await currentUser(req);
+  if (!user) throw new HttpError(401, 'يرجى تسجيل الدخول للمتابعة.');
+  return user;
+}
+
+function requireAdmin(user) {
+  if (user.role_slug !== 'admin') throw new HttpError(403, 'هذه العملية مخصصة للإدارة.');
+}
+
+function requireActive(user) {
+  if (user.status !== 'active') throw new HttpError(403, 'الحساب قيد الاعتماد ولا يمكنه تنفيذ هذه العملية بعد.');
+}
+
+function sameSiteCookie() {
+  try {
+    const frontend = new URL(process.env.FRONTEND_URL);
+    const backend = new URL(process.env.PUBLIC_BACKEND_URL);
+    const sameSite = frontend.hostname === backend.hostname ? 'Lax' : 'None';
+    const secure = sameSite === 'None' || process.env.NODE_ENV === 'production' ? '; Secure' : '';
+    return { sameSite, secure };
+  } catch {
+    return { sameSite: 'Lax', secure: process.env.NODE_ENV === 'production' ? '; Secure' : '' };
+  }
+}
+
+function sessionCookie(token) {
+  const { sameSite, secure } = sameSiteCookie();
+  return `${COOKIE_NAME}=${encodeURIComponent(token)}; HttpOnly; SameSite=${sameSite}; Path=/; Max-Age=${sessionMaxAge}${secure}`;
+}
+
+function wilayaCode(value) {
+  const match = String(value || '').match(/^\s*(\d{1,2})/);
+  return match ? match[1].padStart(2, '0') : '';
+}
+
+async function lookupWilayaId(value, client) {
+  const code = wilayaCode(value);
+  if (!code) return null;
+  const result = await client.query('SELECT id FROM wilayas WHERE code = $1 LIMIT 1', [code]);
+  return result.rows[0]?.id ?? null;
+}
+
+async function roleIdFor(roleSlug, client) {
+  const lookup = {
+    legal_advisor: 'lawyer',
+    doctor: 'psychologist',
+    clinic: 'treatment_center',
+    hospital: 'treatment_center',
+  };
+  const result = await client.query(
+    'SELECT id FROM roles WHERE slug = $1 LIMIT 1',
+    [lookup[roleSlug] || roleSlug]
+  );
+  if (result.rows[0]) return Number(result.rows[0].id);
+  const fallback = await client.query('SELECT id FROM roles WHERE slug IN ($1, $2) ORDER BY id LIMIT 1', [
+    roleSlug === 'association' ? 'association' : 'family',
+    'family',
+  ]);
+  if (!fallback.rows[0]) throw new HttpError(500, 'جدول أدوار الحسابات غير مهيأ.');
+  return Number(fallback.rows[0].id);
+}
+
+function accountStatus(roleSlug) {
+  return providerRoles.has(roleSlug) ? 'pending_approval' : 'active';
+}
+
+async function insertProfessionalProfile(client, userId, input) {
+  const role = input.roleSlug;
+  const specialty = String(input.specialty || (
+    role === 'lawyer' || role === 'legal_advisor'
+      ? 'مستشار قانوني'
+      : role === 'psychologist'
+        ? 'أخصائي نفسي عيادي'
+        : role === 'doctor'
+          ? 'طبيب مختص'
+          : ''
+  )).trim();
+  const license = String(input.licenseNumber || '').trim();
+
+  if (['psychologist', 'doctor', 'lawyer', 'legal_advisor'].includes(role)) {
+    if (!specialty || !license) {
+      throw new HttpError(400, 'يلزم إدخال التخصص ورقم الاعتماد المهني لمراجعة الحساب.');
+    }
+    await client.query(
+      `INSERT INTO specialist_profiles
+         (user_id, specialty, license_number, bio, verification_status, availability_schedule, created_at)
+       VALUES ($1, $2, $3, $4, 'pending', $5, NOW())
+       ON CONFLICT (user_id) DO NOTHING`,
+      [
+        userId,
+        specialty,
+        license,
+        input.bio ? encryptValue(String(input.bio)) : null,
+        JSON.stringify(Array.isArray(input.availabilitySlots) ? input.availabilitySlots : []),
+      ]
+    );
+    return;
+  }
+
+  if (['clinic', 'hospital', 'treatment_center'].includes(role)) {
+    const wilayaId = await lookupWilayaId(input.wilayaName, client);
+    if (!wilayaId || !input.organizationName || !input.address) {
+      throw new HttpError(400, 'يلزم إدخال اسم المؤسسة والولاية والعنوان للتحقق منها.');
+    }
+    await client.query(
+      `INSERT INTO centers (user_id, name, wilaya_id, address, phone, services, verification_status, created_at)
+       VALUES ($1, $2, $3, $4, $5, $6, 'pending', NOW())`,
+      [userId, input.organizationName, wilayaId, input.address, input.phone, input.servicesOffered || '']
+    );
+  }
+
+  if (role === 'association') {
+    const wilayaId = await lookupWilayaId(input.wilayaName, client);
+    if (!wilayaId || !input.organizationName || !input.address) {
+      throw new HttpError(400, 'يلزم إدخال اسم الجمعية والولاية والعنوان للتحقق منها.');
+    }
+    await client.query(
+      `INSERT INTO associations (user_id, name, wilaya_id, address, phone, services, verification_status, created_at)
+       VALUES ($1, $2, $3, $4, $5, $6, 'pending', NOW())`,
+      [userId, input.organizationName, wilayaId, input.address, input.phone, input.servicesOffered || '']
+    );
+  }
+}
+
+async function createUser(input, actor, req, selfRegistration = false) {
+  const roleSlug = String(input.roleSlug || '');
+  const email = normalizeEmail(input.email);
+  const password = input.password;
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) throw new HttpError(400, 'أدخل بريدًا إلكترونيًا صالحًا.');
+  if (!validatePassword(password)) throw new HttpError(400, 'يجب أن تتكون كلمة المرور من 10 أحرف على الأقل.');
+  if (!['family', 'patient', 'user', ...professionalRoles].includes(roleSlug)) {
+    throw new HttpError(400, 'نوع الحساب غير مدعوم.');
+  }
+  if (selfRegistration && input.consentAccepted !== true) {
+    throw new HttpError(400, 'يجب الموافقة على معالجة البيانات الضرورية لإنشاء الحساب.');
+  }
+  if (!String(input.firstName || '').trim() || !String(input.lastName || '').trim() || !String(input.phone || '').trim()) {
+    throw new HttpError(400, 'الاسم والهاتف مطلوبان لإنشاء الحساب.');
+  }
+
+  const created = await withTransaction(async (client) => {
+    const roleId = await roleIdFor(roleSlug, client);
+    const wilayaId = await lookupWilayaId(input.wilayaName, client);
+    const inserted = await client.query(
+      `INSERT INTO users
+         (first_name, last_name, email, phone, password, role_id, role_slug, wilaya_id,
+          is_verified, status, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW(), NOW())
+       RETURNING id`,
+      [
+        String(input.firstName).trim().slice(0, 100),
+        String(input.lastName).trim().slice(0, 100),
+        email,
+        String(input.phone).trim().slice(0, 30),
+        await hashPassword(password),
+        roleId,
+        roleSlug,
+        wilayaId,
+        providerRoles.has(roleSlug) ? 0 : 1,
+        selfRegistration ? accountStatus(roleSlug) : String(input.status || accountStatus(roleSlug)),
+      ]
+    );
+    const id = Number(inserted.rows[0].id);
+    if (providerRoles.has(roleSlug)) await insertProfessionalProfile(client, id, input);
+
+    if (selfRegistration) {
+      await addAudit(
+        client,
+        id,
+        'PRIVACY_CONSENT_GIVEN',
+        'user',
+        id,
+        'موافقة المستخدم على معالجة الحد الأدنى من البيانات اللازمة للخدمة؛ الإصدار 1.',
+        req
+      );
+    }
+    await addAudit(client, actor?.id || id, 'USER_CREATED', 'user', id, `تم إنشاء حساب بدور ${roleSlug}.`, req);
+    return getUserProfile(id, client);
+  });
+  return created;
+}
+
+async function saveDefaultConsultationService(client, user) {
+  const category = ['lawyer', 'legal_advisor'].includes(user.role_slug)
+    ? 'legal'
+    : user.role_slug === 'psychologist' ? 'psychological' : null;
+  if (!category) return;
+  const exists = await client.query(
+    'SELECT id FROM services WHERE provider_id = $1 AND category = $2 AND is_active = 1 LIMIT 1',
+    [user.id, category]
+  );
+  if (exists.rowCount) return;
+  const title = category === 'legal' ? 'استشارة قانونية مباشرة' : 'استشارة نفسية مباشرة';
+  const description = category === 'legal'
+    ? 'استشارة مباشرة مع مستشار قانوني مؤهل. لا تمثل رأيًا قانونيًا آليًا.'
+    : 'استشارة مباشرة مع أخصائي نفسي عيادي مؤهل. لا تقدم تشخيصًا طبيًا آليًا.';
+  await client.query(
+    `INSERT INTO services (provider_id, title, description, amount_dzd, category, is_active, created_at, updated_at)
+     VALUES ($1, $2, $3, 500, $4, 1, NOW(), NOW())`,
+    [user.id, title, description, category]
+  );
+}
+
+async function updateRequest(requestId, body, user, req) {
+  const target = await findRequestForUser(requestId, user);
+  if (!target) throw new HttpError(404, 'الطلب غير موجود أو لا تملك صلاحية الوصول إليه.');
+  const isProvider = Number(target.provider_id) === Number(user.id);
+  if (user.role_slug !== 'admin' && !isProvider) {
+    throw new HttpError(403, 'لا يملك هذا الحساب صلاحية تحديث حالة الطلب.');
+  }
+  requireActive(user);
+
+  const updates = [];
+  const params = [];
+  let nextStatus = target.status;
+  let paymentStatus = target.payment_status;
+  let action = 'REQUEST_UPDATED';
+  let detail = '';
+
+  if (body.priority !== undefined) {
+    if (!allowedPriorities.has(body.priority)) throw new HttpError(400, 'درجة الأولوية غير صالحة.');
+    params.push(body.priority);
+    updates.push(`priority = $${params.length}`);
+    action = 'REQUEST_PRIORITY_CHANGED';
+  }
+
+  if (body.status !== undefined) {
+    if (!allowedStatuses.has(body.status)) throw new HttpError(400, 'حالة الطلب المطلوبة غير صالحة.');
+    if (user.role_slug !== 'admin' && !isProvider) throw new HttpError(403, 'غير مصرح بتغيير حالة الطلب.');
+    if (body.status === 'ACCEPTED') {
+      if (!['PENDING_PROVIDER', 'NEW'].includes(target.status)) throw new HttpError(409, 'لا يمكن قبول الطلب في حالته الحالية.');
+      nextStatus = 'ACCEPTED';
+      paymentStatus = Number(target.amount_dzd) > 0 ? 'PENDING' : 'NOT_REQUIRED';
+      action = 'REQUEST_ACCEPTED';
+      detail = 'وافق مقدم الخدمة على الطلب.';
+    } else if (body.status === 'REJECTED') {
+      const reason = String(body.rejectionReason || '').trim();
+      if (reason.length < 5) throw new HttpError(400, 'أدخل سبب رفض واضحًا قبل المتابعة.');
+      nextStatus = 'REJECTED';
+      action = 'REQUEST_REJECTED';
+      detail = reason.slice(0, 500);
+      const paid = await pool.query(
+        `SELECT id, amount_dzd FROM payments WHERE request_id = $1 AND status = 'PAID' ORDER BY created_at DESC LIMIT 1`,
+        [requestId]
+      );
+      if (paid.rows[0]) {
+        await pool.query(
+          `INSERT INTO refunds (payment_id, requested_by, amount_dzd, status, reason, created_at, updated_at)
+           VALUES ($1, $2, $3, 'PENDING', $4, NOW(), NOW())`,
+          [paid.rows[0].id, user.id, paid.rows[0].amount_dzd, 'رفض مقدم الخدمة بعد تأكيد الدفع: ' + detail]
+        );
+        paymentStatus = 'REFUND_PENDING';
+        await pool.query(`UPDATE payments SET status = 'REFUND_PENDING' WHERE id = $1`, [paid.rows[0].id]);
+      }
+    } else if (body.status === 'COMPLETED') {
+      if (target.payment_status !== 'PAID' && Number(target.amount_dzd) > 0) {
+        throw new HttpError(409, 'لا يمكن إكمال خدمة مدفوعة قبل تأكيد الدفع.');
+      }
+      nextStatus = 'COMPLETED';
+      action = 'REQUEST_COMPLETED';
+      detail = 'تم تسجيل اكتمال الخدمة من مقدمها.';
+    } else {
+      nextStatus = body.status;
+      action = `REQUEST_${body.status}`;
+      detail = String(body.details || '').slice(0, 500);
+    }
+  }
+
+  if (!updates.some((item) => item.startsWith('status ='))) {
+    params.push(nextStatus);
+    updates.push(`status = $${params.length}`);
+  }
+  params.push(paymentStatus);
+  updates.push(`payment_status = $${params.length}`);
+  if (body.rejectionReason !== undefined) {
+    params.push(String(body.rejectionReason).trim().slice(0, 500));
+    updates.push(`rejection_reason = $${params.length}`);
+  }
+  params.push(requestId);
+
+  await withTransaction(async (client) => {
+    await client.query(
+      `UPDATE service_requests SET ${updates.join(', ')}, updated_at = NOW() WHERE id = $${params.length}`,
+      params
+    );
+    const caseStatus = nextStatus === 'COMPLETED' ? 'COMPLETED'
+      : nextStatus === 'IN_PROGRESS' ? 'FIRST_SESSION'
+        : nextStatus === 'REJECTED' ? 'ARCHIVED' : 'UNDER_REVIEW';
+    await client.query(
+      'UPDATE case_files SET status = $2, priority = COALESCE($3, priority), updated_at = NOW() WHERE id = $1',
+      [target.case_file_id, caseStatus, body.priority ?? null]
+    );
+    await client.query(
+      `INSERT INTO request_history (request_id, user_id, action, from_status, to_status, details, created_at)
+       VALUES ($1, $2, $3, $4, $5, $6, NOW())`,
+      [requestId, user.id, action, target.status, nextStatus, detail || null]
+    );
+    await addAudit(client, user.id, action, 'service_request', requestId, detail, req);
+    if (nextStatus === 'ACCEPTED') {
+      await addNotification(
+        client,
+        target.requester_id,
+        'تمت الموافقة على طلبك',
+        'وافق مقدم الخدمة على الطلب. أكمل الدفع لتأكيد الموعد.',
+        'REQUEST',
+        `/requests/${requestId}`
+      );
+    } else if (nextStatus === 'REJECTED') {
+      await addNotification(
+        client,
+        target.requester_id,
+        'تم رفض الطلب',
+        `سبب الرفض: ${detail}${paymentStatus === 'REFUND_PENDING' ? ' يجري تسجيل طلب استرجاع المبلغ.' : ''}`,
+        'STATUS',
+        `/requests/${requestId}`
+      );
+    } else if (nextStatus === 'COMPLETED') {
+      await addNotification(client, target.requester_id, 'اكتملت الخدمة', 'تم تسجيل اكتمال طلبك.', 'STATUS', `/requests/${requestId}`);
+    }
+  });
+  return { ok: true };
+}
+
+async function createRequest(body, user, req) {
+  requireActive(user);
+  if (!['family', 'patient', 'user'].includes(user.role_slug)) {
+    throw new HttpError(403, 'يجب استخدام حساب مستفيد لإنشاء طلب استشارة.');
+  }
+  if (body.consentAccepted !== true) {
+    throw new HttpError(400, 'يجب الموافقة على معالجة بيانات الاستشارة الحساسة لإرسال الطلب.');
+  }
+  const providerId = Number(body.providerId);
+  if (!Number.isInteger(providerId) || providerId < 1) {
+    throw new HttpError(400, 'اختر مقدم خدمة معتمدًا قبل إرسال الطلب.');
+  }
+  const category = String(body.category || '');
+  if (!['legal', 'psychological'].includes(category)) {
+    throw new HttpError(400, 'هذا المسار مخصص للاستشارات القانونية أو النفسية المدفوعة.');
+  }
+  const description = String(body.description || '').trim();
+  if (description.length < 5 || description.length > 5000) {
+    throw new HttpError(400, 'اكتب وصفًا مختصرًا بين 5 و5000 حرف.');
+  }
+  const priority = allowedPriorities.has(body.priority) ? body.priority : 'Medium';
+
+  const created = await withTransaction(async (client) => {
+    const serviceResult = await client.query(
+      `SELECT s.*, u.role_slug, u.status AS provider_status, u.is_verified,
+              sp.verification_status AS specialist_verification,
+              c.verification_status AS center_verification,
+              a.verification_status AS association_verification
+         FROM services s
+         JOIN users u ON u.id = s.provider_id
+         LEFT JOIN specialist_profiles sp ON sp.user_id = u.id
+         LEFT JOIN centers c ON c.user_id = u.id
+         LEFT JOIN associations a ON a.user_id = u.id
+        WHERE s.provider_id = $1 AND s.category = $2 AND s.is_active = 1
+        ORDER BY s.id LIMIT 1`,
+      [providerId, category]
+    );
+    const service = serviceResult.rows[0];
+    if (
+      !service ||
+      service.provider_status !== 'active' ||
+      !service.is_verified ||
+      (service.specialist_verification || service.center_verification || service.association_verification || 'approved') !== 'approved'
+    ) {
+      throw new HttpError(409, 'هذا المقدم غير متاح لهذه الخدمة أو لم يكتمل اعتماده.');
+    }
+    if (Number(service.amount_dzd) !== 500) {
+      throw new HttpError(409, 'تعذر إرسال الطلب لأن سعر الاستشارة لا يطابق السعر المعتمد 500 دج.');
+    }
+
+    let addiction = await client.query(
+      `SELECT id FROM addiction_types WHERE name_ar = 'غير مصنف' ORDER BY id LIMIT 1`
+    );
+    if (!addiction.rowCount) {
+      addiction = await client.query(
+        `INSERT INTO addiction_types (name_ar, name_en, description, is_active, created_at)
+         VALUES ('غير مصنف', 'Unclassified', 'قيمة تنظيمية للطلبات غير التشخيصية؛ لا تمثل تشخيصًا طبيًا.', 1, NOW())
+         RETURNING id`
+      );
+    }
+    const caseNumber = `SCP-${new Date().getUTCFullYear()}-${crypto.randomBytes(4).toString('hex').toUpperCase()}`;
+    const caseResult = await client.query(
+      `INSERT INTO case_files
+         (number_case, created_by, patient_id, addiction_type_id, priority, status,
+          description, target_response_hours, created_at, updated_at)
+       VALUES ($1, $2, $2, $3, $4, 'NEW', $5, 72, NOW(), NOW())
+       RETURNING id`,
+      [caseNumber, user.id, addiction.rows[0].id, priority, encryptValue(description)]
+    );
+    const caseFileId = Number(caseResult.rows[0].id);
+
+    let appointmentId = null;
+    const date = String(body.appointmentDate || '');
+    const start = String(body.appointmentTime || '');
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !/^\d{2}:\d{2}/.test(start)) {
+      throw new HttpError(400, 'اختر موعدًا متاحًا قبل إرسال طلب الاستشارة.');
+    }
+    const startTime = start.slice(0, 5);
+    const [hour, minute] = startTime.split(':').map(Number);
+    const duration = category === 'psychological' ? 50 : 30;
+    const endMinutes = hour * 60 + minute + duration;
+    const endTime = `${String(Math.floor(endMinutes / 60) % 24).padStart(2, '0')}:${String(endMinutes % 60).padStart(2, '0')}`;
+    const conflict = await client.query(
+      `SELECT id FROM appointments
+        WHERE specialist_id = $1 AND appointment_date = $2 AND start_time = $3
+          AND status IN ('PENDING', 'CONFIRMED')
+        FOR UPDATE`,
+      [providerId, date, startTime]
+    );
+    if (conflict.rowCount) throw new HttpError(409, 'اختير هذا الموعد للتو. اختر وقتًا آخر.');
+    const appointment = await client.query(
+      `INSERT INTO appointments
+         (case_file_id, created_by, specialist_id, appointment_date, start_time,
+          end_time, type, status, created_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, 'PENDING', NOW())
+       RETURNING id`,
+      [caseFileId, user.id, providerId, date, startTime, endTime, category]
+    );
+    appointmentId = Number(appointment.rows[0].id);
+
+    const requestResult = await client.query(
+      `INSERT INTO service_requests
+         (case_file_id, requester_id, provider_id, service_id, addiction_type_id,
+          amount_dzd, payment_status, status, priority, description,
+          appointment_id, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, 500, 'PENDING', 'PENDING_PROVIDER', $6, $7, $8, NOW(), NOW())
+       RETURNING id`,
+      [
+        caseFileId,
+        user.id,
+        providerId,
+        service.id,
+        addiction.rows[0].id,
+        priority,
+        encryptValue(description),
+        appointmentId,
+      ]
+    );
+    const requestId = Number(requestResult.rows[0].id);
+    await client.query(
+      `INSERT INTO request_history (request_id, user_id, action, from_status, to_status, details, created_at)
+       VALUES ($1, $2, 'REQUEST_CREATED', NULL, 'PENDING_PROVIDER', 'أرسل المستفيد طلب استشارة مع الموافقة على معالجة بياناتها.', NOW())`,
+      [requestId, user.id]
+    );
+    const conversation = await client.query(
+      `INSERT INTO conversations (case_file_id, title, created_at)
+       VALUES ($1, $2, NOW()) RETURNING id`,
+      [caseFileId, `محادثة الطلب ${caseNumber}`]
+    );
+    await client.query(
+      `INSERT INTO conversation_participants (conversation_id, user_id, joined_at)
+       VALUES ($1, $2, NOW()), ($1, $3, NOW())`,
+      [conversation.rows[0].id, user.id, providerId]
+    );
+    const clientName = `${user.first_name} ${user.last_name}`.trim();
+    await addNotification(
+      client,
+      providerId,
+      'طلب استشارة جديد',
+      'وصلك طلب جديد بانتظار المراجعة.',
+      'REQUEST',
+      `/requests/${requestId}`
+    );
+    await addAudit(client, user.id, 'REQUEST_CREATED', 'service_request', requestId, `تم إنشاء الطلب ${caseNumber}.`, req);
+    return requestId;
+  });
+  return { id: created, message: 'تم إرسال الطلب إلى مقدم الخدمة.' };
+}
+
+async function setAppointmentStatus(appointmentId, status, user, req) {
+  if (!['CONFIRMED', 'COMPLETED', 'CANCELLED', 'PENDING'].includes(status)) {
+    throw new HttpError(400, 'حالة الموعد غير صالحة.');
+  }
+  requireActive(user);
+  await withTransaction(async (client) => {
+    const found = await client.query(
+      `SELECT a.*, sr.requester_id, sr.provider_id, sr.id AS request_id,
+              sr.status AS request_status, sr.payment_status, sr.amount_dzd
+         FROM appointments a
+         JOIN case_files cf ON cf.id = a.case_file_id
+         JOIN service_requests sr ON sr.case_file_id = cf.id
+        WHERE a.id = $1 FOR UPDATE`,
+      [appointmentId]
+    );
+    const appointment = found.rows[0];
+    if (!appointment) throw new HttpError(404, 'الموعد غير موجود.');
+    if (user.role_slug !== 'admin' && Number(appointment.provider_id) !== Number(user.id)) {
+      throw new HttpError(403, 'لا تملك صلاحية تحديث هذا الموعد.');
+    }
+    if (status === 'CONFIRMED' && appointment.payment_status !== 'PAID' && Number(appointment.amount_dzd) > 0) {
+      throw new HttpError(409, 'لا يمكن تأكيد موعد مدفوع قبل التحقق من الدفع.');
+    }
+    await client.query('UPDATE appointments SET status = $2 WHERE id = $1', [appointmentId, status]);
+    if (status === 'COMPLETED') {
+      await client.query(
+        `UPDATE service_requests SET status = 'COMPLETED', updated_at = NOW() WHERE id = $1`,
+        [appointment.request_id]
+      );
+    }
+    await client.query(
+      `INSERT INTO request_history (request_id, user_id, action, from_status, to_status, details, created_at)
+       VALUES ($1, $2, 'APPOINTMENT_UPDATED', $3, $4, $5, NOW())`,
+      [appointment.request_id, user.id, appointment.request_status, status, `تم تحديث الموعد إلى ${status}.`]
+    );
+    await addAudit(client, user.id, 'APPOINTMENT_UPDATED', 'appointment', appointmentId, status, req);
+    await addNotification(
+      client,
+      appointment.requester_id,
+      'تحديث الموعد',
+      `تم تحديث حالة موعدك إلى ${status}.`,
+      'APPOINTMENT',
+      `/requests/${appointment.request_id}`
+    );
+  });
+}
+
+async function createReport(body, user, req) {
+  requireActive(user);
+  if (!providerRoles.has(user.role_slug)) throw new HttpError(403, 'كتابة التقرير مخصصة لمقدم الخدمة المعتمد.');
+  const request = await findRequestForUser(body.requestId, user);
+  if (!request || Number(request.provider_id) !== Number(user.id)) {
+    throw new HttpError(403, 'لا يمكنك كتابة تقرير لطلب غير مسند إليك.');
+  }
+  const values = [
+    String(body.evaluation || '').trim(),
+    String(body.professionalNotes || '').trim(),
+    String(body.recommendations || '').trim(),
+    String(body.treatmentPlan || '').trim(),
+  ];
+  if (values.some((value) => value.length > 6000)) throw new HttpError(400, 'أحد حقول التقرير يتجاوز الحد المسموح.');
+  if (values.every((value) => !value)) throw new HttpError(400, 'أدخل محتوى مهنيًا واحدًا على الأقل.');
+
+  await withTransaction(async (client) => {
+    await client.query(
+      `INSERT INTO service_reports
+         (request_id, provider_id, assessment, professional_notes, recommendations,
+          treatment_plan, next_appointment, client_summary, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW())`,
+      [
+        request.id,
+        user.id,
+        encryptValue(values[0]),
+        encryptValue(values[1]),
+        encryptValue(values[2]),
+        encryptValue(values[3]),
+        String(body.nextAppointment || '').slice(0, 100),
+        encryptValue(String(body.clientSummary || '').trim()),
+      ]
+    );
+    await client.query(
+      `INSERT INTO request_history (request_id, user_id, action, from_status, to_status, details, created_at)
+       VALUES ($1, $2, 'REPORT_CREATED', $3, $3, 'أضيف تقرير مهني مشفر.', NOW())`,
+      [request.id, user.id, request.status]
+    );
+    await addAudit(client, user.id, 'REPORT_CREATED', 'service_request', request.id, 'أضيف تقرير مهني.', req);
+    await addNotification(client, request.requester_id, 'تحديث مهني جديد', 'أضاف مقدم الخدمة تحديثًا متاحًا لحسابك.', 'STATUS', `/requests/${request.id}`);
+  });
+  return { ok: true };
+}
+
+async function addFollowUp(body, user, req) {
+  requireActive(user);
+  const request = await findRequestForUser(body.requestId, user);
+  if (!request || Number(request.provider_id) !== Number(user.id)) {
+    throw new HttpError(403, 'لا يمكنك تسجيل متابعة لحالة غير مسندة إليك.');
+  }
+  await withTransaction(async (client) => {
+    await client.query(
+      `INSERT INTO treatment_follow_ups (case_file_id, center_id, week_number, medical_notes, status_summary, created_at)
+       VALUES ($1, NULL, $2, $3, $4, NOW())`,
+      [
+        request.case_file_id,
+        Math.max(1, Math.min(520, Number(body.weekNumber) || 1)),
+        encryptValue(String(body.notes || '').slice(0, 6000)),
+        String(body.progress || 'مستقر').slice(0, 120),
+      ]
+    );
+    await addAudit(client, user.id, 'TREATMENT_FOLLOWUP_CREATED', 'service_request', request.id, 'تمت إضافة متابعة مشفرة.', req);
+    await addNotification(client, request.requester_id, 'تم تحديث المتابعة', 'أضاف مقدم الخدمة تحديثًا جديدًا لحالتك.', 'STATUS', `/requests/${request.id}`);
+  });
+  return { ok: true };
+}
+
+async function sendMessage(conversationId, body, user, req) {
+  requireActive(user);
+  const content = String(body.content || '').trim();
+  if (!content || content.length > 4000) throw new HttpError(400, 'اكتب رسالة بين حرف واحد و4000 حرف.');
+  const participants = await pool.query(
+    `SELECT cp.user_id, c.case_file_id, cf.number_case
+       FROM conversation_participants cp
+       JOIN conversations c ON c.id = cp.conversation_id
+       JOIN case_files cf ON cf.id = c.case_file_id
+      WHERE cp.conversation_id = $1`,
+    [conversationId]
+  );
+  if (!participants.rows.some((row) => Number(row.user_id) === Number(user.id))) {
+    throw new HttpError(403, 'لا تملك صلاحية الوصول إلى هذه المحادثة.');
+  }
+  const saved = await withTransaction(async (client) => {
+    const result = await client.query(
+      `INSERT INTO messages (conversation_id, sender_id, content, created_at)
+       VALUES ($1, $2, $3, NOW()) RETURNING id`,
+      [conversationId, user.id, encryptValue(content)]
+    );
+    for (const participant of participants.rows) {
+      if (Number(participant.user_id) !== Number(user.id)) {
+        await addNotification(client, participant.user_id, 'رسالة جديدة', 'لديك رسالة جديدة في محادثة الحالة.', 'MESSAGE', `/messages/${conversationId}`);
+      }
+    }
+    await addAudit(client, user.id, 'MESSAGE_SENT', 'conversation', conversationId, 'أرسل المستخدم رسالة مشفرة.', req);
+    return result.rows[0].id;
+  });
+  return { id: Number(saved), ok: true };
+}
+
+async function recordRating(body, user, req) {
+  requireActive(user);
+  const rating = Number(body.rating);
+  if (!Number.isInteger(rating) || rating < 1 || rating > 5) throw new HttpError(400, 'التقييم يجب أن يكون من 1 إلى 5.');
+  const request = await findRequestForUser(body.requestId, user);
+  if (!request || Number(request.requester_id) !== Number(user.id) || request.status !== 'COMPLETED') {
+    throw new HttpError(403, 'يمكن تقييم الطلب بعد اكتماله فقط.');
+  }
+  await withTransaction(async (client) => {
+    await client.query(
+      `INSERT INTO ratings (case_file_id, user_id, rating, feedback, created_at)
+       VALUES ($1, $2, $3, $4, NOW())`,
+      [request.case_file_id, user.id, rating, encryptValue(String(body.feedback || '').slice(0, 2000))]
+    );
+    await addAudit(client, user.id, 'SERVICE_RATED', 'service_request', request.id, 'أرسل المستفيد تقييمًا.', req);
+  });
+}
+
+async function changeUser(id, body, user, req) {
+  requireAdmin(user);
+  const result = await pool.query('SELECT id, role_slug, status FROM users WHERE id = $1', [id]);
+  const target = result.rows[0];
+  if (!target) throw new HttpError(404, 'الحساب غير موجود.');
+  if (body.status === 'active') {
+    await withTransaction(async (client) => {
+      await client.query(
+        `UPDATE users SET status = 'active', is_verified = 1, updated_at = NOW() WHERE id = $1`,
+        [id]
+      );
+      await client.query(
+        `UPDATE specialist_profiles SET verification_status = 'approved' WHERE user_id = $1`,
+        [id]
+      );
+      await client.query(`UPDATE centers SET verification_status = 'approved' WHERE user_id = $1`, [id]);
+      await client.query(`UPDATE associations SET verification_status = 'approved' WHERE user_id = $1`, [id]);
+      await saveDefaultConsultationService(client, target);
+      await addAudit(client, user.id, 'USER_APPROVED', 'user', id, 'تم اعتماد الحساب بعد مراجعة المستندات.', req);
+      await addNotification(client, Number(id), 'تم اعتماد الحساب', 'تمت مراجعة حسابك واعتماده. يمكنك الآن استخدام الخدمات المتاحة لدورك.', 'SYSTEM', '/portal');
+    });
+    return;
+  }
+  if (body.status === 'rejected' || body.status === 'suspended' || body.status === 'inactive') {
+    await withTransaction(async (client) => {
+      await client.query('UPDATE users SET status = $2, is_verified = 0, updated_at = NOW() WHERE id = $1', [id, body.status]);
+      await client.query(
+        `UPDATE specialist_profiles SET verification_status = $2 WHERE user_id = $1`,
+        [id, body.status === 'rejected' ? 'rejected' : 'pending']
+      );
+      await addAudit(client, user.id, 'USER_STATUS_CHANGED', 'user', id, `تم تحديث حالة الحساب إلى ${body.status}.`, req);
+      await addNotification(client, Number(id), 'تحديث حالة الحساب', String(body.rejectionReason || `حالة الحساب: ${body.status}`).slice(0, 500), 'SYSTEM');
+    });
+    return;
+  }
+  const safeFields = ['phone', 'wilaya_id', 'avatar_url'];
+  const fields = [];
+  const params = [];
+  for (const key of safeFields) {
+    if (body[key] === undefined) continue;
+    params.push(body[key]);
+    fields.push(`${key} = $${params.length}`);
+  }
+  if (fields.length) {
+    params.push(id);
+    await pool.query(`UPDATE users SET ${fields.join(', ')}, updated_at = NOW() WHERE id = $${params.length}`, params);
+  }
+  await addAudit(pool, user.id, 'USER_UPDATED', 'user', id, 'تم تحديث ملف الحساب.', req);
+}
+
+async function adminUsersCreate(body, user, req) {
+  requireAdmin(user);
+  const row = await createUser(body, user, req, false);
+  return safeUser(row);
+}
+
+async function getPublicDirectory(url) {
+  const type = url.searchParams.get('type');
+  if (!['centers', 'associations'].includes(type)) throw new HttpError(400, 'نوع الدليل غير صالح.');
+  const table = type === 'centers' ? 'centers' : 'associations';
+  const rows = await pool.query(
+    `SELECT r.id, r.name, r.address, r.phone, r.services, w.name_ar AS wilaya_name
+       FROM ${table} r LEFT JOIN wilayas w ON w.id = r.wilaya_id
+      WHERE r.verification_status = 'approved' ORDER BY w.code, r.name`
+  );
+  return rows.rows.map((row) => ({
+    id: Number(row.id),
+    name: row.name,
+    wilayaName: row.wilaya_name || '',
+    address: row.address || '',
+    phone: row.phone || '',
+    services: row.services || '',
+  }));
+}
+
+async function getPartners() {
+  const result = await pool.query(`SELECT value FROM system_settings WHERE key = 'public_partners' LIMIT 1`);
+  if (!result.rows[0]) return [];
+  try {
+    const parsed = JSON.parse(result.rows[0].value);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+async function savePartners(partners) {
+  await pool.query(
+    `INSERT INTO system_settings (key, value) VALUES ('public_partners', $1)
+     ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value`,
+    [JSON.stringify(partners)]
+  );
+}
+
+export async function dispatchApi(req, res) {
+  const origin = req.headers.origin;
+  const allowedOrigins = [process.env.FRONTEND_URL, process.env.PUBLIC_BACKEND_URL]
+    .filter(Boolean)
+    .map((value) => {
+      try { return new URL(value).origin; } catch { return ''; }
+    });
+  const requestOrigin = origin || '';
+  const sameHost = requestOrigin && new URL(requestOrigin).host === (req.headers.host || '');
+
+  if (origin && (allowedOrigins.includes(requestOrigin) || sameHost)) {
+    res.setHeader('Access-Control-Allow-Origin', requestOrigin);
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+    res.setHeader('Vary', 'Origin');
+  } else if (origin) {
+    throw new HttpError(403, 'مصدر الطلب غير مسموح.');
+  }
+
+  if (req.method === 'OPTIONS') {
+    res.writeHead(204, {
+      'Access-Control-Allow-Methods': 'GET,POST,PATCH,DELETE,OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type',
+      'Access-Control-Max-Age': '600',
+    });
+    return res.end();
+  }
+
+  const url = new URL(req.url, 'http://localhost');
+  const pathname = url.pathname.replace(/\/+$/, '') || '/';
+  const method = req.method || 'GET';
+
+  if (method === 'GET' && pathname === '/api/v1/health') {
+    await pool.query('SELECT 1');
+    return json(res, 200, { ok: true });
+  }
+  if (method === 'GET' && pathname === '/api/v1/public/directory') {
+    return json(res, 200, await getPublicDirectory(url));
+  }
+  if (method === 'POST' && pathname === '/api/v1/payments/webhook') {
+    const bytes = await rawBody(req, 256 * 1024);
+    await handleChargilyWebhook(bytes, String(req.headers.signature || ''));
+    return json(res, 200, { received: true });
+  }
+  if (method === 'POST' && pathname === '/api/v1/auth/login') {
+    const body = await bodyJson(req);
+    const email = normalizeEmail(body.email);
+    const attemptsKey = `${clientIp(req)}:${email}`;
+    const now = Date.now();
+    globalThis.loginAttempts ||= new Map();
+    const attempt = globalThis.loginAttempts.get(attemptsKey) || { count: 0, started: now };
+    if (now - attempt.started > 15 * 60 * 1000) {
+      attempt.count = 0;
+      attempt.started = now;
+    }
+    if (attempt.count >= 10) throw new HttpError(429, 'تم تجاوز عدد محاولات الدخول. حاول لاحقًا.');
+    const result = await pool.query('SELECT * FROM users WHERE lower(email) = $1 LIMIT 1', [email]);
+    const userRow = result.rows[0];
+    if (!userRow || !await verifyPassword(String(body.password || ''), userRow.password)) {
+      attempt.count += 1;
+      globalThis.loginAttempts.set(attemptsKey, attempt);
+      throw new HttpError(401, 'البريد الإلكتروني أو كلمة المرور غير صحيحة.');
+    }
+    if (['suspended', 'inactive', 'rejected'].includes(userRow.status)) {
+      throw new HttpError(403, 'هذا الحساب غير نشط. تواصل مع الإدارة لمعرفة التفاصيل.');
+    }
+    globalThis.loginAttempts.delete(attemptsKey);
+    const profile = await getUserProfile(userRow.id);
+    await addAudit(pool, userRow.id, 'LOGIN_SUCCESS', 'user', userRow.id, 'تم تسجيل الدخول بنجاح.', req);
+    return json(res, 200, { user: safeUser(profile) }, { 'Set-Cookie': sessionCookie(createSessionToken(userRow)) });
+  }
+  if (method === 'POST' && pathname === '/api/v1/auth/register') {
+    const body = await bodyJson(req);
+    const row = await createUser(body, null, req, true);
+    const token = createSessionToken(row);
+    return json(res, 201, { user: safeUser(row) }, { 'Set-Cookie': sessionCookie(token) });
+  }
+  if (method === 'POST' && pathname === '/api/v1/auth/logout') {
+    return json(res, 200, { ok: true }, { 'Set-Cookie': clearCookieHeader(COOKIE_NAME) });
+  }
+  if (method === 'GET' && pathname === '/api/v1/auth/me') {
+    const user = await currentUser(req);
+    return json(res, 200, { user: user ? safeUser(user) : null });
+  }
+  if (method === 'POST' && pathname === '/api/v1/auth/password-reset') {
+    await bodyJson(req);
+    throw new HttpError(503, 'استعادة كلمة المرور بالبريد غير مهيأة بعد. لم يتم إنشاء رمز غير آمن أو عرضه في الصفحة.');
+  }
+  if (method === 'GET' && pathname === '/api/v1/bootstrap') {
+    const user = await requireUser(req);
+    return json(res, 200, await loadBootstrap(user));
+  }
+
+  const user = await requireUser(req);
+  const userRoute = pathname.match(/^\/api\/v1\/users\/(\d+)$/);
+  const requestRoute = pathname.match(/^\/api\/v1\/requests\/(\d+)$/);
+  const paymentRoute = pathname.match(/^\/api\/v1\/requests\/(\d+)\/payment$/);
+  const appointmentRoute = pathname.match(/^\/api\/v1\/appointments\/(\d+)$/);
+  const conversationRoute = pathname.match(/^\/api\/v1\/conversations\/(\d+)\/messages$/);
+  const notificationRoute = pathname.match(/^\/api\/v1\/notifications\/(\d+)\/read$/);
+
+  if (method === 'POST' && pathname === '/api/v1/users') {
+    const created = await adminUsersCreate(await bodyJson(req), user, req);
+    return json(res, 201, { user: created });
+  }
+  if (method === 'PATCH' && userRoute) {
+    const body = await bodyJson(req);
+    await changeUser(Number(userRoute[1]), body, user, req);
+    return json(res, 200, { ok: true });
+  }
+  if (method === 'DELETE' && userRoute) {
+    requireAdmin(user);
+    if (Number(userRoute[1]) === Number(user.id)) throw new HttpError(409, 'لا يمكن تعطيل الحساب الإداري المستخدم حاليًا.');
+    await changeUser(Number(userRoute[1]), { status: 'suspended' }, user, req);
+    return json(res, 200, { ok: true, suspended: true });
+  }
+  if (method === 'POST' && pathname === '/api/v1/requests') {
+    const result = await createRequest(await bodyJson(req), user, req);
+    return json(res, 201, result);
+  }
+  if (method === 'PATCH' && requestRoute) {
+    await updateRequest(Number(requestRoute[1]), await bodyJson(req), user, req);
+    return json(res, 200, { ok: true });
+  }
+  if (method === 'POST' && paymentRoute) {
+    const body = await bodyJson(req);
+    const result = await createChargilyCheckout(Number(paymentRoute[1]), user, body.method);
+    return json(res, 200, result);
+  }
+  if (method === 'PATCH' && appointmentRoute) {
+    const body = await bodyJson(req);
+    await setAppointmentStatus(Number(appointmentRoute[1]), body.status, user, req);
+    return json(res, 200, { ok: true });
+  }
+  if (method === 'POST' && pathname === '/api/v1/reports') {
+    await createReport(await bodyJson(req), user, req);
+    return json(res, 201, { ok: true });
+  }
+  if (method === 'POST' && pathname === '/api/v1/follow-ups') {
+    await addFollowUp(await bodyJson(req), user, req);
+    return json(res, 201, { ok: true });
+  }
+  if (method === 'POST' && conversationRoute) {
+    const result = await sendMessage(Number(conversationRoute[1]), await bodyJson(req), user, req);
+    return json(res, 201, result);
+  }
+  if (method === 'POST' && pathname === '/api/v1/ratings') {
+    await recordRating(await bodyJson(req), user, req);
+    return json(res, 201, { ok: true });
+  }
+  if (method === 'POST' && notificationRoute) {
+    const result = await pool.query(
+      'UPDATE notifications SET is_read = 1 WHERE id = $1 AND user_id = $2',
+      [Number(notificationRoute[1]), user.id]
+    );
+    if (!result.rowCount) throw new HttpError(404, 'الإشعار غير موجود.');
+    return json(res, 200, { ok: true });
+  }
+  if (method === 'POST' && pathname === '/api/v1/privacy/consent') {
+    requireActive(user);
+    const body = await bodyJson(req);
+    if (body.accepted !== true) throw new HttpError(400, 'يجب تحديد الموافقة صراحةً.');
+    await addAudit(pool, user.id, 'PRIVACY_CONSENT_GIVEN', 'user', user.id, 'موافقة معالجة بيانات الخدمة؛ الإصدار 1.', req);
+    return json(res, 200, { ok: true });
+  }
+  if (method === 'GET' && pathname === '/api/v1/partners') {
+    return json(res, 200, await getPartners());
+  }
+  if (method === 'POST' && pathname === '/api/v1/partners') {
+    requireAdmin(user);
+    const body = await bodyJson(req);
+    const partners = await getPartners();
+    const entry = {
+      id: crypto.randomUUID(),
+      name: String(body.name || '').trim().slice(0, 150),
+      category: body.category,
+      websiteUrl: String(body.websiteUrl || '').trim().slice(0, 300),
+      description: String(body.description || '').trim().slice(0, 1000),
+      isVisible: body.isVisible !== false,
+    };
+    if (!entry.name) throw new HttpError(400, 'اسم الجهة مطلوب.');
+    if (entry.websiteUrl && !/^https:\/\//i.test(entry.websiteUrl)) throw new HttpError(400, 'يجب أن يبدأ رابط الجهة بـ HTTPS.');
+    partners.push(entry);
+    await savePartners(partners);
+    await addAudit(pool, user.id, 'PARTNER_CREATED', 'partner', entry.id, entry.name, req);
+    return json(res, 201, entry);
+  }
+  const partnerRoute = pathname.match(/^\/api\/v1\/partners\/([^/]+)$/);
+  if (partnerRoute && ['PATCH', 'DELETE'].includes(method)) {
+    requireAdmin(user);
+    const partners = await getPartners();
+    const index = partners.findIndex((partner) => String(partner.id) === decodeURIComponent(partnerRoute[1]));
+    if (index < 0) throw new HttpError(404, 'الجهة غير موجودة.');
+    if (method === 'DELETE') {
+      partners.splice(index, 1);
+    } else {
+      const body = await bodyJson(req);
+      partners[index] = {
+        ...partners[index],
+        ...Object.fromEntries(
+          ['name', 'category', 'websiteUrl', 'description', 'isVisible'].filter((key) => body[key] !== undefined).map((key) => [key, body[key]])
+        ),
+      };
+    }
+    await savePartners(partners);
+    await addAudit(pool, user.id, method === 'DELETE' ? 'PARTNER_DELETED' : 'PARTNER_UPDATED', 'partner', partnerRoute[1], null, req);
+    return json(res, 200, { ok: true });
+  }
+
+  throw new HttpError(404, 'المسار المطلوب غير موجود.');
+}
