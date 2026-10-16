@@ -251,45 +251,53 @@ async function createUser(input, actor, req, selfRegistration = false) {
     throw new HttpError(400, 'الاسم والهاتف مطلوبان لإنشاء الحساب.');
   }
 
-  const created = await withTransaction(async (client) => {
-    const roleId = await roleIdFor(roleSlug, client);
-    const wilayaId = await lookupWilayaId(input.wilayaName, client);
-    const inserted = await client.query(
+  let created;
+  try {
+    created = await withTransaction(async (client) => {
+      const roleId = await roleIdFor(roleSlug, client);
+      const wilayaId = await lookupWilayaId(input.wilayaName, client);
+      const inserted = await client.query(
       `INSERT INTO users
          (first_name, last_name, email, phone, password, role_id, role_slug, wilaya_id,
           is_verified, status, created_at, updated_at)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW(), NOW())
        RETURNING id`,
-      [
-        String(input.firstName).trim().slice(0, 100),
-        String(input.lastName).trim().slice(0, 100),
-        email,
-        String(input.phone).trim().slice(0, 30),
-        await hashPassword(password),
-        roleId,
-        roleSlug,
-        wilayaId,
-        providerRoles.has(roleSlug) ? 0 : 1,
-        selfRegistration ? accountStatus(roleSlug) : String(input.status || accountStatus(roleSlug)),
-      ]
-    );
-    const id = Number(inserted.rows[0].id);
-    if (providerRoles.has(roleSlug)) await insertProfessionalProfile(client, id, input);
-
-    if (selfRegistration) {
-      await addAudit(
-        client,
-        id,
-        'PRIVACY_CONSENT_GIVEN',
-        'user',
-        id,
-        'موافقة المستخدم على معالجة الحد الأدنى من البيانات اللازمة للخدمة؛ الإصدار 1.',
-        req
+        [
+          String(input.firstName).trim().slice(0, 100),
+          String(input.lastName).trim().slice(0, 100),
+          email,
+          String(input.phone).trim().slice(0, 30),
+          await hashPassword(password),
+          roleId,
+          roleSlug,
+          wilayaId,
+          providerRoles.has(roleSlug) ? 0 : 1,
+          selfRegistration ? accountStatus(roleSlug) : String(input.status || accountStatus(roleSlug)),
+        ]
       );
+      const id = Number(inserted.rows[0].id);
+      if (providerRoles.has(roleSlug)) await insertProfessionalProfile(client, id, input);
+
+      if (selfRegistration) {
+        await addAudit(
+          client,
+          id,
+          'PRIVACY_CONSENT_GIVEN',
+          'user',
+          id,
+          'موافقة المستخدم على معالجة الحد الأدنى من البيانات اللازمة للخدمة؛ الإصدار 1.',
+          req
+        );
+      }
+      await addAudit(client, actor?.id || id, 'USER_CREATED', 'user', id, `تم إنشاء حساب بدور ${roleSlug}.`, req);
+      return getUserProfile(id, client);
+    });
+  } catch (error) {
+    if (error?.code === '23505') {
+      throw new HttpError(409, 'هذا البريد الإلكتروني مسجل بالفعل. سجّل الدخول أو استخدم بريدًا آخر.');
     }
-    await addAudit(client, actor?.id || id, 'USER_CREATED', 'user', id, `تم إنشاء حساب بدور ${roleSlug}.`, req);
-    return getUserProfile(id, client);
-  });
+    throw error;
+  }
   return created;
 }
 

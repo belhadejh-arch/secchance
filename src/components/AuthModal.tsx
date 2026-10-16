@@ -267,6 +267,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         setErrorMsg('يرجى استكمال الاسم واللقب ورقم الهاتف والبريد والعنوان المهني.');
         return;
       }
+      if (!regLicenseNumber.trim()) {
+        setErrorMsg('يرجى إدخال رقم الاعتماد المهني لإرسال الحساب للمراجعة.');
+        return;
+      }
     }
 
     setLoading(true);
@@ -287,19 +291,19 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         accountType: selectedType,
         status: isDirectActive ? 'active' : 'pending',
         password: regPassword,
-        birthDate: regBirthDate.trim() || undefined,
+        birthDate: regBirthDate.trim() || '',
         specialty:
           selectedType === 'psychologist' || selectedType === 'doctor'
             ? regSpecialty.trim() || (selectedType === 'doctor' ? 'طب الإدمان والطب العقلي' : 'أخصائي نفسي عيادي')
             : selectedType === 'lawyer'
             ? 'محامٍ ومستشار قانوني معتمد'
-            : regServicesOffered.trim() || undefined,
-        address: regAddress.trim() || undefined,
-        licenseNumber: regLicenseNumber.trim() || undefined,
-        organizationName: regOrgName.trim() || undefined,
-        managerName: regManagerName.trim() || undefined,
-        activityField: regActivityField.trim() || undefined,
-        documents: regUploadedDocName ? [regUploadedDocName] : undefined,
+            : regServicesOffered.trim() || '',
+        address: regAddress.trim(),
+        licenseNumber: regLicenseNumber.trim(),
+        organizationName: regOrgName.trim(),
+        managerName: regManagerName.trim(),
+        activityField: regActivityField.trim(),
+        documents: regUploadedDocName ? [regUploadedDocName] : [],
       });
 
       if (isDirectActive) {
@@ -741,10 +745,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
                 <div className="space-y-1">
                   <label className="block text-[11px] font-bold text-[#203945]">
-                    رقم الاعتماد / الوثيقة المهنية (عند الحاجة)
+                    رقم الاعتماد / الوثيقة المهنية
                   </label>
                   <input
                     type="text"
+                    required
                     value={regLicenseNumber}
                     onChange={(e) => setRegLicenseNumber(e.target.value)}
                     placeholder="رقم الرخصة أو رخصة الممارسة"
