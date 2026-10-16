@@ -82,8 +82,8 @@ async function ensureConfiguredAdmin() {
     if (inserted.rowCount) {
       await client.query(
         `INSERT INTO audit_logs (user_id, action, entity_type, entity_id, details, created_at)
-         VALUES ($1, 'INITIAL_ADMIN_CREATED', 'user', $1, 'تم إنشاء حساب الإدارة عبر إعدادات البيئة.', NOW())`,
-        [inserted.rows[0].id]
+         VALUES ($1, 'INITIAL_ADMIN_CREATED', 'user', $2, 'تم إنشاء حساب الإدارة عبر إعدادات البيئة.', NOW())`,
+        [inserted.rows[0].id, String(inserted.rows[0].id)]
       );
     }
   });
