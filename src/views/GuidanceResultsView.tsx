@@ -1,5 +1,5 @@
 import React from 'react';
-import { AlertTriangle, ArrowRight, BookOpen, Building, HeartHandshake, Scale, Users } from 'lucide-react';
+import { TriangleAlert, ArrowRight, BookOpen, Hospital, Handshake, Brain, Scale, Users } from 'lucide-react';
 import { GuidanceProgress } from '../components/GuidanceProgress';
 import { AssessmentAnswers } from './NeedsAssessmentView';
 import { ServiceItem } from '../types';
@@ -63,13 +63,13 @@ export const GuidanceResultsView: React.FC<GuidanceResultsViewProps> = ({
     {
       title: 'العثور على مركز علاج قريب',
       description: 'البحث عن مراكز العلاج والتكفل بالإدمان داخل الولاية أو الولايات المجاورة.',
-      icon: <Building className="h-4 w-4" />,
+      icon: <Hospital className="h-4 w-4" />,
       action: () => onOpenDirectory('centers', wilayaSearch),
     },
     {
       title: 'العثور على جمعية مختصة قريبة',
       description: 'اكتشاف الجمعيات النشطة في مكافحة الإدمان والتوعية والدعم الأسري.',
-      icon: <HeartHandshake className="h-4 w-4" />,
+      icon: <Handshake className="h-4 w-4" />,
       action: () => onOpenDirectory('associations', wilayaSearch),
     },
     {
@@ -124,7 +124,7 @@ export const GuidanceResultsView: React.FC<GuidanceResultsViewProps> = ({
         {answers.isUrgent ? (
           <div className="space-y-3 rounded-[14px] border border-[#F5D4D2] bg-[#FBECEB] p-4">
             <div className="flex items-start gap-2 text-[#5F1D1A]">
-              <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0" />
+              <TriangleAlert className="mt-0.5 h-5 w-5 shrink-0" />
               <div>
                 <h2 className="font-black">توجّه مباشرة إلى المساعدة الصحية العاجلة</h2>
                 <p className="mt-1 text-sm leading-relaxed">
@@ -143,7 +143,7 @@ export const GuidanceResultsView: React.FC<GuidanceResultsViewProps> = ({
           <div className="space-y-3 rounded-[14px] border border-[#E0E8E6] bg-white p-4">
             <div className="flex items-start gap-3">
               <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px] bg-[#EAF3F8] text-[#1766A6]">
-                {answers.need === 'legal' ? <Scale className="h-5 w-5" /> : answers.need === 'psychological' ? <Users className="h-5 w-5" /> : <BookOpen className="h-5 w-5" />}
+                {answers.need === 'legal' ? <Scale className="h-5 w-5" /> : answers.need === 'psychological' ? <Brain className="h-5 w-5" /> : <BookOpen className="h-5 w-5" />}
               </span>
               <div className="space-y-1">
                 <h2 className="font-black text-[#203945]">{result.title}</h2>

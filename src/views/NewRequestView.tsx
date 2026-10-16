@@ -59,10 +59,15 @@ export const NewRequestView: React.FC<NewRequestViewProps> = ({
   // 6: الشاشة 09 — حجز الموعد
   // 7: الشاشة 10 — الدفع
   const [step, setStep] = useState<number>(legalDraft ? 5 : 1);
+  const consultationServices = services.filter(
+    (service) => service.category === 'legal' || service.category === 'psychological'
+  );
 
   // Form states
   const [selectedServiceId, setSelectedServiceId] = useState<number>(
-    preselectedServiceId ?? services[0]?.id ?? 0
+    consultationServices.find((service) => service.id === preselectedServiceId)?.id ??
+      consultationServices[0]?.id ??
+      0
   );
   const [targetPerson, setTargetPerson] = useState<'self' | 'family'>(initialTargetPerson ?? 'self');
   const [problemDescription, setProblemDescription] = useState<string>(legalDraft?.description ?? '');
@@ -87,15 +92,11 @@ export const NewRequestView: React.FC<NewRequestViewProps> = ({
 
   const categoryLabels: Record<string, string> = {
     psychological: 'الدعم النفسي',
-    social: 'المرافقة الاجتماعية',
     legal: 'المساعدة القانونية',
-    treatment: 'العلاج وإعادة الإدماج',
-    medical: 'الدعم الطبي',
   };
   const selectedService =
-    services.find((service) => service.id === selectedServiceId) ??
-    services.find((service) => service.id === preselectedServiceId) ??
-    services[0];
+    consultationServices.find((service) => service.id === selectedServiceId) ??
+    consultationServices[0];
 
   // Assessment answers (Requirement 9 & 21 from Project Plan)
   const [hasLegalProblem, setHasLegalProblem] = useState<'yes' | 'no' | 'unknown'>('no');
@@ -237,7 +238,7 @@ export const NewRequestView: React.FC<NewRequestViewProps> = ({
           </div>
 
           <div className="space-y-2">
-            {services.map((service) => (
+            {consultationServices.map((service) => (
               <div
                 key={service.id}
                 onClick={() => setSelectedServiceId(service.id)}
@@ -249,10 +250,7 @@ export const NewRequestView: React.FC<NewRequestViewProps> = ({
               >
                 <div className="flex items-center gap-3">
                   <span className="text-2xl">
-                    {service.category === 'legal' ? '⚖️' :
-                     service.category === 'psychological' ? '🧠' :
-                     service.category === 'social' ? '🤝' :
-                     service.category === 'treatment' ? '🌱' : '🩺'}
+                    {service.category === 'legal' ? '⚖️' : '🧠'}
                   </span>
                   <div>
                     <h4 className="font-bold text-sm text-[#203945]">{service.title}</h4>

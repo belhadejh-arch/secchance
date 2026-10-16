@@ -1,10 +1,9 @@
 import React from 'react';
 import {
-  Activity,
-  ArrowRight,
   Brain,
+  ArrowRight,
   ChevronDown,
-  HeartHandshake,
+  Users,
   MapPin,
   MessageCircle,
   Scale,
@@ -36,7 +35,7 @@ const guidanceTopics: GuidanceTopic[] = [
   },
   {
     title: 'متى أطلب مساعدة متخصصة؟',
-    icon: <HeartHandshake className="h-5 w-5" />,
+    icon: <Users className="h-5 w-5" />,
     nextStep: 'psychological',
     advice:
       'اطلب الدعم عندما تتكرر المشكلة، أو تؤثر في الصحة أو الدراسة أو العمل أو علاقات الأسرة، أو عندما تشعر أنكم لا تستطيعون التعامل معها وحدكم. لا يلزم انتظار تفاقم الوضع لطلب استشارة.',
@@ -101,7 +100,7 @@ export const FamilyGuidanceView: React.FC<FamilyGuidanceViewProps> = ({
       title: 'استشارة نفسية',
       price: '500 دج',
       description: 'اطلب دعمًا نفسيًا من مختص.',
-      icon: <Activity className="h-5 w-5" />,
+      icon: <Brain className="h-5 w-5" />,
       service: psychologicalService,
     },
   ];
@@ -120,7 +119,7 @@ export const FamilyGuidanceView: React.FC<FamilyGuidanceViewProps> = ({
 
         <section className="overflow-hidden rounded-[22px] border border-[#DCEBF4] bg-gradient-to-br from-[#EAF3F8] via-[#F8FBFC] to-[#E8F4EF] p-5 sm:p-7">
           <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-[#1766A6] shadow-xs">
-            <HeartHandshake className="h-6 w-6" />
+            <Users className="h-6 w-6" />
           </div>
           <h1 className="text-2xl font-black text-[#104A78] sm:text-3xl">الإرشاد الأسري</h1>
           <p className="mt-2 text-base font-bold leading-relaxed text-[#203945] sm:text-lg">

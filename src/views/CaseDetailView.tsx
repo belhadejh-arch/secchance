@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Appointment, CareRequest, PaymentTransaction, SpecialistReport, User } from '../types';
-import { ArrowRight, CalendarDays, Check, Circle, Clock3, CreditCard, MessageSquare, Star } from 'lucide-react';
+import { ArrowRight, CalendarDays, Check, Circle, Clock3, CreditCard, MessageCircle, Star } from 'lucide-react';
+import { getCustomerRequestProgress } from '../lib/requestProgress';
 
 interface CaseDetailViewProps {
   request: CareRequest | null;
@@ -65,6 +66,18 @@ export const CaseDetailView: React.FC<CaseDetailViewProps> = ({
   }
 
   const caseReports = reports.filter((r) => r.caseNumber === request.caseNumber);
+  const requestProgress = getCustomerRequestProgress(
+    request,
+    appointments,
+    transactions,
+    caseReports
+  );
+  const progressToneClass = {
+    success: 'text-[#16A34A]',
+    progress: 'text-[#0F766E]',
+    waiting: 'text-[#64748B]',
+    action: 'text-[#D97706]',
+  }[requestProgress.tone];
   const isSpecialist = Boolean(
     currentUser &&
       ['psychologist', 'doctor', 'lawyer', 'legal_advisor', 'treatment_center', 'clinic', 'hospital', 'association', 'admin'].includes(
@@ -96,18 +109,6 @@ export const CaseDetailView: React.FC<CaseDetailViewProps> = ({
         ['APPOINTMENT_CONFIRMED', 'IN_PROGRESS', 'COMPLETED'].includes(request.status);
   const consultationComplete =
     request.status === 'COMPLETED' || appointment?.status === 'COMPLETED';
-  const statusLabels: Record<CareRequest['status'], string> = {
-    NEW: 'تم إرسال الطلب',
-    PENDING_PROVIDER: 'بانتظار رد مقدم الخدمة',
-    ACCEPTED: 'تم قبول الطلب',
-    WAITING_PAYMENT: 'بانتظار الدفع',
-    PAID: 'تم الدفع',
-    APPOINTMENT_CONFIRMED: 'تم حجز الموعد',
-    IN_PROGRESS: 'الاستشارة جارية',
-    COMPLETED: 'الاستشارة مكتملة',
-    REJECTED: 'رُفض الطلب',
-    CANCELLED: 'أُلغي الطلب',
-  };
   const journey = [
     { label: 'تم إرسال الطلب', done: true, detail: 'تم تسجيل الطلب في المنصة.' },
     {
@@ -202,8 +203,8 @@ export const CaseDetailView: React.FC<CaseDetailViewProps> = ({
           <span className="font-bold text-[13px] text-[#1766A6]">
             {request.caseNumber}
           </span>
-          <span className="font-bold text-[12px] text-[#203945]">
-            الحالة: {statusLabels[request.status]}
+          <span className={`font-bold text-[12px] ${progressToneClass}`}>
+            الحالة: {requestProgress.label}
           </span>
         </div>
 
@@ -253,7 +254,7 @@ export const CaseDetailView: React.FC<CaseDetailViewProps> = ({
         {/* Action Buttons */}
         <div className="space-y-2 pt-1">
           {(request.status === 'ACCEPTED' || request.status === 'WAITING_PAYMENT') &&
-            request.paymentStatus === 'PENDING' && (
+            ['PENDING', 'FAILED', 'CANCELLED'].includes(request.paymentStatus) && (
               <button
                 onClick={() => onStartPayment(request)}
                 className="w-full flex items-center justify-center gap-1.5 py-3 px-4 rounded-[12px] bg-[#25866D] hover:bg-[#1e6c58] text-white font-bold text-xs sm:text-sm shadow-xs transition-colors"
@@ -267,7 +268,7 @@ export const CaseDetailView: React.FC<CaseDetailViewProps> = ({
             onClick={() => onOpenChat(1)}
             className="w-full flex items-center justify-center gap-1.5 py-3 px-4 rounded-[12px] bg-[#1766A6] hover:bg-[#125386] text-white font-bold text-xs sm:text-sm shadow-xs transition-colors"
           >
-            <MessageSquare className="w-4 h-4" />
+            <MessageCircle className="w-4 h-4" />
             <span>فتح غرفة المحادثة المباشرة</span>
           </button>
         </div>
@@ -292,7 +293,8 @@ export const CaseDetailView: React.FC<CaseDetailViewProps> = ({
           </div>
           <div className="rounded-[14px] bg-[#F3F7F6] p-3">
             <p className="text-[11px] text-[#203945]/60">حالة الطلب</p>
-            <p className="mt-1 text-sm font-bold text-[#203945]">{statusLabels[request.status]}</p>
+            <p className={`mt-1 text-sm font-bold ${progressToneClass}`}>{requestProgress.label}</p>
+            <p className="mt-1 text-xs leading-relaxed text-[#64748B]">{requestProgress.detail}</p>
           </div>
           <div className="rounded-[14px] bg-[#F3F7F6] p-3">
             <p className="text-[11px] text-[#203945]/60">الموعد</p>

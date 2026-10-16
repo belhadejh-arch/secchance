@@ -13,8 +13,8 @@ import {
 } from '../types';
 import {
   User as UserIcon,
-  Home,
-  UsersRound,
+  House,
+  Users,
   MapPin,
   Settings,
   ShieldCheck,
@@ -29,7 +29,7 @@ import {
   Shield,
   FileText,
   Lock,
-  MessageSquare,
+  MessageCircle,
   Calendar,
   Bell,
   Eye,
@@ -51,6 +51,7 @@ import {
 import { markNotificationAsReadInDb } from '../services/dbService';
 import { AccountDashboardView } from './AccountDashboardView';
 import { FamilyPackageView } from './FamilyPackageView';
+import { getCustomerRequestProgress } from '../lib/requestProgress';
 
 interface PortalViewProps {
   currentUser: User;
@@ -180,47 +181,23 @@ export const PortalView: React.FC<PortalViewProps> = ({
     }
   };
 
-  const getStatusText = (status: string) => {
-    switch (status) {
-      case 'NEW':
-      case 'PENDING_PROVIDER':
-        return 'قيد المراجعة والانتظار';
-      case 'ACCEPTED':
-      case 'WAITING_PAYMENT':
-        return 'مقبول — بانتظار الدفع';
-      case 'PAID':
-      case 'APPOINTMENT_CONFIRMED':
-        return 'موعد مؤكد ومحجوز';
-      case 'IN_PROGRESS':
-        return 'قيد المتابعة والعلاج';
-      case 'COMPLETED':
-        return 'مكتمل بنجاح';
-      case 'REJECTED':
-        return 'مرفوض';
-      case 'CANCELLED':
-        return 'ملغى';
-      default:
-        return status;
-    }
-  };
-
   const accountMenu = [
-    { key: 'dashboard', title: 'الرئيسية', icon: <Home className="h-4 w-4" />, action: () => setBeneficiaryTab('dashboard') },
+    { key: 'dashboard', title: 'الرئيسية', icon: <House className="h-4 w-4" />, action: () => setBeneficiaryTab('dashboard') },
     { key: 'new-request', title: 'طلب استشارة', icon: <Plus className="h-4 w-4" />, action: onNewRequest },
     { key: 'requests', title: 'طلباتي', icon: <FolderOpen className="h-4 w-4" />, action: () => setBeneficiaryTab('requests') },
     { key: 'appointments', title: 'مواعيدي', icon: <Calendar className="h-4 w-4" />, action: () => setBeneficiaryTab('appointments') },
-    { key: 'family-members', title: 'أفراد أسرتي', icon: <UsersRound className="h-4 w-4" />, action: () => setBeneficiaryTab('family-members') },
+    { key: 'family-members', title: 'أفراد أسرتي', icon: <Users className="h-4 w-4" />, action: () => setBeneficiaryTab('family-members') },
     { key: 'family-package', title: 'الباقة الأسرية', icon: <PackageCheck className="h-4 w-4" />, action: () => setBeneficiaryTab('family-package') },
     { key: 'payments', title: 'مدفوعاتي', icon: <CreditCard className="h-4 w-4" />, action: () => setBeneficiaryTab('payments') },
     { key: 'invoices', title: 'فواتيري', icon: <Receipt className="h-4 w-4" />, action: () => setBeneficiaryTab('invoices') },
     { key: 'nearby', title: 'الجهات القريبة مني', icon: <MapPin className="h-4 w-4" />, action: () => onOpenDirectory('centers') },
-    { key: 'messages', title: 'رسائلي', icon: <MessageSquare className="h-4 w-4" />, action: () => setBeneficiaryTab('messages') },
+    { key: 'messages', title: 'رسائلي', icon: <MessageCircle className="h-4 w-4" />, action: () => setBeneficiaryTab('messages') },
     { key: 'privacy', title: 'الخصوصية', icon: <ShieldCheck className="h-4 w-4" />, action: () => setBeneficiaryTab('privacy') },
     { key: 'settings', title: 'الإعدادات', icon: <Settings className="h-4 w-4" />, action: () => setBeneficiaryTab('settings') },
   ];
 
   return (
-    <div className="mx-auto grid max-w-6xl gap-5 lg:grid-cols-[220px_minmax(0,1fr)]" dir="rtl">
+    <div className="mx-auto grid w-full max-w-[1280px] gap-5 lg:grid-cols-[250px_minmax(0,1fr)]" dir="rtl">
       <aside className="h-fit rounded-[18px] border border-[#E0E8E6] bg-[#FBFDFC] p-3 shadow-xs lg:sticky lg:top-4">
         <div className="mb-2 px-2 py-2">
           <p className="text-sm font-black text-[#203945]">القائمة</p>
@@ -235,7 +212,7 @@ export const PortalView: React.FC<PortalViewProps> = ({
                 type="button"
                 onClick={item.action}
                 aria-current={active ? 'page' : undefined}
-                className={`flex min-h-10 items-center gap-2 rounded-[10px] px-2.5 py-2 text-right text-xs font-bold transition-colors ${
+                className={`flex min-h-[44px] items-center gap-2 rounded-[10px] px-2.5 py-2 text-right text-xs font-bold transition-colors ${
                   active
                     ? 'bg-[#1766A6] text-white'
                     : 'text-[#203945]/80 hover:bg-[#EAF3F8] hover:text-[#104A78]'
@@ -303,12 +280,14 @@ export const PortalView: React.FC<PortalViewProps> = ({
           onNewRequest={onNewRequest}
           onRequestService={onRequestService}
           onOpenDirectory={onOpenDirectory}
+          onSelectRequest={onSelectRequest}
+          onStartPayment={onStartPayment}
         />
       )}
 
       {beneficiaryTab === 'family-members' && (
         <section className="rounded-[20px] border border-dashed border-[#CCD8D5] bg-[#FBFDFC] p-8 text-center shadow-xs">
-          <UsersRound className="mx-auto h-10 w-10 text-[#1766A6]" />
+          <Users className="mx-auto h-10 w-10 text-[#1766A6]" />
           <h2 className="mt-3 font-black text-[#203945]">أفراد أسرتي</h2>
           <p className="mx-auto mt-2 max-w-md text-sm leading-relaxed text-[#203945]/70">
             لا توجد صلات بأفراد أسرة مسجلة في بيانات هذا الحساب حاليًا.
@@ -360,9 +339,15 @@ export const PortalView: React.FC<PortalViewProps> = ({
             </div>
           ) : (
             myRequests.map((req) => {
+              const progress = getCustomerRequestProgress(
+                req,
+                myAppointments,
+                myTransactions,
+                permittedReports
+              );
               const canPay =
                 (req.status === 'ACCEPTED' || req.status === 'WAITING_PAYMENT') &&
-                req.paymentStatus === 'PENDING';
+                ['PENDING', 'FAILED', 'CANCELLED'].includes(req.paymentStatus);
 
               return (
                 <div
@@ -381,13 +366,26 @@ export const PortalView: React.FC<PortalViewProps> = ({
                       <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-[#F3F7F6] text-[#203945]">
                         {getPriorityText(req.priority)}
                       </span>
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-[#E8F4EF] text-[#25866D]">
-                        {getStatusText(req.status)}
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${
+                        progress.tone === 'success'
+                          ? 'bg-green-50 text-[#16A34A]'
+                          : progress.tone === 'action'
+                            ? 'bg-amber-50 text-[#D97706]'
+                            : progress.tone === 'progress'
+                              ? 'bg-teal-50 text-[#0F766E]'
+                              : 'bg-slate-100 text-[#64748B]'
+                      }`}>
+                        {progress.label}
                       </span>
                     </div>
                   </div>
 
                   <p className="text-xs text-[#203945]/80 leading-relaxed">{req.description}</p>
+                  <p className={`text-xs font-semibold ${
+                    progress.tone === 'action' ? 'text-[#D97706]' : 'text-[#64748B]'
+                  }`}>
+                    {progress.detail}
+                  </p>
 
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-2 border-t border-[#F0F4F2] text-xs">
                     <div className="flex items-center gap-3 text-[#203945]/70 text-[11px]">
@@ -600,7 +598,7 @@ export const PortalView: React.FC<PortalViewProps> = ({
       {/* ================= 6. TAB: MESSAGES (الرسائل) ================= */}
       {beneficiaryTab === 'messages' && (
         <div className="bg-[#FBFDFC] border border-[#E0E8E6] rounded-[20px] p-6 shadow-xs text-center space-y-4">
-          <MessageSquare className="w-12 h-12 text-[#1766A6] mx-auto opacity-70" />
+          <MessageCircle className="w-12 h-12 text-[#1766A6] mx-auto opacity-70" />
           <div>
             <h4 className="font-bold text-base text-[#203945]">المراسلات الآمنة والمشفرة</h4>
             <p className="text-xs text-[#203945]/70 mt-1 max-w-md mx-auto">

@@ -1,6 +1,6 @@
 import React from 'react';
 import { ServiceItem } from '../types';
-import { Activity, BookOpen, Building, CheckCircle, HeartHandshake, Scale, Users } from 'lucide-react';
+import { Brain, BookOpen, Hospital, CheckCircle, Handshake, Scale, Users } from 'lucide-react';
 
 interface HelpOptionsViewProps {
   services: ServiceItem[];
@@ -34,7 +34,7 @@ export const HelpOptionsView: React.FC<HelpOptionsViewProps> = ({
       title: 'أحتاج إلى استشارة نفسية',
       price: '500 دج',
       description: 'ابدأ طلب جلسة دعم نفسي مع مختص.',
-      icon: <Activity className="w-5 h-5" />,
+      icon: <Brain className="w-5 h-5" />,
       action: () => psychologicalService && onRequestService(psychologicalService),
       disabled: !psychologicalService,
     },
@@ -42,7 +42,7 @@ export const HelpOptionsView: React.FC<HelpOptionsViewProps> = ({
       title: 'أبحث عن مركز لعلاج الإدمان',
       price: 'مجاني',
       description: 'اعثر على مراكز العلاج القريبة منك في دليل الجهات.',
-      icon: <Building className="w-5 h-5" />,
+      icon: <Hospital className="w-5 h-5" />,
       action: () => onOpenDirectory('centers'),
       disabled: false,
     },
@@ -50,7 +50,7 @@ export const HelpOptionsView: React.FC<HelpOptionsViewProps> = ({
       title: 'أبحث عن جمعية مختصة',
       price: 'مجاني',
       description: 'تصفح الجمعيات المختصة واختر الولاية المناسبة.',
-      icon: <HeartHandshake className="w-5 h-5" />,
+      icon: <Handshake className="w-5 h-5" />,
       action: () => onOpenDirectory('associations'),
       disabled: false,
     },

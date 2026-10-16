@@ -1,6 +1,6 @@
 import React from 'react';
 import { ServiceItem } from '../types';
-import { Activity, BookOpen, Building, HeartHandshake, Scale, Users } from 'lucide-react';
+import { Brain, BookOpen, Hospital, Handshake, Scale, Users } from 'lucide-react';
 
 interface ServicesViewProps {
   services: ServiceItem[];
@@ -32,21 +32,21 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
       category: 'psychological',
       description: 'استشارة مباشرة مع مختص نفسي عيادي مؤهل لتقديم الدعم النفسي والإرشاد ضمن اختصاصه المهني.',
       service: psychologicalService,
-      icon: <Activity className="h-5 w-5" />,
+      icon: <Brain className="h-5 w-5" />,
     },
   ];
   const freeServices = [
     {
       title: 'العثور على مركز علاج قريب',
       description: 'البحث عن مراكز العلاج والتكفل بالإدمان داخل الولاية أو الولايات المجاورة.',
-      icon: <Building className="h-5 w-5" />,
+      icon: <Hospital className="h-5 w-5" />,
       actionLabel: 'استكشف المراكز',
       action: () => onOpenDirectory('centers'),
     },
     {
       title: 'العثور على جمعية مختصة',
       description: 'اكتشاف الجمعيات النشطة في مكافحة الإدمان والتوعية والدعم الأسري وغيرها.',
-      icon: <HeartHandshake className="h-5 w-5" />,
+      icon: <Handshake className="h-5 w-5" />,
       actionLabel: 'استكشف الجمعيات',
       action: () => onOpenDirectory('associations'),
     },

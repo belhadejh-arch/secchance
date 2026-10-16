@@ -1,12 +1,11 @@
 import React from 'react';
 import {
   Bot,
-  PhoneCall,
-  Home,
+  House,
   Briefcase,
-  Building2,
+  Hospital,
   BookOpen,
-  AlertTriangle,
+  TriangleAlert,
   Scale,
   ShieldCheck,
   Stethoscope,
@@ -50,7 +49,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   return (
     <header className="sticky top-0 z-40 bg-[#FBFDFC] border-b border-[#E0E8E6] shadow-xs">
       {/* Top AppBar */}
-      <div className="max-w-4xl mx-auto px-4 py-2 flex items-center justify-between">
+      <div className="max-w-[1280px] mx-auto h-[72px] px-4 flex items-center justify-between">
         {/* Brand with Official Logo */}
         <div
           onClick={() => onNavigate('landing')}
@@ -76,7 +75,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           {/* AI Triage */}
           <button
             onClick={onOpenAiTriage}
-            className="p-2 rounded-lg text-[#1766A6] hover:bg-[#EAF3F8] transition-colors"
+            className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg text-[#1766A6] hover:bg-[#EAF3F8] transition-colors"
             title="المساعد الذكي والتوجيه المعتمد"
           >
             <Bot className="w-5 h-5" />
@@ -85,10 +84,10 @@ export const Navbar: React.FC<NavbarProps> = ({
           {/* Emergency Hotline */}
           <button
             onClick={() => onNavigate('emergency')}
-            className="p-2 rounded-lg text-[#A64842] hover:bg-[#FBECEB] transition-colors"
+            className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg text-[#A64842] hover:bg-[#FBECEB] transition-colors"
             title="الطوارئ ومركز معالجة الإدمان"
           >
-            <PhoneCall className="w-5 h-5" />
+            <TriangleAlert className="w-5 h-5" />
           </button>
 
           {/* Auth State Button */}
@@ -96,7 +95,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             <div className="flex items-center gap-1">
               <button
                 onClick={handleDashboardClick}
-                className={`px-3 py-1.5 rounded-[10px] text-xs font-bold transition-colors flex items-center gap-1.5 ${
+                className={`flex min-h-[44px] items-center gap-1.5 rounded-[10px] px-3 py-1.5 text-xs font-bold transition-colors ${
                   isAdmin
                     ? 'bg-[#1766A6] text-white hover:bg-[#125386] shadow-xs'
                     : isSpecialist
@@ -120,7 +119,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               {onLogout && (
                 <button
                   onClick={onLogout}
-                  className="p-1.5 rounded-lg text-[#203945]/50 hover:text-[#A64842] hover:bg-[#FBECEB] transition-colors"
+                   className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg text-[#203945]/50 hover:text-[#A64842] hover:bg-[#FBECEB] transition-colors"
                   title="تسجيل الخروج"
                 >
                   <LogOut className="w-4 h-4" />
@@ -130,7 +129,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           ) : (
             <button
               onClick={onOpenAuth}
-              className="px-3.5 py-1.5 rounded-[8px] bg-[#1766A6] text-white hover:bg-[#125386] text-xs font-bold transition-colors shadow-xs"
+              className="min-h-[44px] rounded-[8px] bg-[#1766A6] px-3.5 py-1.5 text-xs font-bold text-white hover:bg-[#125386] transition-colors shadow-xs"
             >
               تسجيل الدخول
             </button>
@@ -140,12 +139,12 @@ export const Navbar: React.FC<NavbarProps> = ({
 
       {/* Sub Navigation Bar */}
       <div className="bg-[#EAF3F8]/70 border-t border-[#DCEBF4] px-4 py-1.5">
-        <div className="max-w-4xl mx-auto flex items-center justify-between sm:justify-start sm:gap-4 overflow-x-auto text-[11px] font-semibold text-[#203945] no-scrollbar">
+        <div className="max-w-[1280px] mx-auto flex items-center justify-between sm:justify-start sm:gap-4 overflow-x-auto text-[11px] font-semibold text-[#203945] no-scrollbar">
           <button
             onClick={() => onNavigate('landing')}
             className="flex items-center gap-1 hover:text-[#1766A6] transition-colors py-1 px-1 rounded-sm shrink-0"
           >
-            <Home className="w-3.5 h-3.5 text-[#1766A6]" />
+            <House className="w-3.5 h-3.5 text-[#1766A6]" />
             <span>الرئيسية</span>
           </button>
 
@@ -189,7 +188,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             onClick={() => onNavigate('directory')}
             className="flex items-center gap-1 hover:text-[#1766A6] transition-colors py-1 px-1 rounded-sm shrink-0"
           >
-            <Building2 className="w-3.5 h-3.5 text-[#1766A6]" />
+            <Hospital className="w-3.5 h-3.5 text-[#1766A6]" />
             <span>المراكز (40)</span>
           </button>
 
@@ -205,7 +204,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             onClick={() => onNavigate('emergency')}
             className="flex items-center gap-1 text-[#A64842] hover:opacity-80 transition-colors py-1 px-1 rounded-sm shrink-0 font-bold"
           >
-            <AlertTriangle className="w-3.5 h-3.5 text-[#A64842]" />
+            <TriangleAlert className="w-3.5 h-3.5 text-[#A64842]" />
             <span>الطوارئ</span>
           </button>
         </div>

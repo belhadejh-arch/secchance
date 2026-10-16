@@ -539,7 +539,7 @@ export function App() {
         />
 
         {/* Main Content Area */}
-        <main className="max-w-4xl mx-auto px-4 py-4">
+        <main className="w-full max-w-[1280px] mx-auto px-4 py-4">
           {currentView === 'landing' && (
             <LandingView
               onNavigate={handleNavigate}

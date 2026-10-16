@@ -1,18 +1,19 @@
 import React from 'react';
 import {
-  Activity,
+  Brain,
   ArrowLeft,
-  Building2,
+  Hospital,
   CalendarDays,
   Check,
   Circle,
   CreditCard,
   FolderOpen,
-  MapPin,
+  Handshake,
   Scale,
-  UsersRound,
+  Users,
 } from 'lucide-react';
 import { Appointment, CareRequest, PaymentTransaction, ServiceItem, SpecialistReport, User } from '../types';
+import { getCustomerRequestProgress } from '../lib/requestProgress';
 
 interface AccountDashboardViewProps {
   currentUser: User;
@@ -24,20 +25,9 @@ interface AccountDashboardViewProps {
   onNewRequest: () => void;
   onRequestService: (service: ServiceItem) => void;
   onOpenDirectory: (tab: 'centers' | 'associations') => void;
+  onSelectRequest: (request: CareRequest) => void;
+  onStartPayment: (request: CareRequest) => void;
 }
-
-const requestStatusLabels: Record<CareRequest['status'], string> = {
-  NEW: 'تم إرسال الطلب',
-  PENDING_PROVIDER: 'بانتظار رد مقدم الخدمة',
-  ACCEPTED: 'تم قبول الطلب',
-  WAITING_PAYMENT: 'بانتظار الدفع',
-  PAID: 'تم الدفع',
-  APPOINTMENT_CONFIRMED: 'تم تأكيد الموعد',
-  IN_PROGRESS: 'الاستشارة جارية',
-  COMPLETED: 'اكتملت الاستشارة',
-  REJECTED: 'رُفض الطلب',
-  CANCELLED: 'أُلغي الطلب',
-};
 
 function dateValue(value: string | undefined) {
   if (!value) return 0;
@@ -66,8 +56,13 @@ export const AccountDashboardView: React.FC<AccountDashboardViewProps> = ({
   onNewRequest,
   onRequestService,
   onOpenDirectory,
+  onSelectRequest,
+  onStartPayment,
 }) => {
   const latestRequest = [...requests].sort((a, b) => dateValue(b.createdAt) - dateValue(a.createdAt))[0];
+  const latestRequestProgress = latestRequest
+    ? getCustomerRequestProgress(latestRequest, appointments, transactions, reports)
+    : undefined;
   const legalService = services.find((service) => service.category === 'legal');
   const psychologicalService = services.find((service) => service.category === 'psychological');
   const successfulTransactions = transactions.filter((transaction) => transaction.status === 'SUCCESSFUL');
@@ -90,21 +85,21 @@ export const AccountDashboardView: React.FC<AccountDashboardViewProps> = ({
     {
       title: 'استشارة نفسية',
       price: psychologicalService ? formatAmount(psychologicalService.amountDzd) : 'غير متاحة',
-      icon: <Activity className="h-5 w-5" />,
+      icon: <Brain className="h-5 w-5" />,
       action: () => psychologicalService && onRequestService(psychologicalService),
       disabled: !psychologicalService,
     },
     {
       title: 'العثور على مركز قريب',
       price: 'مجاني',
-      icon: <Building2 className="h-5 w-5" />,
+      icon: <Hospital className="h-5 w-5" />,
       action: () => onOpenDirectory('centers'),
       disabled: false,
     },
     {
       title: 'العثور على جمعية قريبة',
       price: 'مجاني',
-      icon: <MapPin className="h-5 w-5" />,
+      icon: <Handshake className="h-5 w-5" />,
       action: () => onOpenDirectory('associations'),
       disabled: false,
     },
@@ -165,7 +160,7 @@ export const AccountDashboardView: React.FC<AccountDashboardViewProps> = ({
     {
       title: 'حالة الباقة',
       value: familyPackageActive ? 'نشطة' : 'غير نشطة',
-      icon: <UsersRound className="h-5 w-5" />,
+      icon: <Users className="h-5 w-5" />,
       note: familyPackageActive
         ? `سارية حتى ${formatDate(currentUser.familyPackage!.endsAt)}`
         : 'لا يوجد اشتراك فعّال في الحساب',
@@ -207,7 +202,7 @@ export const AccountDashboardView: React.FC<AccountDashboardViewProps> = ({
               type="button"
               disabled={item.disabled}
               onClick={item.action}
-              className="flex items-center gap-3 rounded-[16px] border border-[#E0E8E6] bg-[#FBFDFC] p-4 text-right shadow-xs transition-colors hover:border-[#AFCFE0] hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
+              className="flex min-h-[76px] items-center gap-3 rounded-[16px] border border-[#E0E8E6] bg-[#FBFDFC] p-5 text-right shadow-xs transition-colors hover:border-[#AFCFE0] hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
             >
               <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#EAF3F8] text-[#1766A6]">
                 {item.icon}
@@ -230,7 +225,7 @@ export const AccountDashboardView: React.FC<AccountDashboardViewProps> = ({
         </h2>
         <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
           {summaryCards.map((card) => (
-            <article key={card.title} className="rounded-[16px] border border-[#E0E8E6] bg-[#FBFDFC] p-4 shadow-xs">
+            <article key={card.title} className="rounded-[16px] border border-[#E0E8E6] bg-[#FBFDFC] p-5 shadow-xs">
               <div className="flex items-center justify-between gap-2 text-[#1766A6]">
                 {card.icon}
                 <span className="text-xs font-bold text-[#203945]/65">{card.title}</span>
@@ -242,7 +237,7 @@ export const AccountDashboardView: React.FC<AccountDashboardViewProps> = ({
         </div>
       </section>
 
-      <section aria-labelledby="account-current-status" className="space-y-3 rounded-[20px] border border-[#E0E8E6] bg-[#FBFDFC] p-4 shadow-xs sm:p-5">
+      <section aria-labelledby="account-current-status" className="space-y-3 rounded-[20px] border border-[#E0E8E6] bg-[#FBFDFC] p-5 shadow-xs sm:p-6">
         <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h2 id="account-current-status" className="text-lg font-black text-[#203945]">
@@ -251,8 +246,16 @@ export const AccountDashboardView: React.FC<AccountDashboardViewProps> = ({
             <p className="mt-1 text-sm text-[#203945]/65">الخدمة الأحدث في حسابك ومسار طلبها.</p>
           </div>
           {latestRequest && (
-            <span className="w-fit rounded-full bg-[#EAF3F8] px-3 py-1 text-xs font-bold text-[#104A78]">
-              {requestStatusLabels[latestRequest.status]}
+            <span className={`w-fit rounded-full px-3 py-1 text-xs font-bold ${
+              latestRequestProgress?.tone === 'success'
+                ? 'bg-green-50 text-[#16A34A]'
+                : latestRequestProgress?.tone === 'action'
+                  ? 'bg-amber-50 text-[#D97706]'
+                  : latestRequestProgress?.tone === 'progress'
+                    ? 'bg-teal-50 text-[#0F766E]'
+                    : 'bg-slate-100 text-[#64748B]'
+            }`}>
+              {latestRequestProgress?.label}
             </span>
           )}
         </div>
@@ -269,7 +272,34 @@ export const AccountDashboardView: React.FC<AccountDashboardViewProps> = ({
               <p className="text-[11px] text-[#203945]/60">الخدمة الحالية</p>
               <p className="mt-1 font-bold text-[#203945]">{latestRequest.serviceTitle}</p>
               <p className="mt-1 text-xs text-[#203945]/65" dir="ltr">{latestRequest.caseNumber}</p>
+              <p className={`mt-2 text-xs font-semibold ${
+                latestRequestProgress?.tone === 'action' ? 'text-[#D97706]' : 'text-[#64748B]'
+              }`}>
+                {latestRequestProgress?.detail}
+              </p>
             </div>
+            {latestRequestProgress?.status === 'ACTION_REQUIRED' && (
+              <div className="flex flex-wrap gap-2">
+                {(latestRequest.status === 'ACCEPTED' || latestRequest.status === 'WAITING_PAYMENT') &&
+                ['PENDING', 'FAILED', 'CANCELLED'].includes(latestRequest.paymentStatus) ? (
+                  <button
+                    type="button"
+                    onClick={() => onStartPayment(latestRequest)}
+                    className="min-h-[44px] rounded-[12px] bg-[#0F766E] px-4 py-2 text-sm font-bold text-white"
+                  >
+                    إعادة محاولة الدفع
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => onSelectRequest(latestRequest)}
+                    className="min-h-[44px] rounded-[12px] border border-[#E2E8F0] bg-white px-4 py-2 text-sm font-bold text-[#1E40AF]"
+                  >
+                    عرض تفاصيل الطلب
+                  </button>
+                )}
+              </div>
+            )}
 
             <ol className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
               {journey.map((step, index) => (

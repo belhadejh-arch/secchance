@@ -1,9 +1,9 @@
 import React, { FormEvent, useMemo, useState } from 'react';
 import {
   AlertCircle,
-  Building2,
+  Hospital,
   ExternalLink,
-  HeartHandshake,
+  Handshake,
   LocateFixed,
   MapPin,
   Phone,
@@ -309,7 +309,7 @@ export const DirectoryView: React.FC<DirectoryViewProps> = ({
                 : 'border border-[#CCD8D5] bg-white text-[#203945]'
             }`}
           >
-            <Building2 className="h-4 w-4" />
+            <Hospital className="h-4 w-4" />
             مراكز العلاج
           </button>
           <button
@@ -325,7 +325,7 @@ export const DirectoryView: React.FC<DirectoryViewProps> = ({
                 : 'border border-[#CCD8D5] bg-white text-[#203945]'
             }`}
           >
-            <HeartHandshake className="h-4 w-4" />
+            <Handshake className="h-4 w-4" />
             الجمعيات المختصة
           </button>
         </div>

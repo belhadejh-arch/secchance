@@ -9,14 +9,14 @@ import {
   Users,
   CheckCircle2,
   Calendar,
-  Building,
-  HeartHandshake,
+  Hospital,
+  Handshake,
   ArrowRight,
   ExternalLink,
   Mail,
   Phone,
   MapPin,
-  Activity,
+  Brain,
   FileCheck,
   Award,
 } from 'lucide-react';
@@ -67,7 +67,7 @@ export const LandingView: React.FC<LandingViewProps> = ({
       title: 'الاستشارة النفسية',
       price: '500 دج',
       description: 'دعم نفسي يقدمه مختص.',
-      icon: <Activity className="w-5 h-5" />,
+      icon: <Brain className="w-5 h-5" />,
       action: () => {
         const service = services.find((item) => item.category === 'psychological');
         if (service) onRequestService(service);
@@ -77,20 +77,20 @@ export const LandingView: React.FC<LandingViewProps> = ({
       title: 'العثور على مركز علاج قريب',
       price: 'مجاني',
       description: 'ابحث في دليل مراكز العلاج حسب الولاية.',
-      icon: <Building className="w-5 h-5" />,
+      icon: <Hospital className="w-5 h-5" />,
       action: () => onOpenDirectory('centers'),
     },
     {
       title: 'العثور على جمعية مختصة قريبة',
       price: 'مجاني',
       description: 'تصفح الجمعيات المختصة القريبة منك.',
-      icon: <HeartHandshake className="w-5 h-5" />,
+      icon: <Handshake className="w-5 h-5" />,
       action: () => onOpenDirectory('associations'),
     },
   ];
 
   return (
-    <div className="space-y-8 max-w-4xl mx-auto">
+    <div className="space-y-8 max-w-[1200px] mx-auto">
       {/* 1. Hero Section (Requirement 16) */}
       <section className="bg-[#EAF3F8] rounded-[24px] p-6 sm:p-8 shadow-xs border border-[#DCEBF4]">
         <div className="flex flex-col sm:flex-row items-center gap-6">
@@ -250,7 +250,7 @@ export const LandingView: React.FC<LandingViewProps> = ({
         <div className="flex items-center justify-between border-b border-[#E0E8E6] pb-3">
           <div>
             <h2 className="text-base font-black text-[#203945] flex items-center gap-2">
-              <HeartHandshake className="w-5 h-5 text-[#25866D]" />
+              <Users className="w-5 h-5 text-[#25866D]" />
               <span>الشركاء والجهات الرسمية المعتمدة</span>
             </h2>
             <p className="text-xs text-[#203945]/70 mt-0.5">

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Home, Briefcase, FolderOpen, Calendar, MessageSquare, ShieldCheck, Stethoscope } from 'lucide-react';
+import { House, Briefcase, FolderOpen, Calendar, MessageCircle, ShieldCheck, Stethoscope } from 'lucide-react';
 import { User } from '../types';
 
 interface BottomNavigatorProps {
@@ -51,7 +51,7 @@ export const BottomNavigator: React.FC<BottomNavigatorProps> = ({
               currentView === 'landing' ? 'bg-[#EAF3F8]' : ''
             }`}
           >
-            <Home className="w-5 h-5 stroke-[2]" />
+          <House className="w-5 h-5 stroke-[2]" />
           </div>
           <span className={`text-[11px] mt-0.5 ${currentView === 'landing' ? 'font-bold' : 'font-medium'}`}>
             الرئيسية
@@ -133,7 +133,7 @@ export const BottomNavigator: React.FC<BottomNavigatorProps> = ({
               currentView === 'messages' ? 'bg-[#EAF3F8]' : ''
             }`}
           >
-            <MessageSquare className="w-5 h-5 stroke-[2]" />
+          <MessageCircle className="w-5 h-5 stroke-[2]" />
           </div>
           <span className={`text-[11px] mt-0.5 ${currentView === 'messages' ? 'font-bold' : 'font-medium'}`}>
             المحادثة

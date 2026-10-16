@@ -1,12 +1,10 @@
 import React, { useState } from 'react';
 import {
-  Activity,
+  Brain,
   CalendarClock,
   CircleHelp,
-  HeartHandshake,
-  MapPin,
   Scale,
-  UsersRound,
+  Users,
 } from 'lucide-react';
 
 const includedServices = [
@@ -18,27 +16,12 @@ const includedServices = [
   {
     title: 'استشارات نفسية',
     detail: '3 استشارات',
-    icon: <Activity className="h-5 w-5" />,
+    icon: <Brain className="h-5 w-5" />,
   },
   {
     title: 'خدمات إرشاد أسري',
     detail: '3 خدمات',
-    icon: <HeartHandshake className="h-5 w-5" />,
-  },
-  {
-    title: 'البحث عن مركز علاج قريب',
-    detail: 'مشمول في الباقة',
-    icon: <MapPin className="h-5 w-5" />,
-  },
-  {
-    title: 'البحث عن جمعية مختصة قريبة',
-    detail: 'مشمول في الباقة',
-    icon: <UsersRound className="h-5 w-5" />,
-  },
-  {
-    title: 'متابعة الطلبات والمواعيد',
-    detail: 'داخل حسابك',
-    icon: <CalendarClock className="h-5 w-5" />,
+    icon: <Users className="h-5 w-5" />,
   },
 ];
 
@@ -49,15 +32,15 @@ export const FamilyPackageView: React.FC = () => {
     <div className="mx-auto max-w-4xl space-y-5" dir="rtl">
       <header className="overflow-hidden rounded-[22px] border border-[#DCEBF4] bg-gradient-to-br from-[#EAF3F8] via-[#F8FBFC] to-[#E8F4EF] p-5 sm:p-7">
         <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-[#1766A6] shadow-xs">
-          <UsersRound className="h-6 w-6" />
+          <Users className="h-6 w-6" />
         </div>
-        <p className="text-sm font-bold text-[#25866D]">باقة دعم متكاملة للأسرة</p>
+        <p className="text-sm font-bold text-[#25866D]">منتج مدفوع مستقل للأسرة</p>
         <h1 className="mt-1 text-2xl font-black text-[#104A78] sm:text-3xl">الباقة الأسرية</h1>
         <p className="mt-2 text-base font-bold leading-relaxed text-[#203945] sm:text-lg">
           لأن الأسرة تحتاج إلى الدعم أيضًا.
         </p>
         <p className="mt-3 max-w-2xl text-sm leading-7 text-[#203945]/75">
-          مجموعة خدمات منظمة خلال مدة محددة بدل شراء كل خدمة بشكل منفصل، مع متابعة الطلبات والمواعيد داخل حساب الأسرة.
+          رصيد محدد من الاستشارات والخدمات الأسرية خلال مدة معلومة. الخدمات المجانية، مثل دليل المراكز والجمعيات، متاحة لجميع المستخدمين ولا تُحتسب ضمن الباقة.
         </p>
       </header>
 
@@ -112,7 +95,7 @@ export const FamilyPackageView: React.FC = () => {
           <h2 className="font-black text-amber-950">حدود الاشتراك</h2>
           <p className="mt-1 text-sm leading-7 text-amber-950/80">
             الباقة محددة المدة بـ30 يومًا ومحددة العدد: 3 استشارات قانونية و3 استشارات نفسية و3 خدمات إرشاد أسري.
-            ليست باقة مفتوحة أو غير محدودة.
+            لا تتضمن خدمات غير محدودة ولا تضم الخدمات المجانية المتاحة لجميع المستخدمين.
           </p>
         </div>
         <div className="flex flex-col gap-3 border-t border-amber-200 pt-4 sm:flex-row sm:items-center sm:justify-between">
