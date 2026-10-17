@@ -471,12 +471,11 @@ export function App() {
       specialistId: currentUser.id,
       specialistName: `${currentUser.firstName} ${currentUser.lastName}`,
       specialty:
-        currentUser.specialty ||
-        (currentUser.roleSlug === 'psychologist'
+        ['psychologist', 'doctor'].includes(currentUser.roleSlug)
           ? 'أخصائي نفسي عيادي'
-          : currentUser.roleSlug === 'lawyer'
-          ? 'مستشار قانوني ومحامٍ'
-          : 'مختص معتمد بالمنصة'),
+          : ['lawyer', 'legal_advisor'].includes(currentUser.roleSlug)
+            ? 'مستشار قانوني'
+            : currentUser.specialty || 'مختص معتمد بالمنصة',
       evaluation,
       professionalNotes: notes,
       recommendations,

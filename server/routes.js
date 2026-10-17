@@ -211,7 +211,7 @@ async function insertProfessionalProfile(client, userId, input) {
       : role === 'psychologist'
         ? 'أخصائي نفسي عيادي'
         : role === 'doctor'
-          ? 'طبيب مختص'
+          ? 'أخصائي نفسي عيادي'
           : ''
   )).trim();
   const license = String(input.licenseNumber || '').trim();
@@ -1086,6 +1086,11 @@ async function changeUser(id, body, user, req) {
 }
 
 async function updateOwnAccountSettings(body, user, req) {
+  const email = body.email === undefined ? normalizeEmail(user.email) : normalizeEmail(body.email);
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email) || email.length > 254) {
+    throw new HttpError(400, 'أدخل بريدًا إلكترونيًا صالحًا.');
+  }
+
   const phone = String(body.phone || '').trim();
   const phoneDigits = phone.replace(/\D/g, '');
   if (!/^\+?[0-9\s().-]+$/.test(phone) || phoneDigits.length < 7 || phoneDigits.length > 15) {
@@ -1094,37 +1099,59 @@ async function updateOwnAccountSettings(body, user, req) {
 
   const currentPassword = body.currentPassword;
   const newPassword = body.newPassword;
-  const changingPassword = currentPassword !== undefined || newPassword !== undefined;
+  const changingEmail = email !== normalizeEmail(user.email);
+  const changingPassword = newPassword !== undefined;
   if (changingPassword && (!currentPassword || !validatePassword(newPassword))) {
     throw new HttpError(400, 'لتغيير كلمة المرور، أدخل كلمة المرور الحالية وكلمة مرور جديدة من 10 أحرف على الأقل.');
   }
+  if ((changingEmail || changingPassword) && !currentPassword) {
+    throw new HttpError(400, 'أدخل كلمة المرور الحالية لتغيير البريد الإلكتروني أو كلمة المرور.');
+  }
 
-  await withTransaction(async (client) => {
-    const existing = await client.query('SELECT password, phone FROM users WHERE id = $1 FOR UPDATE', [user.id]);
-    const account = existing.rows[0];
-    if (!account) throw new HttpError(404, 'الحساب غير موجود.');
-    if (changingPassword && !await verifyPassword(String(currentPassword), account.password)) {
-      throw new HttpError(401, 'كلمة المرور الحالية غير صحيحة.');
-    }
+  try {
+    await withTransaction(async (client) => {
+      const existing = await client.query('SELECT password, phone, email FROM users WHERE id = $1 FOR UPDATE', [user.id]);
+      const account = existing.rows[0];
+      if (!account) throw new HttpError(404, 'الحساب غير موجود.');
+      if ((changingEmail || changingPassword) && !await verifyPassword(String(currentPassword), account.password)) {
+        throw new HttpError(401, 'كلمة المرور الحالية غير صحيحة.');
+      }
 
-    const values = [user.id, phone];
-    let passwordSql = '';
-    if (changingPassword) {
-      values.push(await hashPassword(newPassword));
-      passwordSql = ', password = $3';
-    }
-    await client.query(
-      `UPDATE users SET phone = $2${passwordSql}, updated_at = NOW() WHERE id = $1`,
-      values
-    );
+      if (changingEmail) {
+        const duplicate = await client.query(
+          'SELECT id FROM users WHERE lower(email) = $1 AND id <> $2 LIMIT 1',
+          [email, user.id]
+        );
+        if (duplicate.rowCount) throw new HttpError(409, 'هذا البريد الإلكتروني مستخدم بالفعل.');
+      }
 
-    if (phone !== account.phone) {
-      await addAudit(client, user.id, 'PHONE_UPDATED', 'user', user.id, 'تم تحديث رقم الهاتف من إعدادات الحساب.', req);
+      const values = [user.id, phone, email];
+      let passwordSql = '';
+      if (changingPassword) {
+        values.push(await hashPassword(newPassword));
+        passwordSql = ', password = $4';
+      }
+      await client.query(
+        `UPDATE users SET phone = $2, email = $3${passwordSql}, updated_at = NOW() WHERE id = $1`,
+        values
+      );
+
+      if (phone !== account.phone) {
+        await addAudit(client, user.id, 'PHONE_UPDATED', 'user', user.id, 'تم تحديث رقم الهاتف من إعدادات الحساب.', req);
+      }
+      if (email !== normalizeEmail(account.email)) {
+        await addAudit(client, user.id, 'EMAIL_UPDATED', 'user', user.id, 'تم تحديث البريد الإلكتروني من إعدادات الحساب.', req);
+      }
+      if (changingPassword) {
+        await addAudit(client, user.id, 'PASSWORD_CHANGED', 'user', user.id, 'تم تغيير كلمة المرور من إعدادات الحساب.', req);
+      }
+    });
+  } catch (error) {
+    if (error?.code === '23505') {
+      throw new HttpError(409, 'هذا البريد الإلكتروني مستخدم بالفعل.');
     }
-    if (changingPassword) {
-      await addAudit(client, user.id, 'PASSWORD_CHANGED', 'user', user.id, 'تم تغيير كلمة المرور من إعدادات الحساب.', req);
-    }
-  });
+    throw error;
+  }
 
   const updated = await getUserProfile(user.id);
   return safeUser(updated);

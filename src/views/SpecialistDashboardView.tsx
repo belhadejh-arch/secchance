@@ -231,7 +231,12 @@ export const SpecialistDashboardView: React.FC<SpecialistDashboardViewProps> = (
       caseNumber: reportCaseNo,
       specialistId: currentUser.id,
       specialistName: `${currentUser.firstName} ${currentUser.lastName}`,
-      specialty: currentUser.specialty || (currentUser.roleSlug === 'lawyer' ? 'محامٍ معتمد' : 'أخصائي نفسي عيادي'),
+      specialty:
+        currentUser.roleSlug === 'lawyer' || currentUser.roleSlug === 'legal_advisor'
+          ? 'مستشار قانوني'
+          : ['psychologist', 'doctor'].includes(currentUser.roleSlug)
+            ? 'أخصائي نفسي عيادي'
+            : currentUser.specialty || 'مختص معتمد بالمنصة',
       evaluation: `${caseSummary ? `[ملخص الحالة]: ${caseSummary}\n\n` : ''}${evaluation}`,
       professionalNotes,
       recommendations,
@@ -286,10 +291,10 @@ export const SpecialistDashboardView: React.FC<SpecialistDashboardViewProps> = (
   };
 
   const isLawyer = currentUser.roleSlug === 'lawyer' || currentUser.roleSlug === 'legal_advisor';
-  const isPsychologist = currentUser.roleSlug === 'psychologist';
+  const isPsychologist = ['psychologist', 'doctor'].includes(currentUser.roleSlug);
   const professionalTitle = isPsychologist
-    ? 'مختص نفسي عيادي'
-    : currentUser.specialty || (isLawyer ? 'مستشار قانوني ومحامٍ معتمد' : 'مختص عيادي');
+    ? 'أخصائي نفسي عيادي'
+    : isLawyer ? 'مستشار قانوني' : currentUser.specialty || 'مختص عيادي';
   const unreadNotifsCount = myNotifications.filter((n) => !n.isRead).length;
   const specialistNavItems: Array<{
     key: typeof activeTab;

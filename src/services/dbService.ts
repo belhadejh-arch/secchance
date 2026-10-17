@@ -139,6 +139,7 @@ export async function getCurrentUser(): Promise<User | null> {
 }
 
 export interface AccountSettingsUpdate {
+  email: string;
   phone: string;
   currentPassword?: string;
   newPassword?: string;

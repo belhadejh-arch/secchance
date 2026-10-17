@@ -114,7 +114,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
     );
   }
 
-  // Active Admin Tab (Dashboard, المستخدمون, المختصون, المحامون, الأطباء, الجمعيات, العيادات/المستشفيات, الطلبات, الحالات, المواعيد, التقارير, الإحصائيات, المدفوعات, الإشعارات, الشركاء, المحتوى, المراجع القانونية, الإعدادات, سجل النشاط)
+  // Active Admin Tab (Dashboard, users, specialists, legal consultants, clinical psychologists, associations, clinics/hospitals, requests, cases, appointments, reports, statistics, payments, notifications, partners, content, legal references, settings, audit log)
   const [activeTab, setActiveTab] = useState<
     | 'overview'
     | 'users'
@@ -512,7 +512,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
           }`}
         >
           <Scale className="w-3.5 h-3.5" />
-          <span>المحامون ({totalLawyers})</span>
+          <span>المستشارون القانونيون ({totalLawyers})</span>
         </button>
 
         <button
@@ -524,7 +524,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
           }`}
         >
           <UserCheck className="w-3.5 h-3.5" />
-          <span>الأطباء ({users.filter((u) => u.roleSlug === 'doctor').length})</span>
+          <span>الأخصائيون النفسيون العياديون ({users.filter((u) => ['doctor', 'psychologist'].includes(u.roleSlug)).length})</span>
         </button>
 
         <button
@@ -716,12 +716,12 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                 <UserCheck className="w-5 h-5" />
               </div>
               <p className="text-2xl font-black text-[#203945]">{totalSpecialists}</p>
-              <p className="text-[10px] text-[#1766A6] font-semibold">أطباء ونفسانيون ومحامون</p>
+              <p className="text-[10px] text-[#1766A6] font-semibold">مستشارون قانونيون وأخصائيون نفسيون عياديون</p>
             </div>
 
             <div className="bg-[#FBFDFC] border border-[#E0E8E6] p-4 rounded-[18px] shadow-xs space-y-1">
               <div className="flex items-center justify-between text-[#1766A6]">
-                <span className="text-[11px] font-bold text-[#203945]/70">المحامون والمستشارون</span>
+                <span className="text-[11px] font-bold text-[#203945]/70">المستشارون القانونيون</span>
                 <Scale className="w-5 h-5" />
               </div>
               <p className="text-2xl font-black text-[#203945]">{totalLawyers}</p>
@@ -730,7 +730,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
 
             <div className="bg-[#FBFDFC] border border-[#E0E8E6] p-4 rounded-[18px] shadow-xs space-y-1">
               <div className="flex items-center justify-between text-[#25866D]">
-                <span className="text-[11px] font-bold text-[#203945]/70">الأطباء والعيادات</span>
+                <span className="text-[11px] font-bold text-[#203945]/70">الأخصائيون النفسيون والعيادات</span>
                 <Stethoscope className="w-5 h-5" />
               </div>
               <p className="text-2xl font-black text-[#203945]">{totalMedical}</p>
@@ -1187,9 +1187,9 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                 <option value="ALL">جميع الأدوار</option>
                 <option value="user">مستفيد / مواطن</option>
                 <option value="family">أسرة / عائلة</option>
-                <option value="psychologist">أخصائي نفسي</option>
-                <option value="doctor">طبيب</option>
-                <option value="lawyer">محامٍ</option>
+                <option value="psychologist">أخصائي نفسي عيادي</option>
+                <option value="doctor">أخصائي نفسي عيادي</option>
+                <option value="lawyer">مستشار قانوني</option>
                 <option value="association">جمعية</option>
                 <option value="admin">إدارة عامة</option>
               </select>
@@ -1297,7 +1297,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
         <div className="bg-[#FBFDFC] border border-[#E0E8E6] rounded-[20px] p-5 shadow-xs space-y-4">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pb-3 border-b border-[#E0E8E6]">
             <div>
-              <h3 className="font-bold text-sm text-[#203945]">👨‍⚕️ شبكة المختصين والمحامين المعتمدين</h3>
+              <h3 className="font-bold text-sm text-[#203945]">شبكة الأخصائيين النفسيين العياديين والمستشارين القانونيين</h3>
               <p className="text-[11px] text-[#203945]/70">
                 إدارة الاعتمادات المهنية، التخصصات، وإسناد الخدمات
               </p>
@@ -1325,7 +1325,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                         {s.firstName} {s.lastName}
                       </h4>
                       <p className="text-[11px] text-[#1766A6] font-bold">
-                        {s.specialty || (s.roleSlug === 'lawyer' ? 'محامٍ ومستشار قانوني' : 'أخصائي معتمد')}
+                        {['lawyer', 'legal_advisor'].includes(s.roleSlug) ? 'مستشار قانوني' : ['doctor', 'psychologist'].includes(s.roleSlug) ? 'أخصائي نفسي عيادي' : s.specialty || 'أخصائي معتمد'}
                       </p>
                     </div>
                     <span
@@ -1595,13 +1595,13 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
         </div>
       )}
 
-      {/* ===================== TAB: LAWYERS MANAGEMENT (المحامون) ===================== */}
+      {/* ===================== TAB: LEGAL CONSULTANTS ===================== */}
       {activeTab === 'lawyers' && (
         <div className="bg-[#FBFDFC] border border-[#E0E8E6] rounded-[20px] p-5 shadow-xs space-y-4">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pb-3 border-b border-[#E0E8E6]">
             <div>
-              <h3 className="font-bold text-sm text-[#203945]">⚖️ شبكة المحامين والمستشارين القانونيين</h3>
-              <p className="text-[11px] text-[#203945]/70">إدارة مكاتب المحاماة، اعتمادات نقابة المحامين، والاستشارات القانونية</p>
+              <h3 className="font-bold text-sm text-[#203945]">⚖️ شبكة المستشارين القانونيين</h3>
+              <p className="text-[11px] text-[#203945]/70">إدارة مكاتب الاستشارات القانونية والاعتمادات المهنية والاستشارات القانونية</p>
             </div>
             <button
               onClick={() => {
@@ -1611,7 +1611,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
               className="px-4 py-2 rounded-[12px] bg-[#1766A6] text-white font-bold text-xs shadow-xs flex items-center gap-1.5"
             >
               <UserPlus className="w-4 h-4" />
-              <span>+ إضافة محامٍ معتمد</span>
+              <span>+ إضافة مستشار قانوني معتمد</span>
             </button>
           </div>
 
@@ -1623,7 +1623,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                   <div className="flex items-start justify-between">
                     <div>
                       <h4 className="font-black text-sm text-[#203945]">الأستاذ {lawyer.firstName} {lawyer.lastName}</h4>
-                      <p className="text-[11px] text-[#1766A6] font-bold">محامٍ لدى منظمة المحامين</p>
+                      <p className="text-[11px] text-[#1766A6] font-bold">مستشار قانوني معتمد</p>
                     </div>
                     <span className="px-2 py-0.5 rounded-full bg-[#E8F4EF] text-[#25866D] text-[10px] font-bold">
                       {lawyer.status === 'active' ? 'نشط ومعتمد' : 'موقوف'}
@@ -1649,13 +1649,13 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
         </div>
       )}
 
-      {/* ===================== TAB: DOCTORS MANAGEMENT (الأطباء) ===================== */}
+      {/* ===================== TAB: CLINICAL PSYCHOLOGISTS ===================== */}
       {activeTab === 'doctors' && (
         <div className="bg-[#FBFDFC] border border-[#E0E8E6] rounded-[20px] p-5 shadow-xs space-y-4">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pb-3 border-b border-[#E0E8E6]">
             <div>
-              <h3 className="font-bold text-sm text-[#203945]">🩺 الأطباء المتخصصون في علاج الإدمان وإزالة السموم</h3>
-              <p className="text-[11px] text-[#203945]/70">إدارة الأطباء النفسيين وأطباء الصحة العمومية وعلاج الإدمان</p>
+              <h3 className="font-bold text-sm text-[#203945]">الأخصائيون النفسيون العياديون</h3>
+              <p className="text-[11px] text-[#203945]/70">إدارة ملفات الاعتماد والتقييم النفسي العيادي ومرافقة حالات الإدمان</p>
             </div>
             <button
               onClick={() => {
@@ -1665,19 +1665,19 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
               className="px-4 py-2 rounded-[12px] bg-[#25866D] text-white font-bold text-xs shadow-xs flex items-center gap-1.5"
             >
               <UserPlus className="w-4 h-4" />
-              <span>+ إضافة طبيب معالج</span>
+              <span>+ إضافة أخصائي نفسي عيادي</span>
             </button>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
             {users
-              .filter((u) => u.roleSlug === 'doctor' || (u.roleSlug === 'psychologist' && u.specialty?.includes('طبيب')))
+              .filter((u) => ['doctor', 'psychologist'].includes(u.roleSlug))
               .map((docUser) => (
                 <div key={docUser.id} className="bg-white border border-[#CCD8D5] rounded-[16px] p-4 shadow-xs space-y-2.5">
                   <div className="flex items-start justify-between">
                     <div>
-                      <h4 className="font-black text-sm text-[#203945]">د. {docUser.firstName} {docUser.lastName}</h4>
-                      <p className="text-[11px] text-[#25866D] font-bold">{docUser.specialty || 'طبيب متخصص في علاج الإدمان'}</p>
+                      <h4 className="font-black text-sm text-[#203945]">{docUser.firstName} {docUser.lastName}</h4>
+                      <p className="text-[11px] text-[#25866D] font-bold">{['doctor', 'psychologist'].includes(docUser.roleSlug) ? 'أخصائي نفسي عيادي' : docUser.specialty || 'أخصائي نفسي عيادي'}</p>
                     </div>
                     <span className="px-2 py-0.5 rounded-full bg-[#E8F4EF] text-[#25866D] text-[10px] font-bold">
                       {docUser.status === 'active' ? 'نشط ومصرح' : 'قيد المراجعة'}
@@ -1899,7 +1899,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
           <div className="flex items-center justify-between pb-3 border-b border-[#E0E8E6]">
             <div>
               <h3 className="font-bold text-sm text-[#203945]">🔔 مركز الإشعارات والتنبيهات الإدارية</h3>
-              <p className="text-[11px] text-[#203945]/70">توجيه التنبيهات المباشرة للمستخدمين، الأطباء والمحامين</p>
+              <p className="text-[11px] text-[#203945]/70">توجيه التنبيهات المباشرة للمستخدمين والمستشارين القانونيين والأخصائيين النفسيين العياديين</p>
             </div>
             <button
               onClick={() => alert('ميزة إرسال إشعار عام للمستخدمين عبر المنصة متصلة بقاعدة البيانات.')}
@@ -2177,7 +2177,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                 </div>
                 <div>
                   <h3 className="font-black text-base text-[#203945]">إنشاء حساب مختص جديد (من الأدمن)</h3>
-                  <p className="text-[11px] text-[#1766A6]">إصدار ترخيص دخول للوحة الأخصائي أو المحامي</p>
+                  <p className="text-[11px] text-[#1766A6]">إصدار ترخيص دخول للوحة الأخصائي النفسي العيادي أو المستشار القانوني</p>
                 </div>
               </div>
               <button
@@ -2248,8 +2248,8 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                     className="w-full h-10 px-3 bg-white border border-[#CCD8D5] rounded-[10px] outline-hidden focus:border-[#1766A6]"
                   >
                     <option value="psychologist">أخصائي نفسي عيادي</option>
-                    <option value="doctor">طبيب معالج / إدمان</option>
-                    <option value="lawyer">محامٍ / مستشار قانوني</option>
+                    <option value="doctor">أخصائي نفسي عيادي</option>
+                    <option value="lawyer">مستشار قانوني</option>
                     <option value="clinic">عيادة طبية متخصصة</option>
                     <option value="hospital">مستشفى / مركز استشفائي</option>
                     <option value="treatment_center">مركز علاج الإدمان</option>

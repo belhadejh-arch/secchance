@@ -67,7 +67,7 @@ const ACCOUNT_TYPES: AccountTypeConfig[] = [
   {
     id: 'psychologist',
     role: 'psychologist',
-    title: 'أخصائي نفسي',
+    title: 'أخصائي نفسي عيادي',
     badge: '🧠 مختص معتمد',
     icon: '🧠',
     description: 'جلسات الدعم والتوجيه النفسي، العلاج السلوكي المعرفي، ومرافقة التعافي',
@@ -76,19 +76,19 @@ const ACCOUNT_TYPES: AccountTypeConfig[] = [
   {
     id: 'lawyer',
     role: 'lawyer',
-    title: 'محامي',
+    title: 'مستشار قانوني',
     badge: '⚖️ مستشار قانوني',
     icon: '⚖️',
-    description: 'استشارات قانونية مع محامين معتمدين ومستشارين قانونيين',
+    description: 'استشارات قانونية يقدمها مستشارون قانونيون معتمدون',
     isProvider: true,
   },
   {
     id: 'doctor',
     role: 'doctor',
-    title: 'طبيب',
-    badge: '🩺 طبيب متخصص',
+    title: 'أخصائي نفسي عيادي',
+    badge: '🧠 أخصائي نفسي عيادي',
     icon: '🩺',
-    description: 'أطباء مختصون في طب الإدمان والطب العقلي والنفسي والفحوصات الطبية',
+    description: 'تقييم نفسي عيادي متخصص ومرافقة حالات الإدمان والتعافي',
     isProvider: true,
   },
   {
@@ -294,9 +294,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         birthDate: regBirthDate.trim() || '',
         specialty:
           selectedType === 'psychologist' || selectedType === 'doctor'
-            ? regSpecialty.trim() || (selectedType === 'doctor' ? 'طب الإدمان والطب العقلي' : 'أخصائي نفسي عيادي')
+            ? regSpecialty.trim() || 'أخصائي نفسي عيادي'
             : selectedType === 'lawyer'
-            ? 'محامٍ ومستشار قانوني معتمد'
+            ? 'مستشار قانوني'
             : regServicesOffered.trim() || '',
         address: regAddress.trim(),
         licenseNumber: regLicenseNumber.trim(),
@@ -759,7 +759,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               </>
             )}
 
-            {/* ================= TYPE 3: محامي ================= */}
+            {/* ================= TYPE 3: مستشار قانوني ================= */}
             {selectedType === 'lawyer' && (
               <>
                 <div className="grid grid-cols-2 gap-2.5">
@@ -788,34 +788,34 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 </div>
 
                 <div className="space-y-1">
-                  <label className="block text-[11px] font-bold text-[#203945]">العنوان المهني (مكتب المحاماة)</label>
+                  <label className="block text-[11px] font-bold text-[#203945]">العنوان المهني (مكتب الاستشارات القانونية)</label>
                   <input
                     type="text"
                     required
                     value={regAddress}
                     onChange={(e) => setRegAddress(e.target.value)}
-                    placeholder="مكتب المحاماة، الشارع، المدينة"
+                    placeholder="مكتب الاستشارات القانونية، الشارع، المدينة"
                     className="w-full h-10 px-3 text-xs bg-white border border-[#CCD8D5] rounded-[10px] outline-hidden focus:border-[#1766A6] text-[#203945]"
                   />
                 </div>
 
                 <div className="space-y-1">
                   <label className="block text-[11px] font-bold text-[#203945]">
-                    رقم التسجيل / الاعتماد المهني (منظمة المحامين)
+                    رقم التسجيل / الاعتماد لدى الهيئة المهنية
                   </label>
                   <input
                     type="text"
                     required
                     value={regLicenseNumber}
                     onChange={(e) => setRegLicenseNumber(e.target.value)}
-                    placeholder="رقم القيد في جدول المحامين / المنظمة الجهوية"
+                    placeholder="رقم التسجيل أو الاعتماد المهني"
                     className="w-full h-10 px-3 text-xs bg-white border border-[#CCD8D5] rounded-[10px] outline-hidden focus:border-[#1766A6] text-[#203945]"
                   />
                 </div>
               </>
             )}
 
-            {/* ================= TYPE 4: طبيب ================= */}
+            {/* ================= TYPE 4: أخصائي نفسي عيادي ================= */}
             {selectedType === 'doctor' && (
               <>
                 <div className="grid grid-cols-2 gap-2.5">
@@ -844,7 +844,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 </div>
 
                 <div className="space-y-1">
-                  <label className="block text-[11px] font-bold text-[#203945]">التخصص الطبي</label>
+                  <label className="block text-[11px] font-bold text-[#203945]">التخصص الدقيق</label>
                   <input
                     type="text"
                     required
@@ -868,13 +868,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 </div>
 
                 <div className="space-y-1">
-                  <label className="block text-[11px] font-bold text-[#203945]">رقم الاعتماد المهني (عمادة الأطباء)</label>
+                  <label className="block text-[11px] font-bold text-[#203945]">رقم الاعتماد المهني</label>
                   <input
                     type="text"
                     required
                     value={regLicenseNumber}
                     onChange={(e) => setRegLicenseNumber(e.target.value)}
-                    placeholder="رقم التسجيل في عمادة الأطباء"
+                    placeholder="رقم الاعتماد أو التسجيل المهني"
                     className="w-full h-10 px-3 text-xs bg-white border border-[#CCD8D5] rounded-[10px] outline-hidden focus:border-[#1766A6] text-[#203945]"
                   />
                 </div>

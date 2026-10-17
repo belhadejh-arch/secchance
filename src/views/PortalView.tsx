@@ -640,7 +640,7 @@ export const PortalView: React.FC<PortalViewProps> = ({
           <div>
             <h4 className="font-bold text-base text-[#203945]">المراسلات الآمنة والمشفرة</h4>
             <p className="text-xs text-[#203945]/70 mt-1 max-w-md mx-auto">
-              يمكنك التواصل مباشرة مع المحامي أو الأخصائي النفسي المشرف على ملفك وسؤاله عن أي تفاصيل تتعلق بالحالة.
+              يمكنك التواصل مباشرة مع المستشار القانوني أو الأخصائي النفسي العيادي المشرف على ملفك وسؤاله عن أي تفاصيل تتعلق بالحالة.
             </p>
           </div>
           <button
@@ -774,7 +774,7 @@ export const PortalView: React.FC<PortalViewProps> = ({
           <div className="bg-[#EAF3F8] p-3.5 rounded-[14px] border border-[#DCEBF4] text-xs text-[#104A78] flex items-start gap-2">
             <Shield className="w-4 h-4 text-[#1766A6] shrink-0 mt-0.5" />
             <p>
-              <strong>الخصوصية والسرية الطبية:</strong> تعرض هذه النافذة حصرياً التقييمات والاستشارات المودعة من قبل الأخصائيين والمحامين المرتبطين بقضاياك فقط.
+              <strong>الخصوصية والسرية:</strong> تعرض هذه النافذة حصرياً التقييمات والاستشارات المودعة من قبل الأخصائيين النفسيين العياديين والمستشارين القانونيين المرتبطين بقضاياك فقط.
             </p>
           </div>
 

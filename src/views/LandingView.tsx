@@ -59,7 +59,7 @@ export const LandingView: React.FC<LandingViewProps> = ({
     {
       title: 'الاستشارة القانونية',
       price: '500 دج',
-      description: 'استشارة مع محامٍ أو مستشار قانوني مختص.',
+      description: 'استشارة مع مستشار قانوني مختص.',
       icon: <Scale className="w-5 h-5" />,
       action: requestLegalConsultation,
     },
@@ -175,7 +175,7 @@ export const LandingView: React.FC<LandingViewProps> = ({
         <div className="bg-[#FBFDFC] border border-[#E0E8E6] p-4 rounded-[16px] shadow-xs space-y-1">
           <Award className="w-5 h-5 text-[#25866D] mx-auto" />
           <p className="text-xl sm:text-2xl font-black text-[#203945]">+{specialistsCount}</p>
-          <p className="text-[11px] text-[#203945]/70 font-bold">مختص وطبيب ومحامٍ معتمد</p>
+          <p className="text-[11px] text-[#203945]/70 font-bold">مستشار قانوني وأخصائي نفسي عيادي معتمد</p>
         </div>
 
         <div className="bg-[#FBFDFC] border border-[#E0E8E6] p-4 rounded-[16px] shadow-xs space-y-1">
@@ -254,7 +254,7 @@ export const LandingView: React.FC<LandingViewProps> = ({
               <span>الشركاء والجهات الرسمية المعتمدة</span>
             </h2>
             <p className="text-xs text-[#203945]/70 mt-0.5">
-              تعاون مؤسساتي مع الوزارات المعنية، المستشفيات الجامعية، ومنظمات المحامين والجمعيات
+              تعاون مؤسساتي مع الوزارات المعنية، المستشفيات الجامعية، والهيئات المهنية القانونية والجمعيات
             </p>
           </div>
           <span className="px-2.5 py-1 rounded-full bg-[#E8F4EF] text-[#25866D] text-[11px] font-bold">

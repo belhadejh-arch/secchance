@@ -392,7 +392,7 @@ INSERT INTO roles (name, slug) VALUES
   ('مستفيد', 'patient'),
   ('مستخدم', 'user'),
   ('أخصائي نفسي عيادي', 'psychologist'),
-  ('محامٍ / مستشار قانوني', 'lawyer'),
+  ('مستشار قانوني', 'lawyer'),
   ('مركز علاجي', 'treatment_center'),
   ('جمعية', 'association'),
   ('إدارة المنصة', 'admin')

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ArrowRight, CheckCircle2, KeyRound, Phone, ShieldCheck } from 'lucide-react';
+import { ArrowRight, CheckCircle2, KeyRound, Mail, Phone, ShieldCheck } from 'lucide-react';
 import { AccountSettingsUpdate } from '../services/dbService';
 import { User } from '../types';
 
@@ -14,6 +14,7 @@ export const AccountSettingsView: React.FC<AccountSettingsViewProps> = ({
   onSave,
   onBack,
 }) => {
+  const [email, setEmail] = useState(currentUser.email || '');
   const [phone, setPhone] = useState(currentUser.phone || '');
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -27,14 +28,20 @@ export const AccountSettingsView: React.FC<AccountSettingsViewProps> = ({
     setError('');
     setSuccess('');
 
-    const wantsPasswordChange = Boolean(currentPassword || newPassword || confirmPassword);
+    const wantsEmailChange = email.trim().toLowerCase() !== currentUser.email.trim().toLowerCase();
+    const wantsPasswordChange = Boolean(newPassword || confirmPassword);
+    const requiresCurrentPassword = wantsEmailChange || wantsPasswordChange;
     if (!phone.trim()) {
       setError('رقم الهاتف مطلوب.');
       return;
     }
+    if (requiresCurrentPassword && !currentPassword) {
+      setError('أدخل كلمة المرور الحالية لتغيير البريد الإلكتروني أو كلمة المرور.');
+      return;
+    }
     if (wantsPasswordChange) {
-      if (!currentPassword || !newPassword) {
-        setError('أدخل كلمة المرور الحالية وكلمة المرور الجديدة.');
+      if (!newPassword) {
+        setError('أدخل كلمة المرور الجديدة.');
         return;
       }
       if (newPassword.length < 10) {
@@ -50,10 +57,13 @@ export const AccountSettingsView: React.FC<AccountSettingsViewProps> = ({
     setBusy(true);
     try {
       const updates: AccountSettingsUpdate = {
+        email: email.trim().toLowerCase(),
         phone: phone.trim(),
-        ...(wantsPasswordChange ? { currentPassword, newPassword } : {}),
+        ...(requiresCurrentPassword ? { currentPassword } : {}),
+        ...(wantsPasswordChange ? { newPassword } : {}),
       };
       const updatedUser = await onSave(updates);
+      setEmail(updatedUser.email);
       setPhone(updatedUser.phone || phone.trim());
       setCurrentPassword('');
       setNewPassword('');
@@ -73,7 +83,7 @@ export const AccountSettingsView: React.FC<AccountSettingsViewProps> = ({
           <p className="text-sm font-bold text-[#25866D]">إدارة بيانات الدخول والتواصل</p>
           <h1 className="mt-1 text-2xl font-black text-[#203945]">إعدادات الحساب</h1>
           <p className="mt-1 text-sm text-[#203945]/65">
-            حدّث رقم هاتفك أو غيّر كلمة المرور. يتطلب تغيير كلمة المرور تأكيدها الحالية.
+            حدّث بريدك الإلكتروني أو رقم هاتفك أو كلمة المرور. يتطلب تغيير البريد أو كلمة المرور تأكيد كلمة المرور الحالية.
           </p>
         </div>
         {onBack && (
@@ -97,6 +107,27 @@ export const AccountSettingsView: React.FC<AccountSettingsViewProps> = ({
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-5 rounded-2xl border border-[#E0E8E6] bg-white p-5 shadow-xs sm:p-6">
+        <section className="space-y-3">
+          <div className="flex items-center gap-2">
+            <Mail className="h-5 w-5 text-[#1766A6]" />
+            <h2 className="font-black text-[#203945]">البريد الإلكتروني</h2>
+          </div>
+          <label htmlFor="account-email" className="block text-sm font-bold text-[#203945]">
+            البريد الإلكتروني المسجل
+          </label>
+          <input
+            id="account-email"
+            name="email"
+            type="email"
+            required
+            maxLength={254}
+            autoComplete="email"
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+            className="min-h-12 w-full rounded-xl border border-[#CCD8D5] px-3 text-base outline-none focus:border-[#1766A6] focus:ring-2 focus:ring-[#1766A6]/15"
+          />
+        </section>
+
         <section className="space-y-3">
           <div className="flex items-center gap-2">
             <Phone className="h-5 w-5 text-[#1766A6]" />
@@ -126,7 +157,7 @@ export const AccountSettingsView: React.FC<AccountSettingsViewProps> = ({
             <h2 className="font-black text-[#203945]">تغيير كلمة المرور</h2>
           </div>
           <p className="text-sm text-[#203945]/65">
-            اترك هذه الحقول فارغة إذا كنت تريد تحديث رقم الهاتف فقط.
+            أدخل كلمة المرور الحالية لتغيير البريد الإلكتروني أو كلمة المرور، واترك حقلي كلمة المرور الجديدة فارغين إذا كنت لا تريد تغييرها.
           </p>
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="space-y-1.5 text-sm font-bold text-[#203945]">
