@@ -39,7 +39,6 @@ export type AccountTypeOption =
   | 'user'
   | 'psychologist'
   | 'lawyer'
-  | 'doctor'
   | 'clinic'
   | 'hospital'
   | 'association';
@@ -80,15 +79,6 @@ const ACCOUNT_TYPES: AccountTypeConfig[] = [
     badge: '⚖️ مستشار قانوني',
     icon: '⚖️',
     description: 'استشارات قانونية يقدمها مستشارون قانونيون معتمدون',
-    isProvider: true,
-  },
-  {
-    id: 'doctor',
-    role: 'doctor',
-    title: 'أخصائي نفسي عيادي',
-    badge: '🧠 أخصائي نفسي عيادي',
-    icon: '🩺',
-    description: 'تقييم نفسي عيادي متخصص ومرافقة حالات الإدمان والتعافي',
     isProvider: true,
   },
   {
@@ -262,7 +252,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         return;
       }
     } else {
-      // psychologist, lawyer, doctor
+      // psychologist, lawyer
       if (!regFirstName.trim() || !regLastName.trim() || !regEmail.trim() || !regPhone.trim() || !regAddress.trim()) {
         setErrorMsg('يرجى استكمال الاسم واللقب ورقم الهاتف والبريد والعنوان المهني.');
         return;
@@ -293,7 +283,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         password: regPassword,
         birthDate: regBirthDate.trim() || '',
         specialty:
-          selectedType === 'psychologist' || selectedType === 'doctor'
+          selectedType === 'psychologist'
             ? regSpecialty.trim() || 'أخصائي نفسي عيادي'
             : selectedType === 'lawyer'
             ? 'مستشار قانوني'
@@ -809,72 +799,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     value={regLicenseNumber}
                     onChange={(e) => setRegLicenseNumber(e.target.value)}
                     placeholder="رقم التسجيل أو الاعتماد المهني"
-                    className="w-full h-10 px-3 text-xs bg-white border border-[#CCD8D5] rounded-[10px] outline-hidden focus:border-[#1766A6] text-[#203945]"
-                  />
-                </div>
-              </>
-            )}
-
-            {/* ================= TYPE 4: أخصائي نفسي عيادي ================= */}
-            {selectedType === 'doctor' && (
-              <>
-                <div className="grid grid-cols-2 gap-2.5">
-                  <div className="space-y-1">
-                    <label className="block text-[11px] font-bold text-[#203945]">الاسم</label>
-                    <input
-                      type="text"
-                      required
-                      value={regFirstName}
-                      onChange={(e) => setRegFirstName(e.target.value)}
-                      placeholder="د."
-                      className="w-full h-10 px-3 text-xs bg-white border border-[#CCD8D5] rounded-[10px] outline-hidden focus:border-[#1766A6] text-[#203945]"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="block text-[11px] font-bold text-[#203945]">اللقب</label>
-                    <input
-                      type="text"
-                      required
-                      value={regLastName}
-                      onChange={(e) => setRegLastName(e.target.value)}
-                      placeholder="اللقب"
-                      className="w-full h-10 px-3 text-xs bg-white border border-[#CCD8D5] rounded-[10px] outline-hidden focus:border-[#1766A6] text-[#203945]"
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-1">
-                  <label className="block text-[11px] font-bold text-[#203945]">التخصص الدقيق</label>
-                  <input
-                    type="text"
-                    required
-                    value={regSpecialty}
-                    onChange={(e) => setRegSpecialty(e.target.value)}
-                    placeholder="طب الإدمان / الطب العقلي / طب عام / علم السموم"
-                    className="w-full h-10 px-3 text-xs bg-white border border-[#CCD8D5] rounded-[10px] outline-hidden focus:border-[#1766A6] text-[#203945]"
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <label className="block text-[11px] font-bold text-[#203945]">العنوان المهني (العيادة / المركز الطبي)</label>
-                  <input
-                    type="text"
-                    required
-                    value={regAddress}
-                    onChange={(e) => setRegAddress(e.target.value)}
-                    placeholder="العنوان المهني للعيادة"
-                    className="w-full h-10 px-3 text-xs bg-white border border-[#CCD8D5] rounded-[10px] outline-hidden focus:border-[#1766A6] text-[#203945]"
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <label className="block text-[11px] font-bold text-[#203945]">رقم الاعتماد المهني</label>
-                  <input
-                    type="text"
-                    required
-                    value={regLicenseNumber}
-                    onChange={(e) => setRegLicenseNumber(e.target.value)}
-                    placeholder="رقم الاعتماد أو التسجيل المهني"
                     className="w-full h-10 px-3 text-xs bg-white border border-[#CCD8D5] rounded-[10px] outline-hidden focus:border-[#1766A6] text-[#203945]"
                   />
                 </div>

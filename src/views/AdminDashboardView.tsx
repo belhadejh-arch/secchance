@@ -35,6 +35,7 @@ import {
   Globe,
   FileSpreadsheet,
   BookOpen,
+  Upload,
   Settings,
   Bell,
   MessageSquare,
@@ -66,6 +67,7 @@ import {
   rejectUserInDb,
   getPublicLegalReferences,
   updateLegalReferencesInDb,
+  uploadLegalReferencePdfInDb,
 } from '../services/dbService';
 
 interface AdminDashboardViewProps {
@@ -143,6 +145,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
   const [legalReferencesUpdatedAt, setLegalReferencesUpdatedAt] = useState<string | null>(null);
   const [lawDraft, setLawDraft] = useState<LegalReference | null>(null);
   const [lawSaving, setLawSaving] = useState(false);
+  const [lawDocumentUploadingId, setLawDocumentUploadingId] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -181,6 +184,20 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
       setLegalReferencesError(error instanceof Error ? error.message : 'تعذر حفظ المراجع القانونية.');
     } finally {
       setLawSaving(false);
+    }
+  };
+
+  const uploadLegalReferencePdf = async (law: LegalReference, file: File) => {
+    setLegalReferencesError('');
+    setLawDocumentUploadingId(law.id);
+    try {
+      const result = await uploadLegalReferencePdfInDb(law.id, file);
+      setLegalReferences(result.legalReferences);
+      setLegalReferencesUpdatedAt(result.updatedAt);
+    } catch (error) {
+      setLegalReferencesError(error instanceof Error ? error.message : 'تعذر رفع ملف القانون.');
+    } finally {
+      setLawDocumentUploadingId(null);
     }
   };
 
@@ -1188,7 +1205,6 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                 <option value="user">مستفيد / مواطن</option>
                 <option value="family">أسرة / عائلة</option>
                 <option value="psychologist">أخصائي نفسي عيادي</option>
-                <option value="doctor">أخصائي نفسي عيادي</option>
                 <option value="lawyer">مستشار قانوني</option>
                 <option value="association">جمعية</option>
                 <option value="admin">إدارة عامة</option>
@@ -1971,7 +1987,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
           <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-[#E0E8E6]">
             <div>
               <h3 className="font-bold text-sm text-[#203945]">⚖️ إدارة وتحديث المراجع والنصوص القانونية الوطنية</h3>
-              <p className="text-[11px] text-[#203945]/70">التعديلات المحفوظة تظهر مباشرة في مركز التوعية القانونية للزوار.</p>
+              <p className="text-[11px] text-[#203945]/70">التعديلات وملفات PDF المحفوظة تظهر للزوار. الحد الأقصى لحجم الملف 5 ميغابايت.</p>
             </div>
             <button
               type="button"
@@ -2012,7 +2028,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                   <span className="text-[10px] bg-[#EAF3F8] text-[#1766A6] font-mono px-2 py-0.5 rounded-md font-bold">{law.ref}</span>
                 </div>
                 <p className="text-[#203945]/80 leading-relaxed text-[11px]">{law.summary}</p>
-                <div className="flex flex-wrap gap-2 border-t border-[#E0E8E6] pt-2">
+                <div className="flex flex-wrap items-center gap-2 border-t border-[#E0E8E6] pt-2">
                   <button
                     type="button"
                     onClick={() => setLawDraft({ ...law })}
@@ -2030,6 +2046,40 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                     <Trash2 className="h-3.5 w-3.5" />
                     حذف
                   </button>
+                  <label
+                    className={`flex min-h-9 cursor-pointer items-center gap-1 rounded-lg border border-[#CCD8D5] px-3 font-bold text-[#1766A6] hover:bg-[#EAF3F8] ${
+                      lawSaving || lawDocumentUploadingId ? 'pointer-events-none opacity-50' : ''
+                    }`}
+                  >
+                    <input
+                      type="file"
+                      accept=".pdf,application/pdf"
+                      className="sr-only"
+                      disabled={lawSaving || Boolean(lawDocumentUploadingId)}
+                      onChange={(event) => {
+                        const file = event.currentTarget.files?.[0];
+                        event.currentTarget.value = '';
+                        if (file) void uploadLegalReferencePdf(law, file);
+                      }}
+                    />
+                    <Upload className="h-3.5 w-3.5" />
+                    {lawDocumentUploadingId === law.id
+                      ? 'جارٍ رفع الملف…'
+                      : 'رفع أو استبدال ملف القانون PDF'}
+                  </label>
+                  {law.pdfUrl && (
+                    <a
+                      href={law.pdfUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="flex min-h-9 items-center rounded-lg border border-[#CCD8D5] px-3 font-bold text-[#25866D] hover:bg-[#EAF3F8]"
+                    >
+                      عرض النسخة الحالية
+                    </a>
+                  )}
+                  {law.pdfFileName && (
+                    <span className="text-xs text-[#203945]/60">{law.pdfFileName}</span>
+                  )}
                 </div>
               </div>
             ))}
@@ -2248,7 +2298,6 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                     className="w-full h-10 px-3 bg-white border border-[#CCD8D5] rounded-[10px] outline-hidden focus:border-[#1766A6]"
                   >
                     <option value="psychologist">أخصائي نفسي عيادي</option>
-                    <option value="doctor">أخصائي نفسي عيادي</option>
                     <option value="lawyer">مستشار قانوني</option>
                     <option value="clinic">عيادة طبية متخصصة</option>
                     <option value="hospital">مستشفى / مركز استشفائي</option>

@@ -27,6 +27,8 @@ const allowedStatuses = new Set([
   'CANCELLED',
 ]);
 const providerRoles = new Set(professionalRoles);
+const legalReferencePdfKeyPrefix = 'legal_reference_pdf:';
+const legalReferencePdfMaxBytes = 5 * 1024 * 1024;
 const defaultLegalReferences = [
   {
     id: '04-18',
@@ -1172,11 +1174,141 @@ async function getLegalReferences() {
   const result = await pool.query(
     `SELECT value, updated_at FROM system_settings WHERE key = 'legal_references' LIMIT 1`
   );
-  if (!result.rows[0]) return { legalReferences: defaultLegalReferences, updatedAt: null };
+  const legalReferences = result.rows[0]
+    ? parseLegalReferences(result.rows[0].value)
+    : defaultLegalReferences;
+  const uploadedFiles = await pool.query(
+    `SELECT key FROM system_settings WHERE left(key, length($1)) = $1`,
+    [legalReferencePdfKeyPrefix]
+  );
+  const uploadedFileKeys = new Set(uploadedFiles.rows.map((row) => row.key));
   return {
-    legalReferences: parseLegalReferences(result.rows[0].value),
-    updatedAt: result.rows[0].updated_at ? new Date(result.rows[0].updated_at).toISOString() : null,
+    legalReferences: legalReferences.map((reference) => {
+      const { pdfUrl, pdfFileName, ...savedReference } = reference;
+      if (!uploadedFileKeys.has(`${legalReferencePdfKeyPrefix}${reference.id}`)) {
+        return savedReference;
+      }
+      return {
+        ...savedReference,
+        ...(pdfFileName ? { pdfFileName } : {}),
+        pdfUrl: `/api/v1/public/legal-references/document?id=${encodeURIComponent(reference.id)}`,
+      };
+    }),
+    updatedAt: result.rows[0]?.updated_at
+      ? new Date(result.rows[0].updated_at).toISOString()
+      : null,
   };
+}
+
+async function saveLegalReferencePdf(body, user, req) {
+  const id = String(body.id || '').trim();
+  const rawFileName = String(body.fileName || '');
+  const fileName = rawFileName
+    .replace(/\\/g, '/')
+    .split('/')
+    .pop()
+    .replace(/[\u0000-\u001f\u007f]/g, '')
+    .trim()
+    .slice(0, 255);
+  const base64 = String(body.base64 || '');
+
+  if (!id || id.length > 80 || !fileName.toLowerCase().endsWith('.pdf')) {
+    throw new HttpError(400, 'اختر مرجعًا قانونيًا وملف PDF صالحًا.');
+  }
+  if (!base64 || !/^[A-Za-z0-9+/]*={0,2}$/.test(base64)) {
+    throw new HttpError(400, 'محتوى ملف PDF غير صالح.');
+  }
+
+  const pdfBytes = Buffer.from(base64, 'base64');
+  if (
+    !pdfBytes.length ||
+    pdfBytes.length > legalReferencePdfMaxBytes ||
+    pdfBytes.toString('ascii', 0, 5) !== '%PDF-'
+  ) {
+    throw new HttpError(400, 'يجب أن يكون الملف PDF صالحًا وألا يتجاوز حجمه 5 ميغابايت.');
+  }
+
+  const updatedAt = await withTransaction(async (client) => {
+    const referenceSetting = await client.query(
+      `SELECT value FROM system_settings WHERE key = 'legal_references' FOR UPDATE`
+    );
+    const currentReferences = referenceSetting.rows[0]
+      ? parseLegalReferences(referenceSetting.rows[0].value)
+      : defaultLegalReferences;
+    if (!currentReferences.some((reference) => reference.id === id)) {
+      throw new HttpError(404, 'المرجع القانوني غير موجود. احفظه أولًا ثم أرفق ملفه.');
+    }
+
+    const legalReferences = currentReferences.map((reference) =>
+      reference.id === id ? { ...reference, pdfFileName: fileName } : reference
+    );
+    const savedReferences = await client.query(
+      `INSERT INTO system_settings (key, value, updated_at)
+       VALUES ('legal_references', $1, NOW())
+       ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()
+       RETURNING updated_at`,
+      [JSON.stringify(legalReferences)]
+    );
+    await client.query(
+      `INSERT INTO system_settings (key, value, updated_at)
+       VALUES ($1, $2, NOW())
+       ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()`,
+      [
+        `${legalReferencePdfKeyPrefix}${id}`,
+        JSON.stringify({ fileName, base64, sizeBytes: pdfBytes.length }),
+      ]
+    );
+    await addAudit(
+      client,
+      user.id,
+      'LEGAL_REFERENCE_PDF_UPDATED',
+      'system_setting',
+      `${legalReferencePdfKeyPrefix}${id}`,
+      `تم رفع أو استبدال ملف المرجع القانوني «${id}».`,
+      req
+    );
+    return savedReferences.rows[0].updated_at;
+  });
+
+  const result = await getLegalReferences();
+  return {
+    ...result,
+    updatedAt: updatedAt ? new Date(updatedAt).toISOString() : result.updatedAt,
+  };
+}
+
+async function serveLegalReferencePdf(id, res) {
+  if (!id) throw new HttpError(400, 'حدد المرجع القانوني المطلوب.');
+  const references = await getLegalReferences();
+  if (!references.legalReferences.some((reference) => reference.id === id && reference.pdfUrl)) {
+    throw new HttpError(404, 'لا يوجد ملف PDF محفوظ لهذا المرجع القانوني.');
+  }
+
+  const result = await pool.query(
+    'SELECT value FROM system_settings WHERE key = $1 LIMIT 1',
+    [`${legalReferencePdfKeyPrefix}${id}`]
+  );
+  if (!result.rows[0]) throw new HttpError(404, 'ملف المرجع القانوني غير موجود.');
+
+  let document;
+  try {
+    document = JSON.parse(result.rows[0].value);
+  } catch {
+    throw new HttpError(500, 'تعذر قراءة ملف المرجع القانوني المحفوظ.');
+  }
+  const pdfBytes = Buffer.from(String(document.base64 || ''), 'base64');
+  if (!pdfBytes.length || pdfBytes.toString('ascii', 0, 5) !== '%PDF-') {
+    throw new HttpError(500, 'ملف المرجع القانوني المحفوظ غير صالح.');
+  }
+
+  res.writeHead(200, {
+    'Content-Type': 'application/pdf',
+    'Content-Disposition': `inline; filename="legal-document.pdf"; filename*=UTF-8''${encodeURIComponent(document.fileName || 'legal-document.pdf')}`,
+    'Content-Length': pdfBytes.length,
+    'Cache-Control': 'no-store',
+    'X-Content-Type-Options': 'nosniff',
+  });
+  return res.end(pdfBytes);
 }
 
 async function saveLegalReferences(body, user, req) {
@@ -1190,6 +1322,7 @@ async function saveLegalReferences(body, user, req) {
     const title = String(entry?.title || '').trim();
     const ref = String(entry?.ref || '').trim();
     const summary = String(entry?.summary || '').trim();
+    const pdfFileName = String(entry?.pdfFileName || '').trim().slice(0, 255);
     if (!id || ids.has(id) || !title || !ref || !summary) {
       throw new HttpError(400, 'تأكد من إدخال عنوان ومرجع وملخص فريد لكل قانون.');
     }
@@ -1197,7 +1330,7 @@ async function saveLegalReferences(body, user, req) {
       throw new HttpError(400, 'تجاوز أحد حقول القانون الحد الأقصى المسموح.');
     }
     ids.add(id);
-    return { id, title, ref, summary };
+    return { id, title, ref, summary, ...(pdfFileName ? { pdfFileName } : {}) };
   });
 
   const updatedAt = await withTransaction(async (client) => {
@@ -1208,6 +1341,16 @@ async function saveLegalReferences(body, user, req) {
        RETURNING updated_at`,
       [JSON.stringify(legalReferences)]
     );
+    const storedFiles = await client.query(
+      `SELECT key FROM system_settings WHERE left(key, length($1)) = $1`,
+      [legalReferencePdfKeyPrefix]
+    );
+    for (const storedFile of storedFiles.rows) {
+      const fileId = storedFile.key.slice(legalReferencePdfKeyPrefix.length);
+      if (!ids.has(fileId)) {
+        await client.query('DELETE FROM system_settings WHERE key = $1', [storedFile.key]);
+      }
+    }
     await addAudit(
       client,
       user.id,
@@ -1219,9 +1362,10 @@ async function saveLegalReferences(body, user, req) {
     );
     return saved.rows[0].updated_at;
   });
+  const savedReferences = await getLegalReferences();
   return {
-    legalReferences,
-    updatedAt: updatedAt ? new Date(updatedAt).toISOString() : new Date().toISOString(),
+    ...savedReferences,
+    updatedAt: updatedAt ? new Date(updatedAt).toISOString() : savedReferences.updatedAt,
   };
 }
 
@@ -1338,6 +1482,9 @@ export async function dispatchApi(req, res) {
   if (method === 'GET' && pathname === '/api/v1/public/legal-references') {
     return json(res, 200, await getLegalReferences());
   }
+  if (method === 'GET' && pathname === '/api/v1/public/legal-references/document') {
+    return serveLegalReferencePdf(url.searchParams.get('id'), res);
+  }
   if (method === 'PATCH' && pathname === '/api/v1/profile/availability') {
     return json(res, 200, await updateAvailability(await bodyJson(req), user, req));
   }
@@ -1414,6 +1561,11 @@ export async function dispatchApi(req, res) {
   if (method === 'PATCH' && pathname === '/api/v1/profile/settings') {
     const updatedUser = await updateOwnAccountSettings(await bodyJson(req), user, req);
     return json(res, 200, { user: updatedUser });
+  }
+  if (method === 'POST' && pathname === '/api/v1/admin/legal-references/document') {
+    requireAdmin(user);
+    const result = await saveLegalReferencePdf(await bodyJson(req, 8 * 1024 * 1024), user, req);
+    return json(res, 200, result);
   }
   if (method === 'PATCH' && pathname === '/api/v1/admin/legal-references') {
     requireAdmin(user);

@@ -214,6 +214,8 @@ export interface LegalReference {
   ref: string;
   summary: string;
   updatedAt?: string;
+  pdfFileName?: string;
+  pdfUrl?: string;
 }
 
 export interface ServiceItem {

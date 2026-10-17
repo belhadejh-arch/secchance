@@ -174,7 +174,7 @@ export const AwarenessView: React.FC<AwarenessViewProps> = ({
                   { title: 'المرسوم أو التنظيم المرتبط', content: topic.executiveDecree },
                 ]
               : [{ title: 'ملخص المرجع القانوني', content: reference.summary }],
-            pdfUrl: topic?.pdfUrl,
+            pdfUrl: reference.pdfUrl || topic?.pdfUrl,
           };
         });
 

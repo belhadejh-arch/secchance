@@ -170,6 +170,39 @@ export async function updateLegalReferencesInDb(
   });
 }
 
+export async function uploadLegalReferencePdfInDb(
+  id: string,
+  file: File
+): Promise<{ legalReferences: LegalReference[]; updatedAt: string | null }> {
+  const maxSizeBytes = 5 * 1024 * 1024;
+  if (!file.name.toLowerCase().endsWith('.pdf') || (file.type && file.type !== 'application/pdf')) {
+    throw new Error('اختر ملف قانون بصيغة PDF.');
+  }
+  if (file.size > maxSizeBytes) {
+    throw new Error('يجب ألا يتجاوز حجم ملف القانون 5 ميغابايت.');
+  }
+  if (file.size === 0) {
+    throw new Error('ملف القانون فارغ.');
+  }
+
+  const dataUrl = await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('تعذر قراءة ملف القانون المحدد.'));
+    reader.onload = () => resolve(String(reader.result || ''));
+    reader.readAsDataURL(file);
+  });
+  const base64 = dataUrl.slice(dataUrl.indexOf(',') + 1);
+  return api('/admin/legal-references/document', {
+    method: 'POST',
+    body: JSON.stringify({
+      id,
+      fileName: file.name,
+      mimeType: 'application/pdf',
+      base64,
+    }),
+  });
+}
+
 export async function logoutUser(): Promise<void> {
   await api('/auth/logout', { method: 'POST' });
   snapshot = {};
