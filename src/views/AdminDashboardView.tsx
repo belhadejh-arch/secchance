@@ -259,8 +259,11 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
   const [newSpecWilaya, setNewSpecWilaya] = useState(ALGERIA_WILAYAS[15]);
   const [newSpecAddress, setNewSpecAddress] = useState('');
   const [newSpecLicense, setNewSpecLicense] = useState('');
+  const [newSpecOrganizationName, setNewSpecOrganizationName] = useState('');
   const [newSpecPassword, setNewSpecPassword] = useState('');
   const [newSpecStatus, setNewSpecStatus] = useState<UserStatus>('active');
+  const [specialistFormError, setSpecialistFormError] = useState('');
+  const [isSavingSpecialist, setIsSavingSpecialist] = useState(false);
 
   // New Partner form state (Requirement 15)
   const [newPartnerName, setNewPartnerName] = useState('');
@@ -294,36 +297,71 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
   // Handle Create Specialist
   const handleSaveSpecialist = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newSpecFirstName.trim() || !newSpecLastName.trim() || !newSpecEmail.trim()) return;
+    setSpecialistFormError('');
+    const needsProfessionalDetails = ['psychologist', 'doctor', 'lawyer', 'legal_advisor'].includes(newSpecRole);
+    const needsOrganizationDetails = ['clinic', 'hospital', 'treatment_center'].includes(newSpecRole);
+
+    if (
+      !newSpecFirstName.trim() ||
+      !newSpecLastName.trim() ||
+      !newSpecEmail.trim() ||
+      !newSpecPhone.trim()
+    ) {
+      setSpecialistFormError('أكمل الاسم والبريد الإلكتروني ورقم الهاتف قبل إنشاء الحساب.');
+      return;
+    }
     if (newSpecPassword.length < 10) {
-      alert('أدخل كلمة مرور مؤقتة من 10 أحرف على الأقل.');
+      setSpecialistFormError('أدخل كلمة مرور مبدئية من 10 أحرف على الأقل.');
+      return;
+    }
+    if (needsProfessionalDetails && (!newSpecSpecialty.trim() || !newSpecLicense.trim())) {
+      setSpecialistFormError('أدخل التخصص ورقم الاعتماد المهني لإنشاء حساب المختص.');
+      return;
+    }
+    if (
+      needsOrganizationDetails &&
+      (!newSpecOrganizationName.trim() || !newSpecAddress.trim() || !newSpecWilaya)
+    ) {
+      setSpecialistFormError('أدخل اسم المؤسسة والولاية والعنوان لإنشاء حساب المركز.');
       return;
     }
 
-    await createUserInDb({
-      firstName: newSpecFirstName.trim(),
-      lastName: newSpecLastName.trim(),
-      email: newSpecEmail.trim().toLowerCase(),
-      phone: newSpecPhone.trim(),
-      roleSlug: newSpecRole,
-      specialty: newSpecSpecialty.trim() || undefined,
-      subSpecialty: newSpecSubSpecialty.trim() || undefined,
-      wilayaName: newSpecWilaya,
-      address: newSpecAddress.trim() || undefined,
-      licenseNumber: newSpecLicense.trim() || undefined,
-      status: newSpecStatus,
-      password: newSpecPassword,
-    });
+    setIsSavingSpecialist(true);
+    try {
+      await createUserInDb({
+        firstName: newSpecFirstName.trim(),
+        lastName: newSpecLastName.trim(),
+        email: newSpecEmail.trim().toLowerCase(),
+        phone: newSpecPhone.trim(),
+        roleSlug: newSpecRole,
+        specialty: newSpecSpecialty.trim() || undefined,
+        subSpecialty: newSpecSubSpecialty.trim() || undefined,
+        wilayaName: newSpecWilaya,
+        address: newSpecAddress.trim() || undefined,
+        organizationName: newSpecOrganizationName.trim() || undefined,
+        licenseNumber: newSpecLicense.trim() || undefined,
+        status: newSpecStatus,
+        password: newSpecPassword,
+      });
 
-    setIsCreateSpecialistOpen(false);
-    setNewSpecFirstName('');
-    setNewSpecLastName('');
-    setNewSpecEmail('');
-    setNewSpecPhone('');
-    setNewSpecSpecialty('');
-    setNewSpecSubSpecialty('');
-    setNewSpecAddress('');
-    setNewSpecLicense('');
+      setIsCreateSpecialistOpen(false);
+      setNewSpecFirstName('');
+      setNewSpecLastName('');
+      setNewSpecEmail('');
+      setNewSpecPhone('');
+      setNewSpecSpecialty('');
+      setNewSpecSubSpecialty('');
+      setNewSpecAddress('');
+      setNewSpecLicense('');
+      setNewSpecOrganizationName('');
+      setNewSpecPassword('');
+    } catch (error) {
+      setSpecialistFormError(
+        error instanceof Error ? error.message : 'تعذر إنشاء حساب المختص. تحقق من البيانات وحاول مجددًا.'
+      );
+    } finally {
+      setIsSavingSpecialist(false);
+    }
   };
 
   // Handle Create Association
@@ -2239,6 +2277,11 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
             </div>
 
             <form onSubmit={handleSaveSpecialist} className="space-y-3.5 text-xs">
+              {specialistFormError && (
+                <p role="alert" className="rounded-[10px] border border-red-200 bg-red-50 px-3 py-2 text-xs font-bold text-red-800">
+                  {specialistFormError}
+                </p>
+              )}
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
                   <label className="font-bold text-[#203945]">الاسم الأول</label>
@@ -2289,6 +2332,20 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                 </div>
               </div>
 
+              {['clinic', 'hospital', 'treatment_center'].includes(newSpecRole) && (
+                <div className="space-y-1">
+                  <label className="font-bold text-[#203945]">اسم المؤسسة أو مركز العلاج</label>
+                  <input
+                    type="text"
+                    required
+                    value={newSpecOrganizationName}
+                    onChange={(e) => setNewSpecOrganizationName(e.target.value)}
+                    placeholder="اسم المؤسسة"
+                    className="w-full h-10 px-3 bg-white border border-[#CCD8D5] rounded-[10px] outline-hidden focus:border-[#1766A6]"
+                  />
+                </div>
+              )}
+
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
                   <label className="font-bold text-[#203945]">نوع التخصص</label>
@@ -2309,6 +2366,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                   <label className="font-bold text-[#203945]">التخصص الدقيق</label>
                   <input
                     type="text"
+                    required={['psychologist', 'doctor', 'lawyer', 'legal_advisor'].includes(newSpecRole)}
                     value={newSpecSpecialty}
                     onChange={(e) => setNewSpecSpecialty(e.target.value)}
                     placeholder="مثال: علاج سلوكي معرفي / جنائي"
@@ -2337,6 +2395,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                   <label className="font-bold text-[#203945]">رقم الاعتماد / المعرف المهني</label>
                   <input
                     type="text"
+                    required={['psychologist', 'doctor', 'lawyer', 'legal_advisor'].includes(newSpecRole)}
                     value={newSpecLicense}
                     onChange={(e) => setNewSpecLicense(e.target.value)}
                     placeholder="DZ-ORD-9821"
@@ -2349,6 +2408,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                 <label className="font-bold text-[#203945]">العنوان المهني</label>
                 <input
                   type="text"
+                    required={['clinic', 'hospital', 'treatment_center'].includes(newSpecRole)}
                   value={newSpecAddress}
                   onChange={(e) => setNewSpecAddress(e.target.value)}
                   placeholder="نهج الشهداء، العمارة ب، وهران"
@@ -2360,7 +2420,9 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                 <div className="space-y-1">
                   <label className="font-bold text-[#203945]">كلمة المرور المبدئية</label>
                   <input
-                    type="text"
+                    type="password"
+                    required
+                    minLength={10}
                     value={newSpecPassword}
                     onChange={(e) => setNewSpecPassword(e.target.value)}
                     placeholder="10 أحرف على الأقل"
@@ -2392,9 +2454,10 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 rounded-[10px] bg-[#1766A6] hover:bg-[#125386] text-white font-bold shadow-xs transition-colors"
+                  disabled={isSavingSpecialist}
+                  className="px-5 py-2 rounded-[10px] bg-[#1766A6] hover:bg-[#125386] text-white font-bold shadow-xs transition-colors disabled:cursor-wait disabled:opacity-60"
                 >
-                  حفظ وإنشاء الحساب
+                  {isSavingSpecialist ? 'جارٍ إنشاء الحساب...' : 'حفظ وإنشاء الحساب'}
                 </button>
               </div>
             </form>

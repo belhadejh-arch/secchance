@@ -41,8 +41,12 @@ export async function createChargilyCheckout(requestId, user, method) {
   if (!['ACCEPTED', 'WAITING_PAYMENT'].includes(request.status)) {
     throw new HttpError(409, 'لا يمكن الدفع قبل موافقة مقدم الخدمة.');
   }
-  if (Number(request.amount_dzd) !== 500 || !['legal', 'psychological'].includes(request.category)) {
-    throw new HttpError(409, 'مبلغ هذه الاستشارة غير مطابق للسعر المعتمد البالغ 500 دج.');
+  if (
+    !Number.isSafeInteger(Number(request.amount_dzd)) ||
+    Number(request.amount_dzd) <= 0 ||
+    !['legal', 'psychological'].includes(request.category)
+  ) {
+    throw new HttpError(409, 'لا يمكن الدفع لأن مبلغ الخدمة غير صالح.');
   }
   if (request.payment_status === 'PAID') {
     throw new HttpError(409, 'تم تأكيد دفع هذا الطلب مسبقًا.');

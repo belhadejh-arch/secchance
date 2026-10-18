@@ -53,6 +53,14 @@ export const PaymentView: React.FC<PaymentViewProps> = ({
     }
   };
 
+  const handleSecureCheckout = async () => {
+    setDemoCardNumber('');
+    setDemoCardholder('');
+    setDemoExpiry('');
+    setDemoCvv('');
+    await handlePay();
+  };
+
   const handleDemoSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!request) return;
@@ -241,6 +249,20 @@ export const PaymentView: React.FC<PaymentViewProps> = ({
             إلغاء والعودة للطلبات
           </button>
         </form>
+        <div className="space-y-2 border-t border-[#E0E8E6] pt-4">
+          <p className="text-center text-[11px] text-[#203945]/70">
+            أو استخدم الدفع الفعلي عبر صفحة Chargily الآمنة.
+          </p>
+          <button
+            type="button"
+            disabled={isProcessing}
+            onClick={handleSecureCheckout}
+            className="flex h-[46px] w-full items-center justify-center gap-2 rounded-[12px] border border-[#25866D] bg-white text-xs font-bold text-[#25866D] transition-colors hover:bg-[#E8F4EF] disabled:opacity-50"
+          >
+            <Lock className="h-4 w-4" />
+            {isProcessing ? 'جارٍ الاتصال ببوابة الدفع...' : 'الدفع الفعلي عبر Chargily'}
+          </button>
+        </div>
       </div>
     );
   }

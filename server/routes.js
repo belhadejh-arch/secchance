@@ -205,7 +205,7 @@ function accountStatus(roleSlug) {
   return providerRoles.has(roleSlug) ? 'pending_approval' : 'active';
 }
 
-async function insertProfessionalProfile(client, userId, input) {
+async function insertProfessionalProfile(client, userId, input, approved = false) {
   const role = input.roleSlug;
   const specialty = String(input.specialty || (
     role === 'lawyer' || role === 'legal_advisor'
@@ -225,13 +225,14 @@ async function insertProfessionalProfile(client, userId, input) {
     await client.query(
       `INSERT INTO specialist_profiles
          (user_id, specialty, license_number, bio, verification_status, availability_schedule, created_at)
-       VALUES ($1, $2, $3, $4, 'pending', $5, NOW())
+       VALUES ($1, $2, $3, $4, $5, $6, NOW())
        ON CONFLICT (user_id) DO NOTHING`,
       [
         userId,
         specialty,
         license,
         input.bio ? encryptValue(String(input.bio)) : null,
+        approved ? 'approved' : 'pending',
         JSON.stringify(Array.isArray(input.availabilitySlots) ? input.availabilitySlots : []),
       ]
     );
@@ -245,8 +246,8 @@ async function insertProfessionalProfile(client, userId, input) {
     }
     await client.query(
       `INSERT INTO centers (user_id, name, wilaya_id, address, phone, services, verification_status, created_at)
-       VALUES ($1, $2, $3, $4, $5, $6, 'pending', NOW())`,
-      [userId, input.organizationName, wilayaId, input.address, input.phone, input.servicesOffered || '']
+       VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())`,
+      [userId, input.organizationName, wilayaId, input.address, input.phone, input.servicesOffered || '', approved ? 'approved' : 'pending']
     );
   }
 
@@ -257,8 +258,8 @@ async function insertProfessionalProfile(client, userId, input) {
     }
     await client.query(
       `INSERT INTO associations (user_id, name, wilaya_id, address, phone, services, verification_status, created_at)
-       VALUES ($1, $2, $3, $4, $5, $6, 'pending', NOW())`,
-      [userId, input.organizationName, wilayaId, input.address, input.phone, input.servicesOffered || '']
+       VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())`,
+      [userId, input.organizationName, wilayaId, input.address, input.phone, input.servicesOffered || '', approved ? 'approved' : 'pending']
     );
   }
 }
@@ -278,6 +279,10 @@ async function createUser(input, actor, req, selfRegistration = false) {
   if (!String(input.firstName || '').trim() || !String(input.lastName || '').trim() || !String(input.phone || '').trim()) {
     throw new HttpError(400, 'الاسم والهاتف مطلوبان لإنشاء الحساب.');
   }
+  const requestedStatus = selfRegistration
+    ? accountStatus(roleSlug)
+    : String(input.status || accountStatus(roleSlug));
+  const adminApproved = !selfRegistration && actor?.role_slug === 'admin' && requestedStatus === 'active';
 
   let created;
   try {
@@ -299,12 +304,13 @@ async function createUser(input, actor, req, selfRegistration = false) {
           roleId,
           roleSlug,
           wilayaId,
-          providerRoles.has(roleSlug) ? 0 : 1,
-          selfRegistration ? accountStatus(roleSlug) : String(input.status || accountStatus(roleSlug)),
+          providerRoles.has(roleSlug) ? Number(adminApproved) : 1,
+          requestedStatus,
         ]
       );
       const id = Number(inserted.rows[0].id);
-      if (providerRoles.has(roleSlug)) await insertProfessionalProfile(client, id, input);
+      if (providerRoles.has(roleSlug)) await insertProfessionalProfile(client, id, input, adminApproved);
+      if (adminApproved) await saveDefaultConsultationService(client, { id, role_slug: roleSlug });
 
       if (selfRegistration) {
         await addAudit(
@@ -334,18 +340,15 @@ async function saveDefaultConsultationService(client, user) {
     ? 'legal'
     : user.role_slug === 'psychologist' ? 'psychological' : null;
   if (!category) return;
-  const exists = await client.query(
-    'SELECT id FROM services WHERE provider_id = $1 AND category = $2 AND is_active = 1 LIMIT 1',
-    [user.id, category]
-  );
-  if (exists.rowCount) return;
   const title = category === 'legal' ? 'استشارة قانونية مباشرة' : 'استشارة نفسية مباشرة';
   const description = category === 'legal'
     ? 'استشارة مباشرة مع مستشار قانوني مؤهل. لا تمثل رأيًا قانونيًا آليًا.'
     : 'استشارة مباشرة مع أخصائي نفسي عيادي مؤهل. لا تقدم تشخيصًا طبيًا آليًا.';
   await client.query(
     `INSERT INTO services (provider_id, title, description, amount_dzd, category, is_active, created_at, updated_at)
-     VALUES ($1, $2, $3, 500, $4, 1, NOW(), NOW())`,
+     VALUES ($1, $2, $3, 500, $4, 1, NOW(), NOW())
+     ON CONFLICT (provider_id, category) DO UPDATE
+       SET is_active = 1, updated_at = NOW()`,
     [user.id, title, description, category]
   );
 }
@@ -569,8 +572,9 @@ async function createRequest(body, user, req) {
     if (!roleMatchesCategory) {
       throw new HttpError(409, 'لا يملك هذا الحساب الاعتماد المهني المطلوب لهذه الاستشارة.');
     }
-    if (Number(service.amount_dzd) !== 500) {
-      throw new HttpError(409, 'تعذر إرسال الطلب لأن سعر الاستشارة لا يطابق السعر المعتمد 500 دج.');
+    const serviceAmountDzd = Number(service.amount_dzd);
+    if (!Number.isSafeInteger(serviceAmountDzd) || serviceAmountDzd <= 0) {
+      throw new HttpError(409, 'لا يمكن إرسال الطلب لأن سعر الخدمة غير صالح.');
     }
 
     let addiction = await client.query(
@@ -638,7 +642,7 @@ async function createRequest(body, user, req) {
          (case_file_id, requester_id, provider_id, service_id, addiction_type_id,
           amount_dzd, payment_status, status, priority, description,
           appointment_id, created_at, updated_at)
-       VALUES ($1, $2, $3, $4, $5, 500, 'PENDING', 'PENDING_PROVIDER', $6, $7, $8, NOW(), NOW())
+       VALUES ($1, $2, $3, $4, $5, $6, 'PENDING', 'PENDING_PROVIDER', $7, $8, $9, NOW(), NOW())
        RETURNING id`,
       [
         caseFileId,
@@ -646,6 +650,7 @@ async function createRequest(body, user, req) {
         providerId,
         service.id,
         addiction.rows[0].id,
+        serviceAmountDzd,
         priority,
         encryptValue(description),
         appointmentId,
@@ -681,6 +686,79 @@ async function createRequest(body, user, req) {
     return requestId;
   });
   return { id: created, message: 'تم إرسال الطلب إلى مقدم الخدمة.' };
+}
+
+async function confirmDemoAppointment(requestId, user, req) {
+  if (process.env.NODE_ENV === 'production') {
+    throw new HttpError(403, 'نموذج تأكيد الموعد التجريبي غير متاح في الإنتاج.');
+  }
+  requireActive(user);
+
+  await withTransaction(async (client) => {
+    const found = await client.query(
+      `SELECT sr.id, sr.case_file_id, sr.requester_id, sr.provider_id, sr.amount_dzd,
+              sr.payment_status, sr.status AS request_status, sr.appointment_id,
+              a.status AS appointment_status, a.appointment_date, a.start_time
+         FROM service_requests sr
+         JOIN appointments a ON a.id = sr.appointment_id
+        WHERE sr.id = $1
+        FOR UPDATE OF sr, a`,
+      [requestId]
+    );
+    const booking = found.rows[0];
+    if (!booking || Number(booking.requester_id) !== Number(user.id)) {
+      throw new HttpError(404, 'الطلب غير موجود أو لا تملك صلاحية الوصول إليه.');
+    }
+    if (
+      booking.request_status === 'APPOINTMENT_CONFIRMED' &&
+      booking.payment_status === 'PENDING' &&
+      booking.appointment_status === 'CONFIRMED'
+    ) {
+      return;
+    }
+    if (
+      booking.request_status !== 'WAITING_PAYMENT' ||
+      booking.payment_status !== 'PENDING' ||
+      Number(booking.amount_dzd) <= 0 ||
+      booking.appointment_status !== 'PENDING' ||
+      !booking.appointment_date ||
+      !booking.start_time
+    ) {
+      throw new HttpError(409, 'لا يمكن تأكيد الموعد التجريبي في الحالة الحالية.');
+    }
+
+    await client.query(
+      `UPDATE appointments SET status = 'CONFIRMED' WHERE id = $1`,
+      [booking.appointment_id]
+    );
+    await client.query(
+      `UPDATE service_requests SET status = 'APPOINTMENT_CONFIRMED', updated_at = NOW()
+        WHERE id = $1`,
+      [requestId]
+    );
+    await client.query(
+      `UPDATE case_files SET status = 'UNDER_REVIEW', updated_at = NOW()
+        WHERE id = $1`,
+      [booking.case_file_id]
+    );
+    const detail = 'تأكيد موعد تجريبي؛ لم يُنفّذ الدفع ولم تُرسل أو تُحفظ بيانات البطاقة.';
+    await client.query(
+      `INSERT INTO request_history (request_id, user_id, action, from_status, to_status, details, created_at)
+       VALUES ($1, $2, 'DEMO_APPOINTMENT_CONFIRMED', $3, 'APPOINTMENT_CONFIRMED', $4, NOW())`,
+      [requestId, user.id, booking.request_status, detail]
+    );
+    await addAudit(client, user.id, 'DEMO_APPOINTMENT_CONFIRMED', 'service_request', requestId, detail, req);
+    await addNotification(
+      client,
+      booking.provider_id,
+      'تأكيد موعد تجريبي',
+      'تم تأكيد الموعد في النموذج التجريبي. حالة الدفع غير مدفوع.',
+      'REQUEST',
+      `/requests/${requestId}`
+    );
+  });
+
+  return { ok: true, paymentStatus: 'PENDING', appointmentStatus: 'CONFIRMED' };
 }
 
 async function setAppointmentStatus(appointmentId, status, user, req) {
@@ -1404,7 +1482,7 @@ async function getPublicServices() {
        LEFT JOIN centers c ON c.user_id = u.id
        LEFT JOIN associations a ON a.user_id = u.id
       WHERE s.is_active = 1 AND u.status = 'active' AND COALESCE(u.is_verified, 0) = 1
-        AND s.category IN ('legal', 'psychological') AND s.amount_dzd = 500
+        AND s.category IN ('legal', 'psychological') AND s.amount_dzd > 0
         AND COALESCE(sp.verification_status, c.verification_status, a.verification_status, 'approved') = 'approved'
       ORDER BY s.category, s.title`
   );
@@ -1552,6 +1630,7 @@ export async function dispatchApi(req, res) {
   const userRoute = pathname.match(/^\/api\/v1\/users\/(\d+)$/);
   const requestRoute = pathname.match(/^\/api\/v1\/requests\/(\d+)$/);
   const paymentRoute = pathname.match(/^\/api\/v1\/requests\/(\d+)\/payment$/);
+  const demoPaymentRoute = pathname.match(/^\/api\/v1\/requests\/(\d+)\/demo-payment$/);
   const requestDocumentsRoute = pathname.match(/^\/api\/v1\/requests\/(\d+)\/documents$/);
   const documentRoute = pathname.match(/^\/api\/v1\/documents\/(\d+)$/);
   const appointmentRoute = pathname.match(/^\/api\/v1\/appointments\/(\d+)$/);
@@ -1613,6 +1692,10 @@ export async function dispatchApi(req, res) {
   if (method === 'POST' && paymentRoute) {
     const body = await bodyJson(req);
     const result = await createChargilyCheckout(Number(paymentRoute[1]), user, body.method);
+    return json(res, 200, result);
+  }
+  if (method === 'POST' && demoPaymentRoute) {
+    const result = await confirmDemoAppointment(Number(demoPaymentRoute[1]), user, req);
     return json(res, 200, result);
   }
   if (method === 'PATCH' && appointmentRoute) {
