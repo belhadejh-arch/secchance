@@ -25,8 +25,19 @@ async function notify(userId, title, message, type, link) {
   );
 }
 
+function chargilyMode() {
+  return process.env.CHARGILY_MODE === 'live' ? 'live' : 'test';
+}
+
+function chargilySecret(mode = chargilyMode()) {
+  return mode === 'live'
+    ? process.env.CHARGILY_LIVE_SECRET_KEY
+    : process.env.CHARGILY_SECRET_KEY;
+}
+
 export async function createChargilyCheckout(requestId, user, method) {
-  const secret = process.env.CHARGILY_SECRET_KEY;
+  const mode = chargilyMode();
+  const secret = chargilySecret(mode);
   if (!secret) {
     throw new HttpError(503, 'بوابة الدفع غير مهيأة بعد؛ لم يتم تحصيل أي مبلغ.');
   }
@@ -96,7 +107,6 @@ export async function createChargilyCheckout(requestId, user, method) {
 
   if (payment.checkout_url) return { checkoutUrl: payment.checkout_url };
 
-  const mode = process.env.CHARGILY_MODE === 'live' ? 'live' : 'test';
   const apiUrl = mode === 'live'
     ? 'https://pay.chargily.net/api/v2/checkouts'
     : 'https://pay.chargily.net/test/api/v2/checkouts';
@@ -160,7 +170,8 @@ export async function createChargilyCheckout(requestId, user, method) {
 }
 
 export async function handleChargilyWebhook(rawBody, signature) {
-  const secret = process.env.CHARGILY_SECRET_KEY;
+  const mode = chargilyMode();
+  const secret = chargilySecret(mode);
   if (!secret) throw new HttpError(503, 'بوابة الدفع غير مهيأة.');
   if (!verifySignature(rawBody, signature, secret)) {
     throw new HttpError(403, 'توقيع إشعار الدفع غير صالح.');
@@ -207,12 +218,11 @@ export async function handleChargilyWebhook(rawBody, signature) {
       if (
         Number(checkout.amount) !== Number(payment.amount_dzd) ||
         String(checkout.currency).toUpperCase() !== 'DZD' ||
-        Number(payment.amount_dzd) !== 500 ||
         !['legal', 'psychological'].includes(payment.category)
       ) {
         throw new HttpError(409, 'بيانات المبلغ أو العملة لا تطابق الطلب.');
       }
-      const expectedLive = process.env.CHARGILY_MODE === 'live';
+      const expectedLive = mode === 'live';
       const actualLive = checkout.livemode === true || checkout.livemode === 'true';
       if (expectedLive !== actualLive) {
         throw new HttpError(409, 'بيئة الدفع لا تطابق إعداد المنصة.');
