@@ -264,6 +264,9 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
   const [newSpecStatus, setNewSpecStatus] = useState<UserStatus>('active');
   const [specialistFormError, setSpecialistFormError] = useState('');
   const [isSavingSpecialist, setIsSavingSpecialist] = useState(false);
+  const [specialistActionMessage, setSpecialistActionMessage] = useState('');
+  const [specialistActionError, setSpecialistActionError] = useState('');
+  const [approvingSpecialistId, setApprovingSpecialistId] = useState<number | string | null>(null);
 
   // New Partner form state (Requirement 15)
   const [newPartnerName, setNewPartnerName] = useState('');
@@ -275,7 +278,10 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
   const totalUsers = users.length;
   const totalBeneficiaries = users.filter((u) => ['family', 'patient', 'user'].includes(u.roleSlug)).length;
   const specialists = users.filter((u) =>
-    ['psychologist', 'doctor', 'lawyer', 'legal_advisor', 'clinic', 'hospital'].includes(u.roleSlug)
+    ['psychologist', 'doctor', 'lawyer', 'legal_advisor', 'clinic', 'hospital', 'treatment_center', 'association'].includes(u.roleSlug)
+  );
+  const pendingProviderApplications = specialists.filter((u) =>
+    ['pending', 'pending_approval'].includes(u.status)
   );
   const totalSpecialists = specialists.length;
   const totalLawyers = users.filter((u) => ['lawyer', 'legal_advisor'].includes(u.roleSlug)).length;
@@ -328,7 +334,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
 
     setIsSavingSpecialist(true);
     try {
-      await createUserInDb({
+      const createdUser = await createUserInDb({
         firstName: newSpecFirstName.trim(),
         lastName: newSpecLastName.trim(),
         email: newSpecEmail.trim().toLowerCase(),
@@ -343,7 +349,12 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
         status: newSpecStatus,
         password: newSpecPassword,
       });
+      if (!createdUser?.id) {
+        throw new Error('لم يؤكد الخادم حفظ الحساب في قاعدة البيانات. أعد المحاولة.');
+      }
 
+      setSpecialistActionError('');
+      setSpecialistActionMessage(`تم إنشاء حساب ${createdUser.firstName} ${createdUser.lastName} وربطه بقاعدة البيانات.`);
       setIsCreateSpecialistOpen(false);
       setNewSpecFirstName('');
       setNewSpecLastName('');
@@ -423,7 +434,19 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
 
   // Approve Specialist / Provider
   const handleApproveSpecialist = async (user: User) => {
-    await approveUserInDb(user.id, `${currentUser.firstName} (الأدمن)`);
+    setApprovingSpecialistId(user.id);
+    setSpecialistActionError('');
+    setSpecialistActionMessage('');
+    try {
+      await approveUserInDb(user.id, `${currentUser.firstName} (الأدمن)`);
+      setSpecialistActionMessage(`تم اعتماد طلب ${user.firstName} ${user.lastName} وتفعيل خدمته المدفوعة.`);
+    } catch (error) {
+      setSpecialistActionError(
+        error instanceof Error ? error.message : 'تعذر اعتماد طلب المختص. حاول مرة أخرى.'
+      );
+    } finally {
+      setApprovingSpecialistId(null);
+    }
   };
 
   // Rejection modal state
@@ -1353,7 +1376,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
             <div>
               <h3 className="font-bold text-sm text-[#203945]">شبكة الأخصائيين النفسيين العياديين والمستشارين القانونيين</h3>
               <p className="text-[11px] text-[#203945]/70">
-                إدارة الاعتمادات المهنية، التخصصات، وإسناد الخدمات
+                طلبات الانضمام والاعتماد المهني والخدمات المدفوعة
               </p>
             </div>
 
@@ -1366,8 +1389,85 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
             </button>
           </div>
 
+          {(specialistActionMessage || specialistActionError) && (
+            <p
+              role={specialistActionError ? 'alert' : 'status'}
+              className={`rounded-[10px] border px-3 py-2 text-xs font-bold ${
+                specialistActionError
+                  ? 'border-red-200 bg-red-50 text-red-800'
+                  : 'border-emerald-200 bg-emerald-50 text-emerald-800'
+              }`}
+            >
+              {specialistActionError || specialistActionMessage}
+            </p>
+          )}
+
+          <section className="space-y-3 rounded-[16px] border border-amber-200 bg-amber-50/60 p-4">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <h4 className="text-sm font-black text-[#203945]">طلبات انضمام المختصين والمؤسسات</h4>
+                <p className="mt-1 text-[11px] text-[#203945]/70">
+                  تظهر هنا طلبات التسجيل المرسلة من النماذج العامة للمراجعة والاعتماد.
+                </p>
+              </div>
+              <span className="shrink-0 rounded-full bg-amber-100 px-3 py-1 text-xs font-black text-amber-900">
+                {pendingProviderApplications.length} طلب
+              </span>
+            </div>
+            {pendingProviderApplications.length === 0 ? (
+              <p className="rounded-xl bg-white/80 p-3 text-xs text-[#203945]/70">
+                لا توجد طلبات اعتماد معلّقة حاليًا.
+              </p>
+            ) : (
+              <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+                {pendingProviderApplications.map((application) => (
+                  <article
+                    key={`application-${application.id}`}
+                    className="flex flex-col justify-between gap-3 rounded-xl border border-amber-100 bg-white p-3"
+                  >
+                    <div>
+                      <p className="font-black text-sm text-[#203945]">
+                        {application.firstName} {application.lastName}
+                      </p>
+                      <p className="mt-1 text-[11px] font-bold text-[#1766A6]">
+                        {application.specialty || application.organizationName || application.roleSlug}
+                      </p>
+                      <p className="mt-1 text-[11px] text-[#203945]/70">
+                        {application.email} · {application.phone}
+                      </p>
+                      {application.licenseNumber && (
+                        <p className="mt-1 font-mono text-[10px] text-[#203945]/65">
+                          رقم الاعتماد: {application.licenseNumber}
+                        </p>
+                      )}
+                    </div>
+                    <div className="flex flex-wrap justify-end gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setSelectedUserForDetail(application)}
+                        className="rounded-lg bg-[#EAF3F8] px-3 py-2 text-[11px] font-bold text-[#1766A6]"
+                      >
+                        مراجعة الملف
+                      </button>
+                      <button
+                        type="button"
+                        disabled={approvingSpecialistId === application.id}
+                        onClick={() => void handleApproveSpecialist(application)}
+                        className="rounded-lg bg-[#25866D] px-3 py-2 text-[11px] font-bold text-white disabled:cursor-wait disabled:opacity-60"
+                      >
+                        {approvingSpecialistId === application.id ? 'جارٍ الاعتماد…' : 'اعتماد وتفعيل الخدمة'}
+                      </button>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            )}
+          </section>
+
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-            {specialists.map((s) => (
+            {specialists
+              .filter((s) => !['pending', 'pending_approval'].includes(s.status))
+              .map((s) => (
               <div
                 key={s.id}
                 className="bg-white border border-[#CCD8D5] rounded-[16px] p-4 shadow-xs space-y-3 flex flex-col justify-between"

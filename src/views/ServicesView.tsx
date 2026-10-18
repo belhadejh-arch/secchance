@@ -17,24 +17,26 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
   onOpenLegalInformation,
   onOpenFamilyGuidance,
 }) => {
-  const psychologicalService = services.find((service) => service.category === 'psychological');
-  const legalService = services.find((service) => service.category === 'legal');
-  const paidServices = [
+  const paidServiceCategories = [
     {
       title: 'الاستشارة القانونية',
       category: 'legal',
       description: 'استشارة مباشرة مع مستشار قانوني مؤهل لفهم الوضعية القانونية والإجراءات والمسارات الممكنة ضمن اختصاصه.',
-      service: legalService,
       icon: <Scale className="h-5 w-5" />,
     },
     {
       title: 'الاستشارة النفسية',
       category: 'psychological',
       description: 'استشارة مباشرة مع مختص نفسي عيادي مؤهل لتقديم الدعم النفسي والإرشاد ضمن اختصاصه المهني.',
-      service: psychologicalService,
       icon: <Brain className="h-5 w-5" />,
     },
   ];
+  const paidServices = paidServiceCategories.flatMap((category) => {
+    const offerings = services.filter((service) => service.category === category.category);
+    return offerings.length
+      ? offerings.map((service) => ({ ...category, service, key: `${category.category}-${service.id}` }))
+      : [{ ...category, service: undefined, key: `${category.category}-unavailable` }];
+  });
   const freeServices = [
     {
       title: 'العثور على مركز علاج قريب',
@@ -76,12 +78,19 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
       <section className="space-y-3">
         <h2 className="text-base font-black text-[#203945]">الاستشارات المدفوعة</h2>
         {paidServices.map((item) => (
-          <article key={item.category} className="space-y-3 rounded-[16px] border border-[#E0E8E6] bg-[#FBFDFC] p-4 shadow-xs">
+          <article key={item.key} className="space-y-3 rounded-[16px] border border-[#E0E8E6] bg-[#FBFDFC] p-4 shadow-xs">
             <div className="flex items-start justify-between gap-3">
               <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px] bg-[#EAF3F8] text-[#1766A6]">{item.icon}</span>
-              <span className="text-sm font-black text-[#25866D]">{item.title} — 500 دج</span>
+              <span className="text-sm font-black text-[#25866D]">
+                {item.title} — {item.service ? `${item.service.amountDzd.toLocaleString('ar-DZ')} دج` : 'غير متاحة حاليًا'}
+              </span>
             </div>
-            <p className="text-sm leading-relaxed text-[#203945]/80">{item.description}</p>
+            <p className="text-sm leading-relaxed text-[#203945]/80">
+              {item.service?.description || item.description}
+            </p>
+            {item.service?.providerName && (
+              <p className="text-xs font-bold text-[#1766A6]">مقدم الخدمة: {item.service.providerName}</p>
+            )}
             <button
               disabled={!item.service}
               aria-disabled={!item.service}
@@ -93,7 +102,7 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
             </button>
             {!item.service && (
               <p className="text-xs text-amber-800" role="status">
-                الخدمة بسعرها المعتمد 500 دج، لكن لا يوجد مقدم خدمة معتمد متاح للحجز الآن.
+                لا يوجد مقدم خدمة معتمد متاح لهذه الاستشارة حاليًا.
               </p>
             )}
           </article>

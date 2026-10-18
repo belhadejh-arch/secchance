@@ -566,6 +566,9 @@ async function createRequest(body, user, req) {
     ) {
       throw new HttpError(409, 'هذا المقدم غير متاح لهذه الخدمة أو لم يكتمل اعتماده.');
     }
+    if (!Number.isSafeInteger(Number(body.serviceId)) || Number(body.serviceId) !== Number(service.id)) {
+      throw new HttpError(409, 'تغيرت بيانات الخدمة. حدّث قائمة الخدمات ثم أعد اختيارها.');
+    }
     const roleMatchesCategory = category === 'legal'
       ? ['lawyer', 'legal_advisor'].includes(service.role_slug)
       : service.role_slug === 'psychologist';

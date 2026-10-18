@@ -96,6 +96,12 @@ export const NewRequestView: React.FC<NewRequestViewProps> = ({
   const selectedService =
     consultationServices.find((service) => service.id === selectedServiceId) ??
     consultationServices[0];
+  const getServiceForProvider = (providerId: number | string) =>
+    consultationServices.find(
+      (service) =>
+        service.category === selectedService?.category &&
+        String(service.providerId) === String(providerId)
+    );
 
   // Assessment answers (Requirement 9 & 21 from Project Plan)
   const [hasLegalProblem, setHasLegalProblem] = useState<'yes' | 'no' | 'unknown'>('no');
@@ -149,6 +155,7 @@ export const NewRequestView: React.FC<NewRequestViewProps> = ({
       specialist.status === 'active' &&
       specialist.professionalDetailsVerified === true &&
       professionalRoles.includes(specialist.roleSlug) &&
+       Boolean(getServiceForProvider(specialist.id)) &&
       getAvailableSlots(specialist).some(
         (slot) => Boolean(selectedService?.durationMinutes || slot.durationMinutes)
       )
@@ -156,6 +163,9 @@ export const NewRequestView: React.FC<NewRequestViewProps> = ({
   const selectedSpecialist = eligibleSpecialists.find(
     (specialist) => String(specialist.id) === String(selectedSpecialistId)
   );
+  const selectedProviderService = selectedSpecialist
+    ? getServiceForProvider(selectedSpecialist.id) ?? selectedService
+    : selectedService;
   const availableSlots = selectedSpecialist
     ? getAvailableSlots(selectedSpecialist).filter(
         (slot) => selectedService?.durationMinutes || slot.durationMinutes
@@ -167,7 +177,7 @@ export const NewRequestView: React.FC<NewRequestViewProps> = ({
   const appointmentDuration = selectedService?.durationMinutes ?? selectedSlot?.durationMinutes;
 
   const handleCreateAppointmentRequest = async () => {
-    if (!selectedService || !currentUser || !selectedSpecialist || !selectedSlot || !serviceTermsAccepted) {
+    if (!selectedProviderService || !currentUser || !selectedSpecialist || !selectedSlot || !serviceTermsAccepted) {
       setSubmissionError('يرجى اختيار مختص وموعد متاح والموافقة على شروط الخدمة وسياسة الإلغاء.');
       return;
     }
@@ -185,7 +195,7 @@ export const NewRequestView: React.FC<NewRequestViewProps> = ({
     setSubmissionError('');
     try {
       await onSubmit(
-        selectedService.id,
+        selectedProviderService.id,
         isUrgent === 'yes' ? 'Critical' : 'High',
         legalDraft?.wilaya ?? currentUser.wilayaName ?? '16. الجزائر العاصمة',
         `${consultationTopic ? `[موضوع الاستشارة: ${consultationTopic}] ` : ''}[لمن الحالة: ${targetPerson === 'self' ? 'أنا' : 'أحد أفراد أسرتي'}] ${problemDescription}`,
@@ -247,8 +257,11 @@ export const NewRequestView: React.FC<NewRequestViewProps> = ({
                   <div>
                     <h4 className="font-bold text-sm text-[#203945]">{service.title}</h4>
                     <p className="text-[11px] text-[#1766A6] font-bold">
-                      {categoryLabels[service.category] || service.category}
+                      {categoryLabels[service.category] || service.category} · {service.amountDzd.toLocaleString('ar-DZ')} دج
                     </p>
+                    {service.providerName && (
+                      <p className="text-[11px] text-[#203945]/70">مقدم الخدمة: {service.providerName}</p>
+                    )}
                     <p className="text-[11px] text-[#203945]/70">{service.description}</p>
                   </div>
                 </div>
@@ -385,14 +398,14 @@ export const NewRequestView: React.FC<NewRequestViewProps> = ({
                 <p className="text-xs text-[#203945]/70 mt-1">
                   استشارة مباشرة مع مستشار قانوني مؤهل لفهم الوضعية القانونية والإجراءات والمسارات الممكنة ضمن اختصاصه.
                 </p>
-                <p className="mt-1 text-sm font-black text-[#25866D]">السعر: 500 دج</p>
+                <p className="mt-1 text-sm font-black text-[#25866D]">السعر: {selectedService.amountDzd.toLocaleString('ar-DZ')} دج</p>
               </>
             ) : selectedService?.category === 'psychological' ? (
               <>
                 <p className="text-xs text-[#203945]/70 mt-1">
                   استشارة مباشرة مع مختص نفسي عيادي مؤهل لتقديم الدعم النفسي والإرشاد ضمن اختصاصه المهني.
                 </p>
-                <p className="mt-1 text-sm font-black text-[#25866D]">السعر: 500 دج</p>
+                <p className="mt-1 text-sm font-black text-[#25866D]">السعر: {selectedService.amountDzd.toLocaleString('ar-DZ')} دج</p>
               </>
             ) : (
               <p className="text-xs text-[#203945]/70 mt-1">
@@ -629,7 +642,7 @@ export const NewRequestView: React.FC<NewRequestViewProps> = ({
                       </p>
                     </div>
                     <span className="shrink-0 text-xs font-black text-[#25866D]">
-                      {selectedService?.amountDzd.toLocaleString('ar-DZ')} دج
+                      {getServiceForProvider(specialist.id)?.amountDzd.toLocaleString('ar-DZ')} دج
                     </span>
                   </div>
 
@@ -710,9 +723,9 @@ export const NewRequestView: React.FC<NewRequestViewProps> = ({
           </div>
 
           <div className="rounded-[16px] border border-[#DCEBF4] bg-[#EAF3F8] p-4 space-y-2 text-xs text-[#203945]">
-            <p><strong>الخدمة:</strong> {selectedService?.title}</p>
+            <p><strong>الخدمة:</strong> {selectedProviderService?.title}</p>
             <p><strong>المختص:</strong> {selectedSpecialist ? `${selectedSpecialist.firstName} ${selectedSpecialist.lastName}` : '—'}</p>
-            <p><strong>السعر:</strong> {selectedService?.amountDzd.toLocaleString('ar-DZ')} دج</p>
+            <p><strong>السعر:</strong> {selectedProviderService?.amountDzd.toLocaleString('ar-DZ')} دج</p>
             <p><strong>مدة الخدمة:</strong> {appointmentDuration ? `${appointmentDuration} دقيقة` : 'غير محددة'}</p>
           </div>
 
