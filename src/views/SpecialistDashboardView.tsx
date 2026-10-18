@@ -158,7 +158,7 @@ export const SpecialistDashboardView: React.FC<SpecialistDashboardViewProps> = (
       setAvailabilityError('اختر التاريخ والوقت أولًا.');
       return;
     }
-    const durationMinutes = currentUser.roleSlug === 'psychologist' ? 50 : 30;
+    const durationMinutes = ['psychologist', 'doctor'].includes(currentUser.roleSlug) ? 50 : 30;
     await persistAvailability([
       ...availabilitySlots,
       { date: slotDate, time: slotTime, durationMinutes },

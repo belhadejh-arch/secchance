@@ -120,8 +120,9 @@ export const NewRequestView: React.FC<NewRequestViewProps> = ({
     selectedService?.category === 'legal'
       ? ['lawyer', 'legal_advisor']
       : selectedService?.category === 'psychological'
-        ? ['psychologist']
+        ? ['psychologist', 'doctor']
         : [];
+  const requiredDurationMinutes = selectedService?.category === 'psychological' ? 50 : 30;
   const getAvailableSlots = (specialist: User) =>
     (specialist.availabilitySlots ?? [])
       .filter((slot) => {
@@ -156,9 +157,7 @@ export const NewRequestView: React.FC<NewRequestViewProps> = ({
       specialist.professionalDetailsVerified === true &&
       professionalRoles.includes(specialist.roleSlug) &&
        Boolean(getServiceForProvider(specialist.id)) &&
-      getAvailableSlots(specialist).some(
-        (slot) => Boolean(selectedService?.durationMinutes || slot.durationMinutes)
-      )
+       getAvailableSlots(specialist).some((slot) => Number(slot.durationMinutes) >= requiredDurationMinutes)
   );
   const selectedSpecialist = eligibleSpecialists.find(
     (specialist) => String(specialist.id) === String(selectedSpecialistId)
@@ -168,7 +167,7 @@ export const NewRequestView: React.FC<NewRequestViewProps> = ({
     : selectedService;
   const availableSlots = selectedSpecialist
     ? getAvailableSlots(selectedSpecialist).filter(
-        (slot) => selectedService?.durationMinutes || slot.durationMinutes
+        (slot) => Number(slot.durationMinutes) >= requiredDurationMinutes
       )
     : [];
   const selectedSlot = availableSlots.find(
@@ -618,11 +617,11 @@ export const NewRequestView: React.FC<NewRequestViewProps> = ({
           <div className="space-y-3">
             {eligibleSpecialists.length === 0 ? (
               <div className="rounded-[14px] border border-[#E0E8E6] bg-white p-5 text-center text-sm text-[#203945]/70">
-                لا يوجد حالياً مختص موثق لديه مواعيد متاحة لهذه الاستشارة.
+                لا يوجد حالياً مختص معتمد نشر موعداً متاحاً لهذه الاستشارة. سيظهر المختص هنا بعد اعتماد حسابه وإضافة مواعيده من لوحة المختص.
               </div>
             ) : eligibleSpecialists.map((specialist) => {
               const slots = getAvailableSlots(specialist).filter(
-                (slot) => selectedService?.durationMinutes || slot.durationMinutes
+                (slot) => Number(slot.durationMinutes) >= requiredDurationMinutes
               );
               const isSelected = String(selectedSpecialistId) === String(specialist.id);
               return (
@@ -638,7 +637,7 @@ export const NewRequestView: React.FC<NewRequestViewProps> = ({
                         {specialist.firstName} {specialist.lastName}
                       </h3>
                       <p className="mt-1 text-xs font-bold text-[#1766A6]">
-                        {specialist.roleSlug === 'psychologist' ? 'مختص نفسي عيادي' : 'مستشار قانوني'}
+                        {['psychologist', 'doctor'].includes(specialist.roleSlug) ? 'أخصائي نفسي عيادي' : 'مستشار قانوني'}
                       </p>
                     </div>
                     <span className="shrink-0 text-xs font-black text-[#25866D]">

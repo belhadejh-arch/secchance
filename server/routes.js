@@ -312,6 +312,22 @@ async function createUser(input, actor, req, selfRegistration = false) {
       if (providerRoles.has(roleSlug)) await insertProfessionalProfile(client, id, input, adminApproved);
       if (adminApproved) await saveDefaultConsultationService(client, { id, role_slug: roleSlug });
 
+      if (selfRegistration && providerRoles.has(roleSlug)) {
+        const administrators = await client.query(
+          `SELECT id FROM users WHERE role_slug = 'admin' AND status = 'active'`
+        );
+        const applicantName = `${String(input.firstName).trim()} ${String(input.lastName).trim()}`.trim();
+        for (const administrator of administrators.rows) {
+          await addNotification(
+            client,
+            Number(administrator.id),
+            'طلب انضمام مهني جديد',
+            `وصل طلب انضمام جديد من ${applicantName} (${roleSlug}) ويحتاج إلى مراجعة الإدارة.`,
+            'SYSTEM'
+          );
+        }
+      }
+
       if (selfRegistration) {
         await addAudit(
           client,
@@ -338,7 +354,7 @@ async function createUser(input, actor, req, selfRegistration = false) {
 async function saveDefaultConsultationService(client, user) {
   const category = ['lawyer', 'legal_advisor'].includes(user.role_slug)
     ? 'legal'
-    : user.role_slug === 'psychologist' ? 'psychological' : null;
+    : ['psychologist', 'doctor'].includes(user.role_slug) ? 'psychological' : null;
   if (!category) return;
   const title = category === 'legal' ? 'استشارة قانونية مباشرة' : 'استشارة نفسية مباشرة';
   const description = category === 'legal'
@@ -546,6 +562,7 @@ async function createRequest(body, user, req) {
     const serviceResult = await client.query(
       `SELECT s.*, u.role_slug, u.status AS provider_status, u.is_verified,
               sp.verification_status AS specialist_verification,
+               sp.availability_schedule,
               c.verification_status AS center_verification,
               a.verification_status AS association_verification
          FROM services s
@@ -571,7 +588,7 @@ async function createRequest(body, user, req) {
     }
     const roleMatchesCategory = category === 'legal'
       ? ['lawyer', 'legal_advisor'].includes(service.role_slug)
-      : service.role_slug === 'psychologist';
+      : ['psychologist', 'doctor'].includes(service.role_slug);
     if (!roleMatchesCategory) {
       throw new HttpError(409, 'لا يملك هذا الحساب الاعتماد المهني المطلوب لهذه الاستشارة.');
     }
@@ -617,6 +634,23 @@ async function createRequest(body, user, req) {
       throw new HttpError(400, 'تاريخ أو وقت الموعد غير صالح.');
     }
     const duration = category === 'psychological' ? 50 : 30;
+    let availabilitySlots = service.availability_schedule;
+    if (typeof availabilitySlots === 'string') {
+      try {
+        availabilitySlots = JSON.parse(availabilitySlots);
+      } catch {
+        availabilitySlots = [];
+      }
+    }
+    const specialistPublishedSlot = Array.isArray(availabilitySlots) && availabilitySlots.some(
+      (slot) =>
+        String(slot?.date || '') === date &&
+        String(slot?.time || '').slice(0, 5) === startTime &&
+        Number(slot?.durationMinutes) >= duration
+    );
+    if (!specialistPublishedSlot) {
+      throw new HttpError(409, 'هذا الموعد غير منشور من المختص أو لا يغطي مدة الاستشارة. حدّث المواعيد واختر وقتًا متاحًا.');
+    }
     const endMinutes = hour * 60 + minute + duration;
     if (endMinutes >= 24 * 60) {
       throw new HttpError(400, 'اختر وقتًا يسمح بإكمال مدة الاستشارة في اليوم نفسه.');
@@ -860,7 +894,7 @@ async function listCaseDocuments(user) {
 
 async function updateAvailability(body, user, req) {
   requireActive(user);
-  const durationMinutes = user.role_slug === 'psychologist'
+  const durationMinutes = ['psychologist', 'doctor'].includes(user.role_slug)
     ? 50
     : ['lawyer', 'legal_advisor'].includes(user.role_slug)
       ? 30
@@ -1137,7 +1171,14 @@ async function changeUser(id, body, user, req) {
       await client.query(`UPDATE associations SET verification_status = 'approved' WHERE user_id = $1`, [id]);
       await saveDefaultConsultationService(client, target);
       await addAudit(client, user.id, 'USER_APPROVED', 'user', id, 'تم اعتماد الحساب بعد مراجعة المستندات.', req);
-      await addNotification(client, Number(id), 'تم اعتماد الحساب', 'تمت مراجعة حسابك واعتماده. يمكنك الآن استخدام الخدمات المتاحة لدورك.', 'SYSTEM', '/portal');
+      await addNotification(
+        client,
+        Number(id),
+        'تم اعتماد الحساب',
+        'تم اعتماد حسابك وتفعيل الاستشارة. أضف مواعيدك المتاحة من لوحة المختص حتى يتمكن المستفيدون من الحجز.',
+        'SYSTEM',
+        '/portal'
+      );
     });
     return;
   }
@@ -1148,8 +1189,20 @@ async function changeUser(id, body, user, req) {
         `UPDATE specialist_profiles SET verification_status = $2 WHERE user_id = $1`,
         [id, body.status === 'rejected' ? 'rejected' : 'pending']
       );
+      await client.query(
+        `UPDATE centers SET verification_status = $2 WHERE user_id = $1`,
+        [id, body.status === 'rejected' ? 'rejected' : 'pending']
+      );
+      await client.query(
+        `UPDATE associations SET verification_status = $2 WHERE user_id = $1`,
+        [id, body.status === 'rejected' ? 'rejected' : 'pending']
+      );
+      await client.query(`UPDATE services SET is_active = 0, updated_at = NOW() WHERE provider_id = $1`, [id]);
+      const statusMessage = String(
+        body.rejectionReason || (body.status === 'rejected' ? 'تم رفض طلب اعتماد الحساب.' : `حالة الحساب: ${body.status}`)
+      ).trim().slice(0, 500);
       await addAudit(client, user.id, 'USER_STATUS_CHANGED', 'user', id, `تم تحديث حالة الحساب إلى ${body.status}.`, req);
-      await addNotification(client, Number(id), 'تحديث حالة الحساب', String(body.rejectionReason || `حالة الحساب: ${body.status}`).slice(0, 500), 'SYSTEM');
+      await addNotification(client, Number(id), 'تحديث حالة الحساب', statusMessage, 'SYSTEM');
     });
     return;
   }
@@ -1593,7 +1646,19 @@ export async function dispatchApi(req, res) {
       globalThis.loginAttempts.set(attemptsKey, attempt);
       throw new HttpError(401, 'البريد الإلكتروني أو كلمة المرور غير صحيحة.');
     }
-    if (['suspended', 'inactive', 'rejected'].includes(userRow.status)) {
+    if (userRow.status === 'rejected') {
+      const rejection = await pool.query(
+        `SELECT message FROM notifications
+          WHERE user_id = $1 AND title = 'تحديث حالة الحساب'
+          ORDER BY created_at DESC LIMIT 1`,
+        [userRow.id]
+      );
+      throw new HttpError(
+        403,
+        rejection.rows[0]?.message || 'تم رفض طلب اعتماد الحساب. تواصل مع إدارة المنصة للمراجعة.'
+      );
+    }
+    if (['suspended', 'inactive'].includes(userRow.status)) {
       throw new HttpError(403, 'هذا الحساب غير نشط. تواصل مع الإدارة لمعرفة التفاصيل.');
     }
     globalThis.loginAttempts.delete(attemptsKey);

@@ -267,6 +267,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
   const [specialistActionMessage, setSpecialistActionMessage] = useState('');
   const [specialistActionError, setSpecialistActionError] = useState('');
   const [approvingSpecialistId, setApprovingSpecialistId] = useState<number | string | null>(null);
+  const [rejectingSpecialistId, setRejectingSpecialistId] = useState<number | string | null>(null);
 
   // New Partner form state (Requirement 15)
   const [newPartnerName, setNewPartnerName] = useState('');
@@ -455,13 +456,31 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
 
   const handleConfirmReject = async () => {
     if (!rejectingUser) return;
-    await rejectUserInDb(
-      rejectingUser.id,
-      rejectionReasonText.trim() || 'عدم استيفاء الشروط أو الوثائق المطلوبة',
-      `${currentUser.firstName} (الأدمن)`
-    );
-    setRejectingUser(null);
-    setRejectionReasonText('');
+    const rejectedUser = rejectingUser;
+    const reason = rejectionReasonText.trim();
+    if (!reason) {
+      setSpecialistActionError('أدخل سبب الرفض قبل تأكيد القرار.');
+      return;
+    }
+    setRejectingSpecialistId(rejectedUser.id);
+    setSpecialistActionError('');
+    setSpecialistActionMessage('');
+    try {
+      await rejectUserInDb(
+        rejectedUser.id,
+        reason,
+        `${currentUser.firstName} (الأدمن)`
+      );
+      setSpecialistActionMessage(`تم رفض طلب ${rejectedUser.firstName} ${rejectedUser.lastName} وحفظ السبب.`);
+      setRejectingUser(null);
+      setRejectionReasonText('');
+    } catch (error) {
+      setSpecialistActionError(
+        error instanceof Error ? error.message : 'تعذر رفض طلب المختص. حاول مرة أخرى.'
+      );
+    } finally {
+      setRejectingSpecialistId(null);
+    }
   };
 
   // Export Report to CSV (Requirement 18)
@@ -1451,11 +1470,23 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                       </button>
                       <button
                         type="button"
-                        disabled={approvingSpecialistId === application.id}
+                        disabled={approvingSpecialistId === application.id || rejectingSpecialistId === application.id}
                         onClick={() => void handleApproveSpecialist(application)}
                         className="rounded-lg bg-[#25866D] px-3 py-2 text-[11px] font-bold text-white disabled:cursor-wait disabled:opacity-60"
                       >
                         {approvingSpecialistId === application.id ? 'جارٍ الاعتماد…' : 'اعتماد وتفعيل الخدمة'}
+                      </button>
+                      <button
+                        type="button"
+                        disabled={approvingSpecialistId === application.id || rejectingSpecialistId === application.id}
+                        onClick={() => {
+                          setSpecialistActionError('');
+                          setRejectionReasonText('');
+                          setRejectingUser(application);
+                        }}
+                        className="rounded-lg bg-[#A64842] px-3 py-2 text-[11px] font-bold text-white disabled:cursor-wait disabled:opacity-60"
+                      >
+                        رفض الطلب
                       </button>
                     </div>
                   </article>
@@ -2840,10 +2871,16 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                 rows={3}
                 value={rejectionReasonText}
                 onChange={(e) => setRejectionReasonText(e.target.value)}
+                maxLength={500}
                 placeholder="مثلاً: رقم الاعتماد غير مطابق للسجلات الرسمية، أو الوثائق المهنية المرفقة غير واضحة..."
                 className="w-full p-3 bg-white border border-[#CCD8D5] rounded-[10px] outline-hidden focus:border-[#A64842] text-xs text-[#203945]"
               />
             </div>
+            {specialistActionError && (
+              <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-xs font-bold text-red-800">
+                {specialistActionError}
+              </p>
+            )}
 
             <div className="flex items-center justify-end gap-2 pt-3 border-t border-[#E0E8E6] text-xs">
               <button
@@ -2859,10 +2896,11 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
               <button
                 type="button"
                 onClick={handleConfirmReject}
-                className="px-5 py-2 rounded-[10px] bg-[#A64842] hover:bg-[#8e3c37] text-white font-bold shadow-xs transition-colors flex items-center gap-1.5"
+                disabled={!rejectionReasonText.trim() || rejectingSpecialistId === rejectingUser.id}
+                className="px-5 py-2 rounded-[10px] bg-[#A64842] hover:bg-[#8e3c37] text-white font-bold shadow-xs transition-colors flex items-center gap-1.5 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 <X className="w-4 h-4" />
-                <span>تأكيد الرفض وحفظ السبب</span>
+                <span>{rejectingSpecialistId === rejectingUser.id ? 'جارٍ حفظ الرفض…' : 'تأكيد الرفض وحفظ السبب'}</span>
               </button>
             </div>
           </div>

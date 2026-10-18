@@ -173,7 +173,11 @@ export async function loadBootstrap(user) {
     `SELECT s.*, u.first_name AS provider_first_name, u.last_name AS provider_last_name
        FROM services s
        JOIN users u ON u.id = s.provider_id
+       LEFT JOIN specialist_profiles sp ON sp.user_id = u.id
+       LEFT JOIN centers c ON c.user_id = u.id
+       LEFT JOIN associations a ON a.user_id = u.id
       WHERE s.is_active = 1 AND u.status = 'active' AND COALESCE(u.is_verified, 0) = 1
+        AND COALESCE(sp.verification_status, c.verification_status, a.verification_status, 'approved') = 'approved'
       ORDER BY s.category, s.title`
   );
   const services = servicesResult.rows.map(mapService);
