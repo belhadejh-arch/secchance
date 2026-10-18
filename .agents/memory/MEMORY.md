@@ -1,3 +1,5 @@
 - [PostgreSQL import runtime](postgres-import-runtime.md) — synchronous imported routes cannot block on pg Promises; migrate to async handlers before replacing the worker bridge.
 - [Preview proxy shell checks](preview-proxy-shell-checks.md) — a development-domain curl can return 426 even while the local app and preview are healthy.
 - [Python package inspection](python-package-inspection.md) — installing Python tooling in this Node app can scaffold a Python project and alter `.replit`; inspect and clean up generated files.
+- [Specialist consultation visibility](specialist-approval-visibility.md) — Keep consultations unpublished until administration approves the specialist.
+- [App database target checks](app-database-target-checks.md) — If DDL succeeds but the app still reports missing tables, verify schema through the app's own connection.
