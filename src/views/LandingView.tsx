@@ -48,29 +48,48 @@ export const LandingView: React.FC<LandingViewProps> = ({
   specialistsCount = 24,
 }) => {
   const visiblePartners = partners.filter((p) => p.isVisible);
-  const legalService = services.find((item) => item.category === 'legal');
-  const requestLegalConsultation = () => {
-    if (legalService) onRequestService(legalService);
-    else onNavigate('help-options');
-  };
-  const mainServices = [
+  const paidServiceCategories = [
     {
       title: 'الاستشارة القانونية',
-      price: '500 دج',
-      description: 'استشارة مع مستشار قانوني مختص.',
+      category: 'legal',
+      description: 'استشارة مباشرة مع مستشار قانوني مؤهل.',
       icon: <Scale className="w-5 h-5" />,
-      action: requestLegalConsultation,
     },
     {
       title: 'الاستشارة النفسية',
-      price: '500 دج',
-      description: 'دعم نفسي يقدمه مختص.',
+      category: 'psychological',
+      description: 'دعم نفسي يقدمه مختص معتمد.',
       icon: <Brain className="w-5 h-5" />,
-      action: () => {
-        const service = services.find((item) => item.category === 'psychological');
-        if (service) onRequestService(service);
-      },
     },
+  ];
+  const mainServices = paidServiceCategories.map((category) => {
+    const offerings = services.filter((service) => service.category === category.category);
+    const singleOffering = offerings.length === 1 ? offerings[0] : undefined;
+
+    return {
+      ...category,
+      price: singleOffering
+        ? `${singleOffering.amountDzd.toLocaleString('ar-DZ')} دج`
+        : offerings.length > 1
+          ? `${offerings.length.toLocaleString('ar-DZ')} خدمات متاحة`
+          : 'غير متاحة حاليًا',
+      description: singleOffering
+        ? `${singleOffering.description}${singleOffering.providerName ? ` مقدم الخدمة: ${singleOffering.providerName}.` : ''}`
+        : offerings.length > 1
+          ? 'تتوفر عدة خدمات؛ استعرض القائمة لاختيار المختص والسعر المناسب.'
+          : 'لا يوجد مقدم خدمة معتمد متاح لهذه الاستشارة حاليًا.',
+      action: () => {
+        if (singleOffering) onRequestService(singleOffering);
+        else onNavigate('services');
+      },
+    };
+  });
+  const legalService = services.find((item) => item.category === 'legal');
+  const requestLegalConsultation = () => {
+    if (legalService) onRequestService(legalService);
+    else onNavigate('services');
+  };
+  const freeServices = [
     {
       title: 'العثور على مركز علاج قريب',
       price: 'مجاني',
