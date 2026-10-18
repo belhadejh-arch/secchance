@@ -399,6 +399,13 @@ export async function startPaymentInDb(
   return result.checkoutUrl;
 }
 
+export async function confirmDemoAppointmentInDb(requestId: string | number): Promise<void> {
+  await api(`/requests/${encodeURIComponent(String(requestId))}/demo-payment`, {
+    method: 'POST',
+  });
+  await refreshSnapshot();
+}
+
 export async function createAppointmentInDb(appt: Omit<Appointment, 'id'>): Promise<Appointment> {
   const request = (snapshot.requests || []).find((item) => item.caseNumber === appt.caseNumber);
   if (!request) throw new Error('لا يمكن إنشاء موعد مستقل عن طلب استشارة محفوظ.');

@@ -5,7 +5,7 @@ import { Appointment, CareRequest, PaymentTransaction } from '../types';
 interface BookingConfirmationViewProps {
   request: CareRequest;
   appointment: Appointment;
-  transaction: PaymentTransaction;
+  transaction?: PaymentTransaction;
   onEnterConsultation: () => void;
   onBackToRequests: () => void;
 }
@@ -66,7 +66,7 @@ export const BookingConfirmationView: React.FC<BookingConfirmationViewProps> = (
       'PRODID:-//SecChance//Appointment//AR',
       'CALSCALE:GREGORIAN',
       'BEGIN:VEVENT',
-      `UID:${escapeCalendarText(transaction.transactionId)}@secchance`,
+      `UID:${escapeCalendarText(transaction?.transactionId || request.caseNumber)}@secchance`,
       `DTSTAMP:${formatCalendarDate(new Date())}`,
       `DTSTART:${formatCalendarDate(startDate)}`,
     ];
@@ -75,7 +75,11 @@ export const BookingConfirmationView: React.FC<BookingConfirmationViewProps> = (
     }
     lines.push(
       `SUMMARY:${escapeCalendarText(`استشارة: ${request.serviceTitle}`)}`,
-      `DESCRIPTION:${escapeCalendarText(`المستشار: ${appointment.specialistName} | رقم العملية: ${transaction.transactionId}`)}`,
+      `DESCRIPTION:${escapeCalendarText(
+        transaction
+          ? `المستشار: ${appointment.specialistName} | رقم العملية: ${transaction.transactionId}`
+          : `المستشار: ${appointment.specialistName} | تأكيد موعد تجريبي، الدفع غير منفذ`
+      )}`,
       'END:VEVENT',
       'END:VCALENDAR'
     );
@@ -94,9 +98,12 @@ export const BookingConfirmationView: React.FC<BookingConfirmationViewProps> = (
     ['التاريخ', appointment.date],
     ['الساعة', appointment.time],
     ['المستشار', appointment.specialistName],
-    ['المبلغ', `${request.amountDzd.toLocaleString('ar-DZ')} دج`],
-    ['حالة الدفع', 'مدفوع ومؤكد'],
-    ['رقم العملية', transaction.transactionId],
+    [transaction ? 'المبلغ المدفوع' : 'المبلغ المطلوب', `${request.amountDzd.toLocaleString('ar-DZ')} دج`],
+    [
+      'حالة الدفع',
+      transaction ? 'مدفوع ومؤكد' : 'غير مدفوع — نموذج تجريبي فقط',
+    ],
+    ...(transaction ? [['رقم العملية', transaction.transactionId]] : []),
   ];
 
   return (
@@ -105,8 +112,12 @@ export const BookingConfirmationView: React.FC<BookingConfirmationViewProps> = (
         <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[#E8F4EF] text-[#25866D]">
           <CheckCircle2 className="h-8 w-8" aria-hidden="true" />
         </div>
-        <h1 className="text-xl font-black text-[#203945]">تم تأكيد حجزك بنجاح</h1>
-        <p className="text-xs text-[#203945]/70">تم تأكيد الموعد والدفع من الأنظمة المسجلة.</p>
+        <h1 className="text-xl font-black text-[#203945]">تم تأكيد حجز الموعد</h1>
+        <p className="text-xs text-[#203945]/70">
+          {transaction
+            ? 'تم تأكيد الموعد والدفع من الأنظمة المسجلة.'
+            : 'الموعد مسجل ومؤكد. هذا نموذج تجريبي؛ لم يُخصم أي مبلغ ولم تُحفظ بيانات البطاقة.'}
+        </p>
       </header>
 
       <dl className="divide-y divide-[#E0E8E6] rounded-[14px] border border-[#E0E8E6] bg-white px-4">
@@ -135,14 +146,16 @@ export const BookingConfirmationView: React.FC<BookingConfirmationViewProps> = (
           <MessageSquare className="h-4 w-4" />
           الدخول إلى الاستشارة
         </button>
-        <button
-          type="button"
-          onClick={() => setInvoiceOpen(true)}
-          className="flex items-center justify-center gap-2 rounded-[11px] border border-[#CCD8D5] bg-white px-3 py-3 text-xs font-bold text-[#203945] hover:bg-[#F3F7F6]"
-        >
-          <FileText className="h-4 w-4" />
-          عرض الفاتورة
-        </button>
+        {transaction && (
+          <button
+            type="button"
+            onClick={() => setInvoiceOpen(true)}
+            className="flex items-center justify-center gap-2 rounded-[11px] border border-[#CCD8D5] bg-white px-3 py-3 text-xs font-bold text-[#203945] hover:bg-[#F3F7F6]"
+          >
+            <FileText className="h-4 w-4" />
+            عرض الفاتورة
+          </button>
+        )}
         <button
           type="button"
           disabled={!canAddToCalendar}

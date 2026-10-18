@@ -25,7 +25,6 @@ import { PartnerOrganization, ServiceItem, User } from '../types';
 interface LandingViewProps {
   onNavigate: (view: string) => void;
   onNewCase: () => void;
-  onFamilyHelp: () => void;
   onRequestService: (service: ServiceItem) => void;
   onOpenDirectory: (tab: 'centers' | 'associations') => void;
   services: ServiceItem[];
@@ -39,7 +38,6 @@ interface LandingViewProps {
 export const LandingView: React.FC<LandingViewProps> = ({
   onNavigate,
   onNewCase,
-  onFamilyHelp,
   onRequestService,
   onOpenDirectory,
   services,
@@ -126,14 +124,6 @@ export const LandingView: React.FC<LandingViewProps> = ({
               >
                 <PlusCircle className="w-4 h-4" />
                 <span>أحتاج إلى مساعدة</span>
-              </button>
-
-              <button
-                onClick={onFamilyHelp}
-                className="flex items-center justify-center gap-2 py-2.5 px-4 rounded-[12px] bg-white border border-[#1766A6] text-[#1766A6] hover:bg-[#EAF3F8] font-bold text-xs sm:text-sm transition-colors shadow-2xs"
-              >
-                <Users className="w-4 h-4" />
-                <span>أنا أحد أفراد الأسرة</span>
               </button>
             </div>
           </div>

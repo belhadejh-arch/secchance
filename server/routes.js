@@ -740,7 +740,7 @@ async function setAppointmentStatus(appointmentId, status, user, req) {
   });
 }
 
-function caseDocumentRecord(row) {
+ function caseDocumentRecord(row) {
   return {
     id: Number(row.id),
     caseNumber: row.case_number,

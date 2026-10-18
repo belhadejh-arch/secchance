@@ -35,6 +35,7 @@ import {
   updateCareRequestInDb,
   addSpecialistReportInDb,
   startPaymentInDb,
+  confirmDemoAppointmentInDb,
   sendMessageInDb,
   updateAccountSettingsInDb,
 } from './services/dbService';
@@ -73,7 +74,6 @@ function findProviderConfirmedBooking(
   if (
     !request ||
     request.status !== 'APPOINTMENT_CONFIRMED' ||
-    request.paymentStatus !== 'PAID' ||
     !request.appointmentDate ||
     !request.appointmentTime
   ) {
@@ -90,6 +90,12 @@ function findProviderConfirmedBooking(
       String(item.clientId) === String(request.clientId) &&
       String(item.providerId) === String(request.providerId)
   );
+  const isDemoConfirmation =
+    import.meta.env.DEV && request.paymentStatus === 'PENDING';
+  if ((request.paymentStatus === 'PAID' && !transaction) || (!transaction && !isDemoConfirmation)) {
+    return null;
+  }
+
   const appointment = appointments.find(
     (item) =>
       item.caseNumber === request.caseNumber &&
@@ -100,7 +106,7 @@ function findProviderConfirmedBooking(
       String(item.specialistId) === String(request.providerId)
   );
 
-  return transaction && appointment ? { request, transaction, appointment } : null;
+  return appointment ? { request, transaction, appointment } : null;
 }
 
 export function App() {
@@ -304,12 +310,6 @@ export function App() {
     handleNavigate('help-options');
   };
 
-  const handleFamilyHelpCTA = () => {
-    setPreselectedServiceId(undefined);
-    setRequestTargetPerson('family');
-    handleNavigate('help-options');
-  };
-
   const handleStartNeedsAssessment = () => {
     setAssessmentAnswers(null);
     handleNavigate('needs-assessment');
@@ -456,6 +456,10 @@ export function App() {
     window.location.assign(checkoutUrl);
   };
 
+  const handleConfirmDemoPayment = async (requestId: number | string) => {
+    await confirmDemoAppointmentInDb(requestId);
+  };
+
   // Add specialist report in database
   const handleAddReport = async (
     caseNumber: string,
@@ -546,7 +550,6 @@ export function App() {
             <LandingView
               onNavigate={handleNavigate}
               onNewCase={handleNewCaseCTA}
-              onFamilyHelp={handleFamilyHelpCTA}
               onRequestService={handleRequestService}
               onOpenDirectory={handleOpenDirectory}
               services={services}
@@ -735,7 +738,9 @@ export function App() {
           {currentView === 'payment' && (
             <PaymentView
               request={paymentTargetRequest}
+              demoMode={import.meta.env.DEV}
               onProcessPayment={handleProcessPayment}
+              onConfirmDemoPayment={handleConfirmDemoPayment}
               onCancel={() => handleNavigate('portal')}
             />
           )}
