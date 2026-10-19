@@ -3,8 +3,20 @@ import assert from 'node:assert/strict';
 import http from 'node:http';
 import fs from 'node:fs/promises';
 import crypto from 'node:crypto';
+import { resolveDatabaseUrl } from './dbConfig.js';
 
 // Every test run uses its own schema; never delete or rewrite real user records.
+test('production consistently prefers its DATABASE_URL; development may use Neon override', () => {
+  assert.equal(
+    resolveDatabaseUrl({ NODE_ENV: 'production', DATABASE_URL: 'production-db', NEON_DATABASE_URL: 'other-db' }),
+    'production-db'
+  );
+  assert.equal(
+    resolveDatabaseUrl({ NODE_ENV: 'development', DATABASE_URL: 'replit-db', NEON_DATABASE_URL: 'shared-neon-db' }),
+    'shared-neon-db'
+  );
+});
+
 test('account approval, service publication and demo booking lifecycle', async () => {
   const schema = `scp_test_${crypto.randomBytes(8).toString('hex')}`;
   const oldOptions = process.env.PGOPTIONS;

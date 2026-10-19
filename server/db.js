@@ -1,11 +1,8 @@
 import pg from 'pg';
+import { resolveDatabaseUrl } from './dbConfig.js';
 
 const { Pool } = pg;
-const connectionString = process.env.NEON_DATABASE_URL || process.env.DATABASE_URL;
-
-if (!connectionString) {
-  throw new Error('Set NEON_DATABASE_URL or DATABASE_URL to start the platform API.');
-}
+const connectionString = resolveDatabaseUrl();
 
 export const pool = new Pool({
   connectionString,

@@ -2391,9 +2391,9 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
 
             <div className="bg-white p-4 rounded-[14px] border border-[#CCD8D5] space-y-2">
               <h4 className="font-bold text-sm text-[#203945]">☁️ قاعدة البيانات والتخزين السحابي</h4>
-              <p className="text-[#203945]/70 text-[11px]">مزامنة سحابية حية (Real-Time Firestore Sync) مع قواعد أمان RBAC.</p>
+              <p className="text-[#203945]/70 text-[11px]">الحسابات والخدمات والطلبات تُقرأ وتُحفظ عبر مصدر PostgreSQL واحد من خلال خادم المنصة.</p>
               <span className="text-[10px] text-[#25866D] font-bold bg-[#E8F4EF] px-2 py-0.5 rounded-md inline-block">
-                متصل وقيد العمل بنجاح
+                مصدر البيانات الموحد
               </span>
             </div>
 

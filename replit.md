@@ -2,9 +2,10 @@
 
 ## التشغيل المحلي
 
-يحتاج الخادم إلى `NEON_DATABASE_URL` لقاعدة Neon خارجية، أو `DATABASE_URL`
-لقاعدة PostgreSQL التي تديرها Replit. عند ضبط `NEON_DATABASE_URL` يستخدمها
-الخادم بدل `DATABASE_URL` دون تعديل إعداد Replit المُدار. شغّل:
+يحتاج الخادم إلى `DATABASE_URL` أو `NEON_DATABASE_URL`. في التطوير، يمكن
+لـ`NEON_DATABASE_URL` اختيار قاعدة Neon بدل قاعدة Replit المُدارة. في الإنتاج،
+يكون `DATABASE_URL` هو المصدر المعتمد دائمًا عند ضبطه؛ لا تضبط عنوان قاعدة
+مختلفًا في `NEON_DATABASE_URL` على Render. شغّل:
 
 ```bash
 npm install
@@ -21,7 +22,8 @@ PORT=5000 npm run dev
 
 - الـBackend هو خادم Node.js في `server/index.js` ويخدم واجهة Vite في التطوير.
 - الـFrontend هو Vite/React ويُبنى إلى `dist/`.
-- تخزين البيانات بالكامل في PostgreSQL؛ لا يعتمد التطبيق على ملف SQLite محلي.
+- تخزين الحسابات والخدمات والطلبات بالكامل في PostgreSQL واحد يستخدمه خادم API؛
+  لا تُستخدم Firestore مصدرًا بديلًا للحسابات.
 - مخطط قاعدة البيانات والبيانات المرجعية في `server/schema.sql`. يجب تطبيقه على قاعدة التطوير قبل أول تشغيل؛ لا ينفّذ الخادم أوامر إنشاء الجداول تلقائيًا.
 - ينشئ الخادم حساب الإدارة عند ضبط `ADMIN_EMAIL` و`ADMIN_PASSWORD` في Secrets؛ لا توجد كلمة مرور افتراضية.
 - لا توجد حسابات أو ملفات حالات تجريبية مزروعة في قاعدة البيانات.

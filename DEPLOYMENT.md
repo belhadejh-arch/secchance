@@ -21,6 +21,10 @@ ADMIN_PASSWORD=<كلمة مرور قوية جديدة>
 ADMIN_PHONE=0550000000
 ```
 
+في Render يستخدم الخادم `DATABASE_URL` كمصدر PostgreSQL الأساسي حتى لو وُجد
+`NEON_DATABASE_URL`. لا تضبطهما على قاعدتين مختلفتين؛ جميع عمليات التسجيل
+والقراءة الإدارية والخدمات يجب أن تمر عبر قاعدة واحدة.
+
 في Replit، يمكن إبقاء `DATABASE_URL` المُدار كما هو وإضافة `NEON_DATABASE_URL`
 إلى Secrets؛ عند وجوده يستخدم الخادم اتصال Neon بدل قاعدة Replit.
 
