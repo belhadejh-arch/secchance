@@ -179,7 +179,7 @@ const AdminHomeOverview: React.FC<AdminHomeOverviewProps> = ({
     );
     const associations = users.filter((user) => user.roleSlug === "association");
     const revenue = transactions
-      .filter((transaction) => transaction.status === "SUCCESSFUL")
+      .filter((transaction) => transaction.status === "SUCCESSFUL" && transaction.paymentMethod !== "DEMO")
       .reduce((total, transaction) => total + (Number(transaction.amountDzd) || 0), 0);
 
     return {

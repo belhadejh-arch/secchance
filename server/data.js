@@ -274,7 +274,7 @@ export async function loadBootstrap(user) {
     serviceTitle: row.service_title,
     amountDzd: Number(row.amount_dzd),
     currency: row.currency.toUpperCase(),
-    paymentMethod: row.payment_method === 'cib' ? 'CIB' : 'EDAHABIA',
+    paymentMethod: row.payment_method === 'DEMO' ? 'DEMO' : row.payment_method.toLowerCase() === 'cib' ? 'CIB' : 'EDAHABIA',
     transactionId: row.gateway_transaction_id || '',
     caseNumber: row.case_number,
     status:

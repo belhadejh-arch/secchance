@@ -16,6 +16,7 @@ import {
 } from './security.js';
 import { loadBootstrap, findRequestForUser, professionalRoles } from './data.js';
 import { createChargilyCheckout, handleChargilyWebhook } from './payments.js';
+import { demoPaymentsEnabled } from './paymentMode.js';
 
 const COOKIE_NAME = 'scp_session';
 const allowedPriorities = new Set(['Critical', 'High', 'Medium', 'Low']);
@@ -202,7 +203,7 @@ async function roleIdFor(roleSlug, client) {
 }
 
 function accountStatus(roleSlug) {
-  return providerRoles.has(roleSlug) ? 'pending_approval' : 'active';
+  return 'pending_approval';
 }
 
 async function insertProfessionalProfile(client, userId, input, approved = false) {
@@ -282,6 +283,9 @@ async function createUser(input, actor, req, selfRegistration = false) {
   const requestedStatus = selfRegistration
     ? accountStatus(roleSlug)
     : String(input.status || accountStatus(roleSlug));
+  if (!['active', 'pending', 'pending_approval', 'inactive'].includes(requestedStatus)) {
+    throw new HttpError(400, 'حالة الحساب غير صالحة.');
+  }
   const adminApproved = !selfRegistration && actor?.role_slug === 'admin' && requestedStatus === 'active';
 
   let created;
@@ -312,7 +316,7 @@ async function createUser(input, actor, req, selfRegistration = false) {
       if (providerRoles.has(roleSlug)) await insertProfessionalProfile(client, id, input, adminApproved);
       if (adminApproved) await saveDefaultConsultationService(client, { id, role_slug: roleSlug });
 
-      if (selfRegistration && providerRoles.has(roleSlug)) {
+      if (selfRegistration) {
         const administrators = await client.query(
           `SELECT id FROM users WHERE role_slug = 'admin' AND status = 'active'`
         );
@@ -321,7 +325,7 @@ async function createUser(input, actor, req, selfRegistration = false) {
           await addNotification(
             client,
             Number(administrator.id),
-            'طلب انضمام مهني جديد',
+            'طلب تفعيل حساب جديد',
             `وصل طلب انضمام جديد من ${applicantName} (${roleSlug}) ويحتاج إلى مراجعة الإدارة.`,
             'SYSTEM'
           );
@@ -656,12 +660,15 @@ async function createRequest(body, user, req) {
       throw new HttpError(400, 'اختر وقتًا يسمح بإكمال مدة الاستشارة في اليوم نفسه.');
     }
     const endTime = `${String(Math.floor(endMinutes / 60) % 24).padStart(2, '0')}:${String(endMinutes % 60).padStart(2, '0')}`;
+    // Serialize bookings even when no appointment row exists yet.
+    await client.query('SELECT id FROM users WHERE id = $1 FOR UPDATE', [providerId]);
     const conflict = await client.query(
       `SELECT id FROM appointments
-        WHERE specialist_id = $1 AND appointment_date = $2 AND start_time = $3
+        WHERE specialist_id = $1 AND appointment_date = $2
+          AND start_time < $4 AND end_time > $3
           AND status IN ('PENDING', 'CONFIRMED')
         FOR UPDATE`,
-      [providerId, date, startTime]
+      [providerId, date, startTime, endTime]
     );
     if (conflict.rowCount) throw new HttpError(409, 'اختير هذا الموعد للتو. اختر وقتًا آخر.');
     const appointment = await client.query(
@@ -674,12 +681,13 @@ async function createRequest(body, user, req) {
     );
     appointmentId = Number(appointment.rows[0].id);
 
+    const initialStatus = demoPaymentsEnabled() ? 'WAITING_PAYMENT' : 'PENDING_PROVIDER';
     const requestResult = await client.query(
       `INSERT INTO service_requests
          (case_file_id, requester_id, provider_id, service_id, addiction_type_id,
           amount_dzd, payment_status, status, priority, description,
           appointment_id, created_at, updated_at)
-       VALUES ($1, $2, $3, $4, $5, $6, 'PENDING', 'PENDING_PROVIDER', $7, $8, $9, NOW(), NOW())
+       VALUES ($1, $2, $3, $4, $5, $6, 'PENDING', $10, $7, $8, $9, NOW(), NOW())
        RETURNING id`,
       [
         caseFileId,
@@ -691,6 +699,7 @@ async function createRequest(body, user, req) {
         priority,
         encryptValue(description),
         appointmentId,
+        initialStatus,
       ]
     );
     const requestId = Number(requestResult.rows[0].id);
@@ -707,8 +716,8 @@ async function createRequest(body, user, req) {
     );
     await client.query(
       `INSERT INTO request_history (request_id, user_id, action, from_status, to_status, details, created_at)
-       VALUES ($1, $2, 'REQUEST_CREATED', NULL, 'PENDING_PROVIDER', 'أرسل المستفيد طلب استشارة مع الموافقة على معالجة بياناتها.', NOW())`,
-      [requestId, user.id]
+       VALUES ($1, $2, 'REQUEST_CREATED', NULL, $3, 'أرسل المستفيد طلب استشارة مع الموافقة على معالجة بياناتها.', NOW())`,
+      [requestId, user.id, initialStatus]
     );
     const clientName = `${user.first_name} ${user.last_name}`.trim();
     await addNotification(
@@ -726,8 +735,8 @@ async function createRequest(body, user, req) {
 }
 
 async function confirmDemoAppointment(requestId, user, req) {
-  if (process.env.NODE_ENV === 'production') {
-    throw new HttpError(403, 'نموذج تأكيد الموعد التجريبي غير متاح في الإنتاج.');
+  if (!demoPaymentsEnabled()) {
+    throw new HttpError(403, 'الدفع التجريبي غير متاح عند تفعيل الدفع الحقيقي.');
   }
   requireActive(user);
 
@@ -748,28 +757,46 @@ async function confirmDemoAppointment(requestId, user, req) {
     }
     if (
       booking.request_status === 'APPOINTMENT_CONFIRMED' &&
-      booking.payment_status === 'PENDING' &&
+      booking.payment_status === 'PAID' &&
       booking.appointment_status === 'CONFIRMED'
     ) {
       return;
     }
     if (
-      booking.request_status !== 'WAITING_PAYMENT' ||
+      !['WAITING_PAYMENT', 'ACCEPTED', 'PENDING_PROVIDER', 'APPOINTMENT_CONFIRMED'].includes(booking.request_status) ||
       booking.payment_status !== 'PENDING' ||
       Number(booking.amount_dzd) <= 0 ||
-      booking.appointment_status !== 'PENDING' ||
+      !['PENDING', 'CONFIRMED'].includes(booking.appointment_status) ||
       !booking.appointment_date ||
       !booking.start_time
     ) {
       throw new HttpError(409, 'لا يمكن تأكيد الموعد التجريبي في الحالة الحالية.');
     }
+    const provider = await client.query(
+      `SELECT id FROM users WHERE id = $1 AND status = 'active' AND is_verified = 1 FOR SHARE`,
+      [booking.provider_id]
+    );
+    if (!provider.rowCount) throw new HttpError(409, 'حساب مقدم الخدمة غير نشط حاليًا.');
 
+    const transactionId = `DEMO-${crypto.randomUUID()}`;
+    const payment = await client.query(
+      `INSERT INTO payments
+         (request_id, user_id, provider_id, amount_dzd, payment_method, transaction_id, status, paid_at)
+       VALUES ($1, $2, $3, $4, 'DEMO', $5, 'PAID', NOW()) RETURNING id`,
+      [requestId, user.id, booking.provider_id, booking.amount_dzd, transactionId]
+    );
+    await client.query(
+      `INSERT INTO payment_transactions
+         (payment_id, gateway, gateway_transaction_id, amount_dzd, status, event_id)
+       VALUES ($1, 'demo', $2, $3, 'PAID', $2)`,
+      [payment.rows[0].id, transactionId, booking.amount_dzd]
+    );
     await client.query(
       `UPDATE appointments SET status = 'CONFIRMED' WHERE id = $1`,
       [booking.appointment_id]
     );
     await client.query(
-      `UPDATE service_requests SET status = 'APPOINTMENT_CONFIRMED', updated_at = NOW()
+      `UPDATE service_requests SET status = 'APPOINTMENT_CONFIRMED', payment_status = 'PAID', updated_at = NOW()
         WHERE id = $1`,
       [requestId]
     );
@@ -778,7 +805,7 @@ async function confirmDemoAppointment(requestId, user, req) {
         WHERE id = $1`,
       [booking.case_file_id]
     );
-    const detail = 'تأكيد موعد تجريبي؛ لم يُنفّذ الدفع ولم تُرسل أو تُحفظ بيانات البطاقة.';
+    const detail = 'دفع تجريبي ناجح وتأكيد الموعد؛ لم يتم تحصيل أموال حقيقية أو حفظ بيانات بطاقة.';
     await client.query(
       `INSERT INTO request_history (request_id, user_id, action, from_status, to_status, details, created_at)
        VALUES ($1, $2, 'DEMO_APPOINTMENT_CONFIRMED', $3, 'APPOINTMENT_CONFIRMED', $4, NOW())`,
@@ -789,13 +816,14 @@ async function confirmDemoAppointment(requestId, user, req) {
       client,
       booking.provider_id,
       'تأكيد موعد تجريبي',
-      'تم تأكيد الموعد في النموذج التجريبي. حالة الدفع غير مدفوع.',
+      'تم تسجيل دفع تجريبي ناجح وتأكيد الموعد دون تحصيل أموال حقيقية.',
       'REQUEST',
       `/requests/${requestId}`
     );
+    await addNotification(client, user.id, 'تأكيد الدفع التجريبي والموعد', detail, 'PAYMENT', `/requests/${requestId}`);
   });
 
-  return { ok: true, paymentStatus: 'PENDING', appointmentStatus: 'CONFIRMED' };
+  return { ok: true, paymentStatus: 'PAID', appointmentStatus: 'CONFIRMED' };
 }
 
 async function setAppointmentStatus(appointmentId, status, user, req) {
@@ -1175,7 +1203,9 @@ async function changeUser(id, body, user, req) {
         client,
         Number(id),
         'تم اعتماد الحساب',
-        'تم اعتماد حسابك وتفعيل الاستشارة. أضف مواعيدك المتاحة من لوحة المختص حتى يتمكن المستفيدون من الحجز.',
+        providerRoles.has(target.role_slug)
+          ? 'تم اعتماد حسابك وتفعيل الاستشارة. أضف مواعيدك المتاحة من لوحة المختص حتى يتمكن المستفيدون من الحجز.'
+          : 'تم تفعيل حسابك. يمكنك الآن اختيار الخدمات وحجز موعد والدفع.',
         'SYSTEM',
         '/portal'
       );
@@ -1607,6 +1637,9 @@ export async function dispatchApi(req, res) {
     await pool.query('SELECT 1');
     return json(res, 200, { ok: true });
   }
+  if (method === 'GET' && pathname === '/api/v1/public/config') {
+    return json(res, 200, { demoPayments: demoPaymentsEnabled() });
+  }
   if (method === 'GET' && pathname === '/api/v1/public/directory') {
     return json(res, 200, await getPublicDirectory(url));
   }
@@ -1620,7 +1653,8 @@ export async function dispatchApi(req, res) {
     return serveLegalReferencePdf(url.searchParams.get('id'), res);
   }
   if (method === 'PATCH' && pathname === '/api/v1/profile/availability') {
-    return json(res, 200, await updateAvailability(await bodyJson(req), user, req));
+    const account = await requireUser(req);
+    return json(res, 200, await updateAvailability(await bodyJson(req), account, req));
   }
   if (method === 'POST' && pathname === '/api/v1/payments/webhook') {
     const bytes = await rawBody(req, 256 * 1024);

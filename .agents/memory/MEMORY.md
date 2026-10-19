@@ -3,3 +3,4 @@
 - [Python package inspection](python-package-inspection.md) — installing Python tooling in this Node app can scaffold a Python project and alter `.replit`; inspect and clean up generated files.
 - [Specialist consultation visibility](specialist-approval-visibility.md) — Keep consultations unpublished until administration approves the specialist.
 - [App database target checks](app-database-target-checks.md) — If DDL succeeds but the app still reports missing tables, verify schema through the app's own connection.
+- [Demo payment requirement](demo-payment-requirement.md) — Users require a working simulated payment and confirmed booking, not an appointment-only mockup.

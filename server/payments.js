@@ -2,6 +2,7 @@ import crypto from 'node:crypto';
 import { pool, withTransaction } from './db.js';
 import { HttpError, encryptValue } from './security.js';
 import { findRequestForUser } from './data.js';
+import { demoPaymentsEnabled } from './paymentMode.js';
 
 function publicUrl(base, path) {
   if (!base || !/^https:\/\//i.test(base)) {
@@ -36,6 +37,9 @@ function chargilySecret(mode = chargilyMode()) {
 }
 
 export async function createChargilyCheckout(requestId, user, method) {
+  if (demoPaymentsEnabled()) {
+    throw new HttpError(409, 'المنصة في وضع الدفع التجريبي. استخدم زر الدفع التجريبي لتأكيد الموعد.');
+  }
   const mode = chargilyMode();
   const secret = chargilySecret(mode);
   if (!secret) {

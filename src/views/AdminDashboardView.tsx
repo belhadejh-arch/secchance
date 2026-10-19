@@ -281,7 +281,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
   const specialists = users.filter((u) =>
     ['psychologist', 'doctor', 'lawyer', 'legal_advisor', 'clinic', 'hospital', 'treatment_center', 'association'].includes(u.roleSlug)
   );
-  const pendingProviderApplications = specialists.filter((u) =>
+  const pendingProviderApplications = users.filter((u) =>
     ['pending', 'pending_approval'].includes(u.status)
   );
   const totalSpecialists = specialists.length;
@@ -295,7 +295,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
   const rejectedCases = requests.filter((r) => r.status === 'REJECTED').length;
   const upcomingAppts = appointments.filter((a) => a.status === 'CONFIRMED' || a.status === 'PENDING').length;
   const totalPaymentsAmount = transactions
-    .filter((t) => t.status === 'SUCCESSFUL')
+    .filter((t) => t.status === 'SUCCESSFUL' && t.paymentMethod !== 'DEMO')
     .reduce((sum, t) => sum + (t.amountDzd || 0), 0);
   const reviewNeededRequests = requests.filter(
     (r) => r.priority === 'Critical' || r.status === 'PENDING_PROVIDER'
@@ -440,7 +440,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
     setSpecialistActionMessage('');
     try {
       await approveUserInDb(user.id, `${currentUser.firstName} (الأدمن)`);
-      setSpecialistActionMessage(`تم اعتماد طلب ${user.firstName} ${user.lastName} وتفعيل خدمته المدفوعة.`);
+      setSpecialistActionMessage(`تم تفعيل حساب ${user.firstName} ${user.lastName} بنجاح.`);
     } catch (error) {
       setSpecialistActionError(
         error instanceof Error ? error.message : 'تعذر اعتماد طلب المختص. حاول مرة أخرى.'
@@ -1250,6 +1250,23 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
       {/* ===================== TAB 5: USERS MANAGEMENT ===================== */}
       {activeTab === 'users' && (
         <div className="bg-[#FBFDFC] border border-[#E0E8E6] rounded-[20px] p-5 shadow-xs space-y-4">
+          <div className="rounded-xl bg-amber-50 p-3 space-y-2">
+            {specialistActionError && <p role="alert" className="text-red-700 text-xs">{specialistActionError}</p>}
+            {specialistActionMessage && <p role="status" className="text-green-800 text-xs">{specialistActionMessage}</p>}
+            <h4 className="font-bold text-sm">حسابات بانتظار التفعيل ({pendingProviderApplications.length})</h4>
+            {pendingProviderApplications.map((account) => (
+              <div key={account.id} className="flex items-center justify-between gap-2 text-xs">
+                <span>{account.firstName} {account.lastName} — {account.roleSlug}</span>
+                <button
+                  onClick={() => handleApproveSpecialist(account)}
+                  disabled={String(approvingSpecialistId) === String(account.id)}
+                  className="rounded-lg bg-[#1766A6] px-3 py-2 text-white font-bold disabled:opacity-50"
+                >
+                  تفعيل الحساب
+                </button>
+              </div>
+            ))}
+          </div>
           <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pb-3 border-b border-[#E0E8E6]">
             <div className="relative w-full sm:w-72">
               <input
@@ -1424,7 +1441,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
           <section className="space-y-3 rounded-[16px] border border-amber-200 bg-amber-50/60 p-4">
             <div className="flex items-center justify-between gap-3">
               <div>
-                <h4 className="text-sm font-black text-[#203945]">طلبات انضمام المختصين والمؤسسات</h4>
+                <h4 className="text-sm font-black text-[#203945]">طلبات تفعيل الحسابات الجديدة</h4>
                 <p className="mt-1 text-[11px] text-[#203945]/70">
                   تظهر هنا طلبات التسجيل المرسلة من النماذج العامة للمراجعة والاعتماد.
                 </p>
@@ -2063,7 +2080,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                     <td className="p-3 font-bold text-[#203945]">{t.clientName}</td>
                     <td className="p-3 text-[#203945]/80">{t.serviceTitle}</td>
                     <td className="p-3 font-bold text-[#25866D]">{t.amountDzd.toLocaleString('ar-DZ')} دج</td>
-                    <td className="p-3 font-semibold">{t.paymentMethod === 'EDAHABIA' ? 'البطاقة الذهبية' : 'بطاقة CIB'}</td>
+                    <td className="p-3 font-semibold">{t.paymentMethod === 'DEMO' ? 'دفع تجريبي — دون تحصيل' : t.paymentMethod === 'EDAHABIA' ? 'البطاقة الذهبية' : 'بطاقة CIB'}</td>
                     <td className="p-3">
                       <span className="px-2 py-0.5 rounded-full bg-[#E8F4EF] text-[#25866D] text-[10px] font-bold">
                         {t.status === 'SUCCESSFUL' ? 'ناجحة ومؤكدة' : t.status}

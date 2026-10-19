@@ -117,7 +117,7 @@ export interface PaymentTransaction {
   serviceTitle: string;
   amountDzd: number;
   currency: string;
-  paymentMethod: 'EDAHABIA' | 'CIB';
+  paymentMethod: 'EDAHABIA' | 'CIB' | 'DEMO';
   transactionId: string;
   caseNumber?: string;
   status: 'SUCCESSFUL' | 'FAILED' | 'PENDING' | 'REFUNDED' | 'CANCELLED';

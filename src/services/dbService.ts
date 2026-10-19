@@ -578,6 +578,10 @@ export async function getPublicServices(): Promise<BootstrapData['services']> {
   return api('/public/services');
 }
 
+export async function getPaymentConfig(): Promise<{ demoPayments: boolean }> {
+  return api('/public/config');
+}
+
 export async function saveAvailabilityInDb(
   slots: ConsultationAvailabilitySlot[]
 ): Promise<ConsultationAvailabilitySlot[]> {

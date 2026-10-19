@@ -229,7 +229,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     }
 
     const typeConfig = ACCOUNT_TYPES.find((t) => t.id === selectedType)!;
-    const isDirectActive = selectedType === 'user';
 
     // Validate type specific fields
     if (selectedType === 'user') {
@@ -265,7 +264,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
     setLoading(true);
     try {
-      const newUser = await createUserInDb({
+      await createUserInDb({
         firstName:
           selectedType === 'clinic' || selectedType === 'hospital' || selectedType === 'association'
             ? regOrgName.trim()
@@ -279,7 +278,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         wilayaName: regWilaya,
         roleSlug: typeConfig.role,
         accountType: selectedType,
-        status: isDirectActive ? 'active' : 'pending',
+        status: 'pending_approval',
         password: regPassword,
         birthDate: regBirthDate.trim() || '',
         specialty:
@@ -296,15 +295,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         documents: regUploadedDocName ? [regUploadedDocName] : [],
       });
 
-      if (isDirectActive) {
-        setSuccessMsg('تم إنشاء الحساب بنجاح! جاري تسجيل الدخول...');
-        setTimeout(() => {
-          onLogin(newUser);
-          onClose();
-        }, 1000);
-      } else {
+      {
         setSuccessMsg(
-          `تم تسجيل طلب إنشاء حسابك كـ «${typeConfig.title}» بنجاح! حسابك الآن في حالة «قيد المراجعة والتدقيق» من قبل إدارة المنصة وسيتم تفعيله فور التحقق من الاعتمادات.`
+          `تم تسجيل طلب إنشاء حسابك كـ «${typeConfig.title}» بنجاح! يظهر حسابك الآن للإدارة وسيتم تفعيله بعد موافقتها.`
         );
         setTimeout(() => {
           setMode('login');

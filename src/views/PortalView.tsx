@@ -570,7 +570,7 @@ export const PortalView: React.FC<PortalViewProps> = ({
                         {transaction.amountDzd.toLocaleString('ar-DZ')} {transaction.currency}
                       </span>
                       <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${succeeded ? 'bg-emerald-50 text-emerald-700' : 'bg-[#F3F7F6] text-[#52656D]'}`}>
-                        {statusLabels[transaction.status]}
+                        {transaction.paymentMethod === 'DEMO' ? 'دفع تجريبي — دون خصم' : statusLabels[transaction.status]}
                       </span>
                     </div>
                   </article>
@@ -817,7 +817,7 @@ export const PortalView: React.FC<PortalViewProps> = ({
                 <h3 className="font-black text-sm text-[#203945]">إيصال الدفع</h3>
               </div>
               <span className="text-[10px] font-mono bg-[#E8F4EF] text-[#25866D] px-2 py-0.5 rounded-full font-bold">
-                {selectedInvoice.status === 'SUCCESSFUL' ? 'مدفوعة' : selectedInvoice.status}
+                {selectedInvoice.paymentMethod === 'DEMO' ? 'إيصال تجريبي — دون تحصيل' : selectedInvoice.status === 'SUCCESSFUL' ? 'مدفوعة' : selectedInvoice.status}
               </span>
             </div>
 

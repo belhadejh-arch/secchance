@@ -101,7 +101,7 @@ export const BookingConfirmationView: React.FC<BookingConfirmationViewProps> = (
     [transaction ? 'المبلغ المدفوع' : 'المبلغ المطلوب', `${request.amountDzd.toLocaleString('ar-DZ')} دج`],
     [
       'حالة الدفع',
-      transaction ? 'مدفوع ومؤكد' : 'غير مدفوع — نموذج تجريبي فقط',
+      transaction?.paymentMethod === 'DEMO' ? 'دفع تجريبي ناجح — دون خصم أموال' : transaction ? 'مدفوع ومؤكد' : 'غير مدفوع',
     ],
     ...(transaction ? [['رقم العملية', transaction.transactionId]] : []),
   ];
@@ -114,7 +114,9 @@ export const BookingConfirmationView: React.FC<BookingConfirmationViewProps> = (
         </div>
         <h1 className="text-xl font-black text-[#203945]">تم تأكيد حجز الموعد</h1>
         <p className="text-xs text-[#203945]/70">
-          {transaction
+          {transaction?.paymentMethod === 'DEMO'
+            ? 'تم تأكيد الموعد بدفع تجريبي ناجح. لم يُخصم أي مبلغ حقيقي.'
+            : transaction
             ? 'تم تأكيد الموعد والدفع من الأنظمة المسجلة.'
             : 'الموعد مسجل ومؤكد. هذا نموذج تجريبي؛ لم يُخصم أي مبلغ ولم تُحفظ بيانات البطاقة.'}
         </p>

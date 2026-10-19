@@ -18,6 +18,7 @@ import {
   initializeDatabase,
   getCurrentUser,
   getPublicServices,
+  getPaymentConfig,
   logoutUser,
   subscribeToUsers,
   subscribeToServices,
@@ -90,9 +91,7 @@ function findProviderConfirmedBooking(
       String(item.clientId) === String(request.clientId) &&
       String(item.providerId) === String(request.providerId)
   );
-  const isDemoConfirmation =
-    import.meta.env.DEV && request.paymentStatus === 'PENDING';
-  if ((request.paymentStatus === 'PAID' && !transaction) || (!transaction && !isDemoConfirmation)) {
+  if (request.paymentStatus !== 'PAID' || !transaction) {
     return null;
   }
 
@@ -121,6 +120,7 @@ export function App() {
   // Database-backed state
   const [users, setUsers] = useState<User[]>([]);
   const [services, setServices] = useState<ServiceItem[]>([]);
+  const [demoPayments, setDemoPayments] = useState(false);
   const [careRequests, setCareRequests] = useState<CareRequest[]>([]);
   const [paymentTransactions, setPaymentTransactions] = useState<PaymentTransaction[]>([]);
   const [specialistReports, setSpecialistReports] = useState<SpecialistReport[]>([]);
@@ -145,6 +145,9 @@ export function App() {
   // Restore the server-owned session and load the public catalogue.
   useEffect(() => {
     let active = true;
+    getPaymentConfig()
+      .then((config) => { if (active) setDemoPayments(config.demoPayments); })
+      .catch((error) => console.error('تعذر تحميل إعدادات الدفع:', error));
     getCurrentUser()
       .then((user) => {
         if (active) setCurrentUser(user);
@@ -426,7 +429,12 @@ export function App() {
     });
     setPreselectedServiceId(undefined);
     setSelectedRequest(saved);
-    handleNavigate('portal');
+    if (saved.status === 'WAITING_PAYMENT') {
+      setPaymentTargetRequest(saved);
+      handleNavigate('payment');
+    } else {
+      handleNavigate('portal');
+    }
   };
 
   // Provider status updates
@@ -738,7 +746,7 @@ export function App() {
           {currentView === 'payment' && (
             <PaymentView
               request={paymentTargetRequest}
-              demoMode={import.meta.env.DEV}
+              demoMode={demoPayments}
               onProcessPayment={handleProcessPayment}
               onConfirmDemoPayment={handleConfirmDemoPayment}
               onCancel={() => handleNavigate('portal')}

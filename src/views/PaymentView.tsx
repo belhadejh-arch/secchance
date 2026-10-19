@@ -53,14 +53,6 @@ export const PaymentView: React.FC<PaymentViewProps> = ({
     }
   };
 
-  const handleSecureCheckout = async () => {
-    setDemoCardNumber('');
-    setDemoCardholder('');
-    setDemoExpiry('');
-    setDemoCvv('');
-    await handlePay();
-  };
-
   const handleDemoSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!request) return;
@@ -136,7 +128,7 @@ export const PaymentView: React.FC<PaymentViewProps> = ({
         </div>
 
         <div role="note" className="rounded-[12px] border border-amber-300 bg-amber-50 p-3 text-xs leading-relaxed text-amber-950">
-          <strong>نموذج تجريبي فقط:</strong> لا تكتب بيانات بطاقتك الحقيقية. لا يُخصم أي مبلغ، ولا تُرسل أو تُحفظ المعلومات المدخلة. يُسجّل الموعد مؤكداً وتبقى حالة الدفع غير مدفوع.
+          <strong>دفع تجريبي فقط:</strong> لا تكتب بيانات بطاقتك الحقيقية. لا يُخصم أي مبلغ، ولا تُرسل أو تُحفظ المعلومات المدخلة. تُسجّل عملية دفع تجريبية ناجحة ويُؤكّد موعدك.
         </div>
 
         <form onSubmit={handleDemoSubmit} className="space-y-3">
@@ -239,7 +231,7 @@ export const PaymentView: React.FC<PaymentViewProps> = ({
             className="flex h-[50px] w-full items-center justify-center gap-2 rounded-[12px] bg-[#1766A6] text-[14px] font-bold text-white shadow-xs transition-colors hover:bg-[#125386] disabled:opacity-50"
           >
             <CreditCard className="h-4 w-4" />
-            <span>{isProcessing ? 'جارٍ تسجيل تأكيد الموعد...' : 'تأكيد الموعد — نموذج تجريبي'}</span>
+            <span>{isProcessing ? 'جارٍ تأكيد الدفع والموعد...' : 'دفع تجريبي وتأكيد الموعد'}</span>
           </button>
           <button
             type="button"
@@ -249,20 +241,6 @@ export const PaymentView: React.FC<PaymentViewProps> = ({
             إلغاء والعودة للطلبات
           </button>
         </form>
-        <div className="space-y-2 border-t border-[#E0E8E6] pt-4">
-          <p className="text-center text-[11px] text-[#203945]/70">
-            أو استخدم الدفع الفعلي عبر صفحة Chargily الآمنة.
-          </p>
-          <button
-            type="button"
-            disabled={isProcessing}
-            onClick={handleSecureCheckout}
-            className="flex h-[46px] w-full items-center justify-center gap-2 rounded-[12px] border border-[#25866D] bg-white text-xs font-bold text-[#25866D] transition-colors hover:bg-[#E8F4EF] disabled:opacity-50"
-          >
-            <Lock className="h-4 w-4" />
-            {isProcessing ? 'جارٍ الاتصال ببوابة الدفع...' : 'الدفع الفعلي عبر Chargily'}
-          </button>
-        </div>
       </div>
     );
   }
