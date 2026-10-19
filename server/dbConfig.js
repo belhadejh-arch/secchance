@@ -1,4 +1,7 @@
 export function resolveDatabaseConfig(env = process.env) {
+  if (env.NODE_ENV === 'test' && env.TEST_DATABASE_URL) {
+    return { connectionString: env.TEST_DATABASE_URL, source: 'TEST_DATABASE_URL' };
+  }
   if (env.NEON_DATABASE_URL) {
     return { connectionString: env.NEON_DATABASE_URL, source: 'NEON_DATABASE_URL' };
   }
