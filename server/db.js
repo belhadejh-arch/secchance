@@ -1,8 +1,9 @@
 import pg from 'pg';
-import { resolveDatabaseUrl } from './dbConfig.js';
+import { resolveDatabaseConfig } from './dbConfig.js';
 
 const { Pool } = pg;
-const connectionString = resolveDatabaseUrl();
+const { connectionString, source } = resolveDatabaseConfig();
+console.info(`PostgreSQL source configured with ${source}.`);
 
 export const pool = new Pool({
   connectionString,

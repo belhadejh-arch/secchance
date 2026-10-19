@@ -3,17 +3,21 @@ import assert from 'node:assert/strict';
 import http from 'node:http';
 import fs from 'node:fs/promises';
 import crypto from 'node:crypto';
-import { resolveDatabaseUrl } from './dbConfig.js';
+import { resolveDatabaseConfig } from './dbConfig.js';
 
 // Every test run uses its own schema; never delete or rewrite real user records.
-test('production consistently prefers its DATABASE_URL; development may use Neon override', () => {
-  assert.equal(
-    resolveDatabaseUrl({ NODE_ENV: 'production', DATABASE_URL: 'production-db', NEON_DATABASE_URL: 'other-db' }),
-    'production-db'
+test('the configured Neon database is the single preferred source in every environment', () => {
+  assert.deepEqual(
+    resolveDatabaseConfig({ NODE_ENV: 'production', DATABASE_URL: 'other-db', NEON_DATABASE_URL: 'accounts-db' }),
+    { connectionString: 'accounts-db', source: 'NEON_DATABASE_URL' }
   );
-  assert.equal(
-    resolveDatabaseUrl({ NODE_ENV: 'development', DATABASE_URL: 'replit-db', NEON_DATABASE_URL: 'shared-neon-db' }),
-    'shared-neon-db'
+  assert.deepEqual(
+    resolveDatabaseConfig({ NODE_ENV: 'development', DATABASE_URL: 'replit-db', NEON_DATABASE_URL: 'accounts-db' }),
+    { connectionString: 'accounts-db', source: 'NEON_DATABASE_URL' }
+  );
+  assert.deepEqual(
+    resolveDatabaseConfig({ NODE_ENV: 'production', DATABASE_URL: 'only-db' }),
+    { connectionString: 'only-db', source: 'DATABASE_URL' }
   );
 });
 

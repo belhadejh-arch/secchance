@@ -1,12 +1,11 @@
-export function resolveDatabaseUrl(env = process.env) {
-  const isProduction = env.NODE_ENV === 'production';
-  const connectionString = isProduction
-    ? env.DATABASE_URL || env.NEON_DATABASE_URL
-    : env.NEON_DATABASE_URL || env.DATABASE_URL;
-
-  if (!connectionString) {
+export function resolveDatabaseConfig(env = process.env) {
+  if (env.NEON_DATABASE_URL) {
+    return { connectionString: env.NEON_DATABASE_URL, source: 'NEON_DATABASE_URL' };
+  }
+  if (env.DATABASE_URL) {
+    return { connectionString: env.DATABASE_URL, source: 'DATABASE_URL' };
+  }
+  if (!env.NEON_DATABASE_URL && !env.DATABASE_URL) {
     throw new Error('Set DATABASE_URL or NEON_DATABASE_URL to start the platform API.');
   }
-
-  return connectionString;
 }
