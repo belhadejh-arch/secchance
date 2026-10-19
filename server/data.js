@@ -1,5 +1,6 @@
 import { pool } from './db.js';
 import { decryptValue, safeUser } from './security.js';
+import { demoPaymentsEnabled } from './paymentMode.js';
 
 const PROFESSIONAL_ROLES = [
   'psychologist',
@@ -30,6 +31,7 @@ export function mapService(row) {
     amountDzd: Number(row.amount_dzd),
     providerId: Number(row.provider_id),
     providerName: displayName(row.provider_first_name, row.provider_last_name),
+    isDemo: row.is_demo === true,
   };
 }
 
@@ -135,7 +137,7 @@ export async function loadBootstrap(user) {
     const result = await pool.query(
       `SELECT u.*, w.name_ar AS wilaya_name, sp.specialty, sp.license_number,
               sp.years_of_experience, sp.bio, sp.availability_schedule,
-              c.name AS organization_name, c.address,
+              COALESCE(c.name, a.name) AS organization_name, COALESCE(c.address, a.address) AS address,
               COALESCE(sp.verification_status, c.verification_status, a.verification_status) AS verification_status
          FROM users u
          LEFT JOIN wilayas w ON w.id = u.wilaya_id
@@ -149,7 +151,7 @@ export async function loadBootstrap(user) {
     const ownResult = await pool.query(
       `SELECT u.*, w.name_ar AS wilaya_name, sp.specialty, sp.license_number,
               sp.years_of_experience, sp.bio, sp.availability_schedule,
-              c.name AS organization_name, c.address,
+              COALESCE(c.name, a.name) AS organization_name, COALESCE(c.address, a.address) AS address,
               COALESCE(sp.verification_status, c.verification_status, a.verification_status) AS verification_status
          FROM users u
          LEFT JOIN wilayas w ON w.id = u.wilaya_id
@@ -170,15 +172,18 @@ export async function loadBootstrap(user) {
   }
 
   const servicesResult = await pool.query(
-    `SELECT s.*, u.first_name AS provider_first_name, u.last_name AS provider_last_name
+    `SELECT s.*, u.first_name AS provider_first_name, u.last_name AS provider_last_name,
+            (u.role_slug = 'admin') AS is_demo
        FROM services s
        JOIN users u ON u.id = s.provider_id
        LEFT JOIN specialist_profiles sp ON sp.user_id = u.id
        LEFT JOIN centers c ON c.user_id = u.id
        LEFT JOIN associations a ON a.user_id = u.id
       WHERE s.is_active = 1 AND u.status = 'active' AND COALESCE(u.is_verified, 0) = 1
+        AND (u.role_slug <> 'admin' OR $1::boolean)
         AND COALESCE(sp.verification_status, c.verification_status, a.verification_status, 'approved') = 'approved'
-      ORDER BY s.category, s.title`
+      ORDER BY is_demo DESC, s.category, s.title`,
+    [demoPaymentsEnabled()]
   );
   const services = servicesResult.rows.map(mapService);
 

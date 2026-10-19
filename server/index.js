@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { dispatchApi } from './routes.js';
 import { pool, withTransaction } from './db.js';
 import { hashPassword } from './security.js';
+import { ensureDemoServices } from './demoServices.js';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const port = Number(process.env.PORT || 5000);
@@ -90,6 +91,7 @@ async function ensureConfiguredAdmin() {
 }
 
 await ensureConfiguredAdmin();
+await ensureDemoServices();
 
 if (!isProduction) {
   const { createServer: createViteServer } = await import('vite');

@@ -82,7 +82,7 @@ export const PaymentView: React.FC<PaymentViewProps> = ({
         <header>
           <h1 className="text-[18px] font-black text-[#203945]">تأكيد الموعد</h1>
           <p className="mt-0.5 text-[11px] text-[#203945]/70">
-            أكمل نموذج البطاقة الذهبية التجريبي لتسجيل تأكيد موعدك.
+            أكمل نموذج الدفع الوهمي لتأكيد الحجز. استخدم بيانات وهمية فقط، مثل 0000 0000 0000 0000.
           </p>
         </header>
 

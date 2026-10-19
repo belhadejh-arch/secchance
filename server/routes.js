@@ -117,7 +117,7 @@ async function getUserProfile(userId, client = pool) {
   const result = await client.query(
     `SELECT u.*, w.name_ar AS wilaya_name, sp.specialty, sp.license_number,
             sp.years_of_experience, sp.bio, sp.availability_schedule,
-            c.name AS organization_name, c.address,
+            COALESCE(c.name, a.name) AS organization_name, COALESCE(c.address, a.address) AS address,
             COALESCE(sp.verification_status, c.verification_status, a.verification_status) AS verification_status
        FROM users u
        LEFT JOIN wilayas w ON w.id = u.wilaya_id
@@ -131,7 +131,10 @@ async function getUserProfile(userId, client = pool) {
 }
 
 async function currentUser(req) {
-  const token = parseCookies(req.headers.cookie)[COOKIE_NAME];
+  const authorization = String(req.headers.authorization || '');
+  const token = authorization.startsWith('Bearer ')
+    ? authorization.slice(7)
+    : parseCookies(req.headers.cookie)[COOKIE_NAME];
   const session = readSessionToken(token);
   if (!session) return null;
   const row = await getUserProfile(session.sub);
@@ -541,7 +544,6 @@ async function updateRequest(requestId, body, user, req) {
 }
 
 async function createRequest(body, user, req) {
-  requireActive(user);
   if (!['family', 'patient', 'user'].includes(user.role_slug)) {
     throw new HttpError(403, 'يجب استخدام حساب مستفيد لإنشاء طلب استشارة.');
   }
@@ -579,6 +581,8 @@ async function createRequest(body, user, req) {
       [providerId, category]
     );
     const service = serviceResult.rows[0];
+    const isDemoBooking = demoPaymentsEnabled() && service?.role_slug === 'admin';
+    if (!isDemoBooking) requireActive(user);
     if (
       !service ||
       service.provider_status !== 'active' ||
@@ -593,7 +597,7 @@ async function createRequest(body, user, req) {
     const roleMatchesCategory = category === 'legal'
       ? ['lawyer', 'legal_advisor'].includes(service.role_slug)
       : ['psychologist', 'doctor'].includes(service.role_slug);
-    if (!roleMatchesCategory) {
+    if (!roleMatchesCategory && !isDemoBooking) {
       throw new HttpError(409, 'لا يملك هذا الحساب الاعتماد المهني المطلوب لهذه الاستشارة.');
     }
     const serviceAmountDzd = Number(service.amount_dzd);
@@ -652,7 +656,7 @@ async function createRequest(body, user, req) {
         String(slot?.time || '').slice(0, 5) === startTime &&
         Number(slot?.durationMinutes) >= duration
     );
-    if (!specialistPublishedSlot) {
+    if (!specialistPublishedSlot && !isDemoBooking) {
       throw new HttpError(409, 'هذا الموعد غير منشور من المختص أو لا يغطي مدة الاستشارة. حدّث المواعيد واختر وقتًا متاحًا.');
     }
     const endMinutes = hour * 60 + minute + duration;
@@ -738,15 +742,16 @@ async function confirmDemoAppointment(requestId, user, req) {
   if (!demoPaymentsEnabled()) {
     throw new HttpError(403, 'الدفع التجريبي غير متاح عند تفعيل الدفع الحقيقي.');
   }
-  requireActive(user);
 
   await withTransaction(async (client) => {
     const found = await client.query(
       `SELECT sr.id, sr.case_file_id, sr.requester_id, sr.provider_id, sr.amount_dzd,
               sr.payment_status, sr.status AS request_status, sr.appointment_id,
-              a.status AS appointment_status, a.appointment_date, a.start_time
+              a.status AS appointment_status, a.appointment_date, a.start_time,
+              pu.role_slug AS provider_role
          FROM service_requests sr
          JOIN appointments a ON a.id = sr.appointment_id
+         JOIN users pu ON pu.id = sr.provider_id
         WHERE sr.id = $1
         FOR UPDATE OF sr, a`,
       [requestId]
@@ -755,6 +760,7 @@ async function confirmDemoAppointment(requestId, user, req) {
     if (!booking || Number(booking.requester_id) !== Number(user.id)) {
       throw new HttpError(404, 'الطلب غير موجود أو لا تملك صلاحية الوصول إليه.');
     }
+    if (booking.provider_role !== 'admin') requireActive(user);
     if (
       booking.request_status === 'APPOINTMENT_CONFIRMED' &&
       booking.payment_status === 'PAID' &&
@@ -1561,6 +1567,7 @@ async function getPublicDirectory(url) {
 async function getPublicServices() {
   const result = await pool.query(
     `SELECT s.id, s.title, s.description, s.amount_dzd, s.category, s.provider_id,
+            (u.role_slug = 'admin') AS is_demo,
             u.first_name AS provider_first_name, u.last_name AS provider_last_name
        FROM services s
        JOIN users u ON u.id = s.provider_id
@@ -1568,9 +1575,11 @@ async function getPublicServices() {
        LEFT JOIN centers c ON c.user_id = u.id
        LEFT JOIN associations a ON a.user_id = u.id
       WHERE s.is_active = 1 AND u.status = 'active' AND COALESCE(u.is_verified, 0) = 1
+        AND (u.role_slug <> 'admin' OR $1::boolean)
         AND s.category IN ('legal', 'psychological') AND s.amount_dzd > 0
         AND COALESCE(sp.verification_status, c.verification_status, a.verification_status, 'approved') = 'approved'
-      ORDER BY s.category, s.title`
+      ORDER BY is_demo DESC, s.category, s.title`,
+    [demoPaymentsEnabled()]
   );
   return result.rows.map((row) => ({
     id: Number(row.id),
@@ -1580,6 +1589,7 @@ async function getPublicServices() {
     amountDzd: Number(row.amount_dzd),
     providerId: Number(row.provider_id),
     providerName: `${row.provider_first_name} ${row.provider_last_name}`.trim(),
+    isDemo: row.is_demo === true,
   }));
 }
 
@@ -1623,7 +1633,7 @@ export async function dispatchApi(req, res) {
   if (req.method === 'OPTIONS') {
     res.writeHead(204, {
       'Access-Control-Allow-Methods': 'GET,POST,PATCH,DELETE,OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type',
+      'Access-Control-Allow-Headers': 'Content-Type,Authorization',
       'Access-Control-Max-Age': '600',
     });
     return res.end();
@@ -1699,18 +1709,19 @@ export async function dispatchApi(req, res) {
     const profile = await getUserProfile(userRow.id);
     await addAudit(pool, userRow.id, 'LOGIN_SUCCESS', 'user', userRow.id, 'تم تسجيل الدخول بنجاح.', req);
     const rememberMe = body.rememberMe === true;
+    const sessionToken = createSessionToken(userRow, rememberMe);
     return json(
       res,
       200,
-      { user: safeUser(profile) },
-      { 'Set-Cookie': sessionCookie(createSessionToken(userRow, rememberMe), rememberMe) }
+      { user: safeUser(profile), sessionToken },
+      { 'Set-Cookie': sessionCookie(sessionToken, rememberMe) }
     );
   }
   if (method === 'POST' && pathname === '/api/v1/auth/register') {
     const body = await bodyJson(req);
     const row = await createUser(body, null, req, true);
     const token = createSessionToken(row);
-    return json(res, 201, { user: safeUser(row) }, { 'Set-Cookie': sessionCookie(token) });
+    return json(res, 201, { user: safeUser(row), sessionToken: token }, { 'Set-Cookie': sessionCookie(token) });
   }
   if (method === 'POST' && pathname === '/api/v1/auth/logout') {
     return json(res, 200, { ok: true }, { 'Set-Cookie': clearCookieHeader(COOKIE_NAME) });

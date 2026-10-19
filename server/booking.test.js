@@ -16,6 +16,7 @@ test('account approval, service publication and demo booking lifecycle', async (
   const { pool } = await import('./db.js');
   const { dispatchApi } = await import('./routes.js');
   const { createSessionToken, hashPassword } = await import('./security.js');
+  const { ensureDemoServices } = await import('./demoServices.js');
   const server = http.createServer(async (req, res) => {
     try {
       await dispatchApi(req, res);
@@ -32,18 +33,27 @@ test('account approval, service publication and demo booking lifecycle', async (
     async function api(path, method = 'GET', body, cookie) {
       const response = await fetch(`${base}${path}`, {
         method,
-        headers: { 'Content-Type': 'application/json', ...(cookie ? { Cookie: cookie } : {}) },
+        headers: { 'Content-Type': 'application/json', ...(cookie
+          ? cookie.startsWith('Bearer ') ? { Authorization: cookie } : { Cookie: cookie }
+          : {}) },
         ...(body ? { body: JSON.stringify(body) } : {}),
       });
       return { status: response.status, data: await response.json(), cookie: response.headers.get('set-cookie')?.split(';')[0] };
     }
+    const adminPassword = crypto.randomUUID();
     const admin = await pool.query(
       `INSERT INTO users (first_name,last_name,email,phone,password,role_id,role_slug,status,is_verified)
        VALUES ('Test','Admin','admin@example.invalid','0500000000',$1,
         (SELECT id FROM roles WHERE slug='admin'),'admin','active',1) RETURNING id`,
-      [await hashPassword(crypto.randomUUID())]
+      [await hashPassword(adminPassword)]
     );
     const adminCookie = `scp_session=${createSessionToken(admin.rows[0])}`;
+    const login = await api('/auth/login', 'POST', {
+      email: 'admin@example.invalid', password: adminPassword,
+    });
+    assert.equal(login.status, 200);
+    const bearer = `Bearer ${login.data.sessionToken}`;
+    assert.equal((await api('/bootstrap', 'GET', null, bearer)).data.user.roleSlug, 'admin');
     const input = (roleSlug, email) => ({
       firstName: 'Test', lastName: 'Account', email, phone: '0500000000',
       password: crypto.randomUUID(), roleSlug, consentAccepted: true,
@@ -101,9 +111,11 @@ test('account approval, service publication and demo booking lifecycle', async (
     assert.equal(snapshot.data.transactions[0].status, 'SUCCESSFUL');
 
     const createdByAdmin = await api('/users', 'POST', {
-      ...input('lawyer', 'admin-created@example.invalid'), status: 'active',
-    }, adminCookie);
+      ...input('lawyer', 'admin-created@example.invalid'), status: 'active', accountType: 'lawyer',
+    }, bearer);
     assert.equal(createdByAdmin.status, 201, JSON.stringify(createdByAdmin.data));
+    assert.equal(createdByAdmin.cookie, undefined);
+    assert.equal((await api('/auth/me', 'GET', null, bearer)).data.user.roleSlug, 'admin');
     assert.equal((await api('/public/services')).data.length, 2);
     const duplicate = await api('/users', 'POST', input('lawyer', 'admin-created@example.invalid'), adminCookie);
     assert.equal(duplicate.status, 409);
@@ -130,6 +142,89 @@ test('account approval, service publication and demo booking lifecycle', async (
     process.env.PAYMENT_MODE = 'live';
     assert.equal((await api('/public/config')).data.demoPayments, false);
     assert.equal((await api(`/requests/${id}/demo-payment`, 'POST', {}, beneficiary.cookie)).status, 403);
+    process.env.PAYMENT_MODE = 'demo';
+    await ensureDemoServices();
+    await ensureDemoServices();
+    const demoServices = (await api('/public/services')).data.filter((s) => s.isDemo);
+    assert.equal(demoServices.length, 2);
+    assert.deepEqual(demoServices.map((s) => s.category).sort(), ['legal', 'psychological']);
+    const pendingClient = await api('/auth/register', 'POST', input('user', 'trial@example.invalid'));
+    const pendingBearer = `Bearer ${pendingClient.data.sessionToken}`;
+    for (const demo of demoServices) {
+      const trial = await api('/requests', 'POST', {
+        ...requestBody, providerId: demo.providerId, serviceId: demo.id,
+        category: demo.category, appointmentTime: demo.category === 'legal' ? '14:00' : '15:00',
+      }, pendingBearer);
+      assert.equal(trial.status, 201, JSON.stringify(trial.data));
+      const paidTrial = await api(`/requests/${trial.data.id}/demo-payment`, 'POST', {}, pendingBearer);
+      assert.equal(paidTrial.status, 200, JSON.stringify(paidTrial.data));
+    }
+    const trialSnapshot = (await api('/bootstrap', 'GET', null, pendingBearer)).data;
+    assert.equal(trialSnapshot.appointments.filter((a) => a.status === 'CONFIRMED').length, 2);
+    const synchronized = (await api('/bootstrap', 'GET', null, bearer)).data;
+    assert.ok(synchronized.users.some((u) => u.id === pendingClient.data.user.id));
+    assert.equal(synchronized.requests.filter((r) => r.clientId === pendingClient.data.user.id).length, 2);
+    assert.equal(synchronized.services.filter((s) => s.isDemo).length, 2);
+    process.env.PAYMENT_MODE = 'live';
+    assert.equal((await api('/public/services')).data.some((s) => s.isDemo), false);
+
+    // Exercise the actual frontend data service with cookies entirely absent,
+    // as in an embedded browser that blocks third-party cookies.
+    const { createServer } = await import('vite');
+    const vite = await createServer({ configFile: false, server: { middlewareMode: true, hmr: false }, appType: 'custom' });
+    const nativeFetch = globalThis.fetch;
+    const previousWindow = globalThis.window;
+    const storage = new Map();
+    const events = new EventTarget();
+    let unsubscribe;
+    try {
+      globalThis.window = {
+        sessionStorage: {
+          getItem: (key) => storage.get(key) ?? null,
+          setItem: (key, value) => storage.set(key, value),
+          removeItem: (key) => storage.delete(key),
+        },
+        dispatchEvent: (event) => events.dispatchEvent(event),
+      };
+      globalThis.fetch = (path, options) => nativeFetch(
+        typeof path === 'string' && path.startsWith('/api/v1') ? `${base.replace('/api/v1', '')}${path}` : path,
+        options
+      );
+      const client = await vite.ssrLoadModule('/src/services/dbService.ts');
+      const frontendLogin = await client.authenticateUser('admin@example.invalid', adminPassword);
+      assert.equal(frontendLogin.user.roleSlug, 'admin');
+      let visibleUsers = [];
+      unsubscribe = client.subscribeToUsers((users) => { visibleUsers = users; });
+      const frontendCreated = await client.createUserInDb({
+        ...input('lawyer', 'frontend-created@example.invalid'),
+        accountType: 'lawyer', status: 'active',
+      });
+      assert.ok(visibleUsers.some((u) => u.id === frontendCreated.id && u.roleSlug === 'lawyer'));
+      assert.equal((await client.getCurrentUser()).roleSlug, 'admin');
+      const selfCreated = await client.registerUserInDb(input('user', 'self-frontend@example.invalid'));
+      assert.equal(selfCreated.status, 'pending_approval');
+      process.env.PAYMENT_MODE = 'demo';
+      const demo = demoServices.find((s) => s.category === 'legal');
+      const frontendBooking = await client.createCareRequestInDb({
+        ...requestBody, providerId: demo.providerId, serviceId: demo.id,
+        category: 'legal', priority: 'Medium', appointmentTime: '17:00',
+      });
+      assert.equal(frontendBooking.status, 'WAITING_PAYMENT');
+      await client.confirmDemoAppointmentInDb(frontendBooking.id);
+      assert.equal((await client.getCurrentUser()).id, selfCreated.id);
+      const confirmedFrontend = (await api('/bootstrap', 'GET', null, `Bearer ${storage.get('scp_session_token')}`)).data;
+      assert.equal(confirmedFrontend.requests[0].status, 'APPOINTMENT_CONFIRMED');
+      assert.equal(confirmedFrontend.transactions[0].paymentMethod, 'DEMO');
+      await client.authenticateUser('admin@example.invalid', adminPassword);
+      assert.ok(visibleUsers.some((u) => u.id === selfCreated.id));
+      await client.logoutUser();
+      assert.equal((await client.getCurrentUser()), null);
+    } finally {
+      unsubscribe?.();
+      globalThis.fetch = nativeFetch;
+      globalThis.window = previousWindow;
+      await vite.close();
+    }
   } finally {
     await new Promise((resolve) => server.close(resolve));
     await pool.query(`DROP SCHEMA IF EXISTS ${schema} CASCADE`);

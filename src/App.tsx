@@ -66,6 +66,7 @@ import { FamilyGuidanceView } from './views/FamilyGuidanceView';
 import { AdminDashboardView } from './views/AdminDashboardView';
 import { SpecialistDashboardView } from './views/SpecialistDashboardView';
 import { AccountSettingsView } from './views/AccountSettingsView';
+import { DemoBookingView } from './views/DemoBookingView';
 
 function findProviderConfirmedBooking(
   request: CareRequest | null,
@@ -144,6 +145,16 @@ export function App() {
 
   // Restore the server-owned session and load the public catalogue.
   useEffect(() => {
+    const expired = () => {
+      setCurrentUser(null);
+      setCurrentView('landing');
+      setIsAuthOpen(true);
+    };
+    window.addEventListener('scp-session-expired', expired);
+    return () => window.removeEventListener('scp-session-expired', expired);
+  }, []);
+
+  useEffect(() => {
     let active = true;
     getPaymentConfig()
       .then((config) => { if (active) setDemoPayments(config.demoPayments); })
@@ -167,7 +178,13 @@ export function App() {
   useEffect(() => {
     if (!currentUser) return;
     initializeDatabase().catch(console.error);
-    const unsubUsers = subscribeToUsers((data) => setUsers(data));
+    const unsubUsers = subscribeToUsers((data) => {
+      setUsers(data);
+      setCurrentUser((current) => {
+        const latest = data.find((user) => String(user.id) === String(current?.id));
+        return current && latest && JSON.stringify(current) !== JSON.stringify(latest) ? latest : current;
+      });
+    });
     const unsubServices = subscribeToServices((data) => setServices(data));
 
     const unsubRequests = subscribeToCareRequests((data) => {
@@ -398,7 +415,9 @@ export function App() {
     const selectedSpecialist = users.find(
       (user) => String(user.id) === String(extraData?.specialistId)
     );
-    const provider = selectedSpecialist || users.find(
+    const provider = service.isDemo
+      ? { id: service.providerId, firstName: 'إدارة الحجز', lastName: 'التجريبي' }
+      : selectedSpecialist || users.find(
       (user) => String(user.id) === String(service.providerId)
     );
     if (!provider) throw new Error('اختر مقدم خدمة معتمدًا قبل إرسال الطلب.');
@@ -653,7 +672,17 @@ export function App() {
             />
           )}
 
-          {currentView === 'new-request' && (
+          {currentView === 'new-request' && services.find((s) => s.id === preselectedServiceId)?.isDemo && (
+            <DemoBookingView
+              service={services.find((s) => s.id === preselectedServiceId)!}
+              onBook={(description, date, time) => handleCreateRequest(
+                preselectedServiceId!, 'Medium', currentUser?.wilayaName || '', description,
+                { appointmentDate: date, appointmentTime: time }
+              )}
+              onBack={() => handleNavigate('help-options')}
+            />
+          )}
+          {currentView === 'new-request' && !services.find((s) => s.id === preselectedServiceId)?.isDemo && (
             <NewRequestView
               services={services}
               specialists={users}

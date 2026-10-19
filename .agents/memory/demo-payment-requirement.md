@@ -7,4 +7,4 @@ Users must be able to complete a demo payment and reserve an appointment, not me
 
 **Why:** The user explicitly required working trial payments and booking when reporting unavailable consultations and services.
 
-**How to apply:** Keep trial payments clearly labeled as simulations with no real funds collected. Do not substitute a gateway requiring external credentials for the requested demo flow. Retain the administrator approval gate and provider-published availability.
+**How to apply:** Keep trial payments clearly labeled as simulations with no real funds collected. Do not substitute a gateway requiring external credentials for the requested demo flow. Real professional services retain administrator approval and provider-published availability. A separate, clearly labeled administration-owned demo booking must remain usable even when no professionals are registered; it is not an actual consultation or assignment to a specialist.

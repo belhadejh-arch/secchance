@@ -53,6 +53,10 @@ export async function createChargilyCheckout(requestId, user, method) {
   if (!request || Number(request.requester_id) !== Number(user.id)) {
     throw new HttpError(404, 'الطلب غير موجود أو لا تملك صلاحية الدفع عنه.');
   }
+  const provider = await pool.query('SELECT role_slug FROM users WHERE id = $1', [request.provider_id]);
+  if (provider.rows[0]?.role_slug === 'admin') {
+    throw new HttpError(409, 'الحجوزات التجريبية لا تقبل دفعًا حقيقيًا.');
+  }
   if (!['ACCEPTED', 'WAITING_PAYMENT'].includes(request.status)) {
     throw new HttpError(409, 'لا يمكن الدفع قبل موافقة مقدم الخدمة.');
   }

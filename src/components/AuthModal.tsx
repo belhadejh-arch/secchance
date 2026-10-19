@@ -30,7 +30,7 @@ import {
 import { User, ALGERIA_WILAYAS, UserRole } from '../types';
 import {
   authenticateUser,
-  createUserInDb,
+  registerUserInDb,
   requestPasswordReset,
   verifyAndResetPassword,
 } from '../services/dbService';
@@ -264,7 +264,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
     setLoading(true);
     try {
-      await createUserInDb({
+      await registerUserInDb({
         firstName:
           selectedType === 'clinic' || selectedType === 'hospital' || selectedType === 'association'
             ? regOrgName.trim()

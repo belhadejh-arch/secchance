@@ -306,7 +306,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
     e.preventDefault();
     setSpecialistFormError('');
     const needsProfessionalDetails = ['psychologist', 'doctor', 'lawyer', 'legal_advisor'].includes(newSpecRole);
-    const needsOrganizationDetails = ['clinic', 'hospital', 'treatment_center'].includes(newSpecRole);
+    const needsOrganizationDetails = ['clinic', 'hospital', 'treatment_center', 'association'].includes(newSpecRole);
 
     if (
       !newSpecFirstName.trim() ||
@@ -357,6 +357,13 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
       setSpecialistActionError('');
       setSpecialistActionMessage(`تم إنشاء حساب ${createdUser.firstName} ${createdUser.lastName} وربطه بقاعدة البيانات.`);
       setIsCreateSpecialistOpen(false);
+      setActiveTab(
+        ['lawyer', 'legal_advisor'].includes(createdUser.roleSlug) ? 'lawyers'
+          : ['psychologist', 'doctor'].includes(createdUser.roleSlug) ? 'doctors'
+            : createdUser.roleSlug === 'association' ? 'associations'
+              : ['clinic', 'hospital', 'treatment_center'].includes(createdUser.roleSlug) ? 'clinics-hospitals'
+                : 'specialists'
+      );
       setNewSpecFirstName('');
       setNewSpecLastName('');
       setNewSpecEmail('');
@@ -1514,7 +1521,6 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
             {specialists
-              .filter((s) => !['pending', 'pending_approval'].includes(s.status))
               .map((s) => (
               <div
                 key={s.id}
@@ -1602,7 +1608,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
               <p className="text-[11px] text-[#203945]/70">إدارة حسابات الجمعيات الشريكة والمستفيدين المرتبطين بها</p>
             </div>
             <button
-              onClick={() => setIsCreateAssociationOpen(true)}
+              onClick={() => { setNewSpecRole('association'); setIsCreateSpecialistOpen(true); }}
               className="px-4 py-2 rounded-[12px] bg-[#25866D] text-white font-bold text-xs shadow-xs flex items-center gap-1.5"
             >
               <Plus className="w-4 h-4" />
@@ -2480,9 +2486,9 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                 </div>
               </div>
 
-              {['clinic', 'hospital', 'treatment_center'].includes(newSpecRole) && (
+              {['clinic', 'hospital', 'treatment_center', 'association'].includes(newSpecRole) && (
                 <div className="space-y-1">
-                  <label className="font-bold text-[#203945]">اسم المؤسسة أو مركز العلاج</label>
+                  <label className="font-bold text-[#203945]">اسم المؤسسة أو المركز أو الجمعية</label>
                   <input
                     type="text"
                     required
@@ -2503,10 +2509,13 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                     className="w-full h-10 px-3 bg-white border border-[#CCD8D5] rounded-[10px] outline-hidden focus:border-[#1766A6]"
                   >
                     <option value="psychologist">أخصائي نفسي عيادي</option>
+                    <option value="doctor">طبيب</option>
                     <option value="lawyer">مستشار قانوني</option>
+                    <option value="legal_advisor">مستشار قانوني متخصص</option>
                     <option value="clinic">عيادة طبية متخصصة</option>
                     <option value="hospital">مستشفى / مركز استشفائي</option>
                     <option value="treatment_center">مركز علاج الإدمان</option>
+                    <option value="association">جمعية</option>
                   </select>
                 </div>
 
@@ -2556,7 +2565,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                 <label className="font-bold text-[#203945]">العنوان المهني</label>
                 <input
                   type="text"
-                    required={['clinic', 'hospital', 'treatment_center'].includes(newSpecRole)}
+                    required={['clinic', 'hospital', 'treatment_center', 'association'].includes(newSpecRole)}
                   value={newSpecAddress}
                   onChange={(e) => setNewSpecAddress(e.target.value)}
                   placeholder="نهج الشهداء، العمارة ب، وهران"

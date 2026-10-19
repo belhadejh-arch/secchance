@@ -25,7 +25,9 @@ export const HelpOptionsView: React.FC<HelpOptionsViewProps> = ({
     {
       title: 'أحتاج إلى استشارة قانونية',
       price: '500 دج',
-      description: 'استشارة مباشرة مع مستشار قانوني مؤهل لفهم الوضعية القانونية والإجراءات والمسارات الممكنة ضمن اختصاصه.',
+      description: legalService?.isDemo
+        ? legalService.description
+        : 'استشارة مباشرة مع مستشار قانوني مؤهل لفهم الوضعية القانونية والإجراءات والمسارات الممكنة ضمن اختصاصه.',
       icon: <Scale className="w-5 h-5" />,
       action: () => legalService && onRequestService(legalService),
       disabled: !legalService,
@@ -33,7 +35,9 @@ export const HelpOptionsView: React.FC<HelpOptionsViewProps> = ({
     {
       title: 'أحتاج إلى استشارة نفسية',
       price: '500 دج',
-      description: 'ابدأ طلب جلسة دعم نفسي مع مختص.',
+      description: psychologicalService?.isDemo
+        ? psychologicalService.description
+        : 'ابدأ طلب جلسة دعم نفسي مع مختص.',
       icon: <Brain className="w-5 h-5" />,
       action: () => psychologicalService && onRequestService(psychologicalService),
       disabled: !psychologicalService,

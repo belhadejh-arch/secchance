@@ -16,21 +16,25 @@ import {
   LegalReference,
   User,
 } from '../types';
+import { getSessionToken, setSessionToken, expireSession } from '../lib/sessionClient';
 
 const apiBase = (import.meta.env.VITE_API_URL || '').replace(/\/+$/, '');
 const apiPath = (path: string) => `${apiBase}/api/v1${path}`;
 
 async function api<T>(path: string, options: RequestInit = {}): Promise<T> {
+  const token = getSessionToken();
   const response = await fetch(apiPath(path), {
     ...options,
     credentials: 'include',
     headers: {
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...(options.body ? { 'Content-Type': 'application/json' } : {}),
       ...options.headers,
     },
   });
   const result = await response.json().catch(() => ({}));
   if (!response.ok) {
+    if (response.status === 401 && !path.startsWith('/auth/')) expireSession();
     throw new Error(result.error || `تعذر إكمال الطلب (${response.status}).`);
   }
   return result as T;
@@ -87,8 +91,11 @@ function publishSnapshot(data: Partial<BootstrapData>) {
   }
 }
 
-async function refreshSnapshot() {
-  if (refreshing) return refreshing;
+async function refreshSnapshot(force = false) {
+  if (refreshing) {
+    await refreshing;
+    if (!force) return;
+  }
   refreshing = (async () => {
     try {
       const data = await api<BootstrapData>('/bootstrap');
@@ -150,7 +157,7 @@ export async function updateAccountSettingsInDb(updates: AccountSettingsUpdate):
     method: 'PATCH',
     body: JSON.stringify(updates),
   });
-  await refreshSnapshot();
+  await refreshSnapshot(true);
   return result.user;
 }
 
@@ -204,7 +211,11 @@ export async function uploadLegalReferencePdfInDb(
 }
 
 export async function logoutUser(): Promise<void> {
-  await api('/auth/logout', { method: 'POST' });
+  try {
+    await api('/auth/logout', { method: 'POST' });
+  } finally {
+    setSessionToken(null);
+  }
   snapshot = {};
   for (const [key, listeners] of subscribers) {
     listeners.forEach((listener) => listener(emptySnapshot[key]));
@@ -273,11 +284,12 @@ export async function authenticateUser(
   rememberMe = false
 ): Promise<{ user: User } | { error: string }> {
   try {
-    const result = await api<{ user: User }>('/auth/login', {
+    const result = await api<{ user: User; sessionToken: string }>('/auth/login', {
       method: 'POST',
       body: JSON.stringify({ email, password, rememberMe }),
     });
-    await refreshSnapshot();
+    setSessionToken(result.sessionToken);
+    await refreshSnapshot(true);
     return result;
   } catch (error) {
     return { error: error instanceof Error ? error.message : 'تعذر تسجيل الدخول.' };
@@ -288,15 +300,21 @@ export async function createUserInDb(
   user: Omit<User, 'id'> & { password?: string },
   _actorName?: string
 ): Promise<User> {
-  const selfRegistration = Boolean(user.accountType);
-  const result = await api<{ user: User }>(selfRegistration ? '/auth/register' : '/users', {
+  const result = await api<{ user: User }>('/users', {
     method: 'POST',
-    body: JSON.stringify({
-      ...user,
-      consentAccepted: selfRegistration,
-    }),
+    body: JSON.stringify(user),
   });
-  await refreshSnapshot();
+  publishSnapshot({ users: [result.user, ...(snapshot.users || []).filter((u) => String(u.id) !== String(result.user.id))] });
+  await refreshSnapshot(true);
+  return result.user;
+}
+
+export async function registerUserInDb(user: Omit<User, 'id'> & { password?: string }): Promise<User> {
+  const result = await api<{ user: User; sessionToken: string }>('/auth/register', {
+    method: 'POST',
+    body: JSON.stringify({ ...user, consentAccepted: true }),
+  });
+  setSessionToken(result.sessionToken);
   return result.user;
 }
 
@@ -305,12 +323,12 @@ export async function updateUserInDb(id: string | number, updates: Partial<User>
     method: 'PATCH',
     body: JSON.stringify(updates),
   });
-  await refreshSnapshot();
+  await refreshSnapshot(true);
 }
 
 export async function deleteUserFromDb(id: string | number, _actorName?: string): Promise<void> {
   await api(`/users/${encodeURIComponent(String(id))}`, { method: 'DELETE' });
-  await refreshSnapshot();
+  await refreshSnapshot(true);
 }
 
 export async function approveUserInDb(id: string | number, _actorName?: string): Promise<void> {
@@ -326,7 +344,7 @@ export async function rejectUserInDb(
     method: 'PATCH',
     body: JSON.stringify({ status: 'rejected', rejectionReason: reason }),
   });
-  await refreshSnapshot();
+  await refreshSnapshot(true);
 }
 
 export async function requestPasswordReset(email: string): Promise<{ success: boolean; message: string }> {
@@ -366,7 +384,7 @@ export async function createCareRequestInDb(request: Omit<CareRequest, 'id'>): P
       consentAccepted: true,
     }),
   });
-  await refreshSnapshot();
+  await refreshSnapshot(true);
   const saved = (snapshot.requests || []).find((item) => String(item.id) === String(result.id));
   if (saved) return saved;
   throw new Error('تم إرسال الطلب، لكن تعذر تحميل تفاصيله. حدّث الصفحة لمتابعته.');
@@ -385,7 +403,7 @@ export async function updateCareRequestInDb(
     method: 'PATCH',
     body: JSON.stringify(updates),
   });
-  await refreshSnapshot();
+  await refreshSnapshot(true);
 }
 
 export async function startPaymentInDb(
@@ -403,7 +421,7 @@ export async function confirmDemoAppointmentInDb(requestId: string | number): Pr
   await api(`/requests/${encodeURIComponent(String(requestId))}/demo-payment`, {
     method: 'POST',
   });
-  await refreshSnapshot();
+  await refreshSnapshot(true);
 }
 
 export async function createAppointmentInDb(appt: Omit<Appointment, 'id'>): Promise<Appointment> {
@@ -420,7 +438,7 @@ export async function updateAppointmentStatusInDb(
     method: 'PATCH',
     body: JSON.stringify({ status }),
   });
-  await refreshSnapshot();
+  await refreshSnapshot(true);
 }
 
 export async function addSpecialistReportInDb(
@@ -440,7 +458,7 @@ export async function addSpecialistReportInDb(
       clientSummary: '',
     }),
   });
-  await refreshSnapshot();
+  await refreshSnapshot(true);
   const saved = (snapshot.reports || []).find((item) => item.caseNumber === report.caseNumber);
   if (!saved) throw new Error('تم حفظ التقرير، لكن تعذر تحميله.');
   return saved;
@@ -462,7 +480,7 @@ export async function addTreatmentFollowUpInDb(item: Omit<TreatmentFollowUp, 'id
       weekNumber: Math.max(1, Math.ceil((Date.now() - new Date(request.createdAt).getTime()) / (7 * 86400000))),
     }),
   });
-  await refreshSnapshot();
+  await refreshSnapshot(true);
 }
 
 export async function createPartnerInDb(
@@ -472,7 +490,7 @@ export async function createPartnerInDb(
     method: 'POST',
     body: JSON.stringify(partner),
   });
-  await refreshSnapshot();
+  await refreshSnapshot(true);
   return result;
 }
 
@@ -484,12 +502,12 @@ export async function updatePartnerInDb(
     method: 'PATCH',
     body: JSON.stringify(updates),
   });
-  await refreshSnapshot();
+  await refreshSnapshot(true);
 }
 
 export async function deletePartnerFromDb(id: string | number): Promise<void> {
   await api(`/partners/${encodeURIComponent(String(id))}`, { method: 'DELETE' });
-  await refreshSnapshot();
+  await refreshSnapshot(true);
 }
 
 export async function createNotificationInDb(): Promise<never> {
@@ -498,7 +516,7 @@ export async function createNotificationInDb(): Promise<never> {
 
 export async function markNotificationAsReadInDb(id: string | number): Promise<void> {
   await api(`/notifications/${encodeURIComponent(String(id))}/read`, { method: 'POST' });
-  await refreshSnapshot();
+  await refreshSnapshot(true);
 }
 
 export async function sendMessageInDb(conversationId: number, content: string): Promise<void> {
@@ -506,7 +524,7 @@ export async function sendMessageInDb(conversationId: number, content: string): 
     method: 'POST',
     body: JSON.stringify({ content }),
   });
-  await refreshSnapshot();
+  await refreshSnapshot(true);
 }
 
 export async function submitServiceRatingInDb(
@@ -518,7 +536,7 @@ export async function submitServiceRatingInDb(
     method: 'POST',
     body: JSON.stringify({ requestId, rating, feedback }),
   });
-  await refreshSnapshot();
+  await refreshSnapshot(true);
 }
 
 export async function listCaseDocumentsInDb(): Promise<CaseFileDocument[]> {

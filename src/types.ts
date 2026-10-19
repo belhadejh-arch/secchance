@@ -227,6 +227,7 @@ export interface ServiceItem {
   providerId: number;
   providerName: string;
   durationMinutes?: number;
+  isDemo?: boolean;
 }
 
 export interface PlatformNotification {
