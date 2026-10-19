@@ -121,9 +121,19 @@ export async function loadBootstrap(user) {
             COALESCE(sp.verification_status, c.verification_status, a.verification_status) AS verification_status
        FROM users u
        LEFT JOIN wilayas w ON w.id = u.wilaya_id
-       LEFT JOIN specialist_profiles sp ON sp.user_id = u.id
-       LEFT JOIN centers c ON c.user_id = u.id
-       LEFT JOIN associations a ON a.user_id = u.id
+       LEFT JOIN LATERAL (
+         SELECT specialty, license_number, years_of_experience, bio, availability_schedule, verification_status
+           FROM specialist_profiles WHERE user_id = u.id
+          ORDER BY created_at DESC NULLS LAST LIMIT 1
+       ) sp ON TRUE
+       LEFT JOIN LATERAL (
+         SELECT verification_status FROM centers WHERE user_id = u.id
+          ORDER BY created_at DESC NULLS LAST, id DESC LIMIT 1
+       ) c ON TRUE
+       LEFT JOIN LATERAL (
+         SELECT verification_status FROM associations WHERE user_id = u.id
+          ORDER BY created_at DESC NULLS LAST, id DESC LIMIT 1
+       ) a ON TRUE
       WHERE u.status = 'active'
         AND COALESCE(u.is_verified, 0) = 1
         AND u.role_slug = ANY($1::text[])
@@ -141,9 +151,19 @@ export async function loadBootstrap(user) {
               COALESCE(sp.verification_status, c.verification_status, a.verification_status) AS verification_status
          FROM users u
          LEFT JOIN wilayas w ON w.id = u.wilaya_id
-         LEFT JOIN specialist_profiles sp ON sp.user_id = u.id
-         LEFT JOIN centers c ON c.user_id = u.id
-         LEFT JOIN associations a ON a.user_id = u.id
+         LEFT JOIN LATERAL (
+           SELECT specialty, license_number, years_of_experience, bio, availability_schedule, verification_status
+             FROM specialist_profiles WHERE user_id = u.id
+            ORDER BY created_at DESC NULLS LAST LIMIT 1
+         ) sp ON TRUE
+         LEFT JOIN LATERAL (
+           SELECT name, address, verification_status FROM centers WHERE user_id = u.id
+            ORDER BY created_at DESC NULLS LAST, id DESC LIMIT 1
+         ) c ON TRUE
+         LEFT JOIN LATERAL (
+           SELECT name, address, verification_status FROM associations WHERE user_id = u.id
+            ORDER BY created_at DESC NULLS LAST, id DESC LIMIT 1
+         ) a ON TRUE
         ORDER BY u.created_at DESC NULLS LAST`
     );
     users = result.rows.map((row) => safeUser(row));
@@ -155,9 +175,19 @@ export async function loadBootstrap(user) {
               COALESCE(sp.verification_status, c.verification_status, a.verification_status) AS verification_status
          FROM users u
          LEFT JOIN wilayas w ON w.id = u.wilaya_id
-         LEFT JOIN specialist_profiles sp ON sp.user_id = u.id
-         LEFT JOIN centers c ON c.user_id = u.id
-         LEFT JOIN associations a ON a.user_id = u.id
+         LEFT JOIN LATERAL (
+           SELECT specialty, license_number, years_of_experience, bio, availability_schedule, verification_status
+             FROM specialist_profiles WHERE user_id = u.id
+            ORDER BY created_at DESC NULLS LAST LIMIT 1
+         ) sp ON TRUE
+         LEFT JOIN LATERAL (
+           SELECT name, address, verification_status FROM centers WHERE user_id = u.id
+            ORDER BY created_at DESC NULLS LAST, id DESC LIMIT 1
+         ) c ON TRUE
+         LEFT JOIN LATERAL (
+           SELECT name, address, verification_status FROM associations WHERE user_id = u.id
+            ORDER BY created_at DESC NULLS LAST, id DESC LIMIT 1
+         ) a ON TRUE
         WHERE u.id = $1`,
       [user.id]
     );
@@ -176,12 +206,21 @@ export async function loadBootstrap(user) {
             (u.role_slug = 'admin') AS is_demo
        FROM services s
        JOIN users u ON u.id = s.provider_id
-       LEFT JOIN specialist_profiles sp ON sp.user_id = u.id
-       LEFT JOIN centers c ON c.user_id = u.id
-       LEFT JOIN associations a ON a.user_id = u.id
+       LEFT JOIN LATERAL (
+         SELECT BOOL_OR(verification_status = 'approved') AS approved
+           FROM specialist_profiles WHERE user_id = u.id
+       ) sp ON TRUE
+       LEFT JOIN LATERAL (
+         SELECT BOOL_OR(verification_status = 'approved') AS approved
+           FROM centers WHERE user_id = u.id
+       ) c ON TRUE
+       LEFT JOIN LATERAL (
+         SELECT BOOL_OR(verification_status = 'approved') AS approved
+           FROM associations WHERE user_id = u.id
+       ) a ON TRUE
       WHERE s.is_active = 1 AND u.status = 'active' AND COALESCE(u.is_verified, 0) = 1
         AND (u.role_slug <> 'admin' OR $1::boolean)
-        AND COALESCE(sp.verification_status, c.verification_status, a.verification_status, 'approved') = 'approved'
+        AND COALESCE(sp.approved, c.approved, a.approved, TRUE)
       ORDER BY is_demo DESC, s.category, s.title`,
     [demoPaymentsEnabled()]
   );
@@ -404,9 +443,12 @@ export async function loadBootstrap(user) {
   }
 
   const centersResult = await pool.query(
-    `SELECT c.id, c.name, c.address, c.phone, c.services, w.name_ar AS wilaya_name
+    `SELECT c.id, c.user_id, c.name, c.address, c.phone, c.services,
+            c.verification_status, w.name_ar AS wilaya_name
        FROM centers c LEFT JOIN wilayas w ON w.id = c.wilaya_id
-      WHERE c.verification_status = 'approved' ORDER BY w.code, c.name`
+      WHERE ($1::boolean OR c.verification_status = 'approved')
+      ORDER BY w.code, c.name, c.id`,
+    [isAdmin]
   );
   const centers = centersResult.rows.map((row) => ({
     id: Number(row.id),
@@ -415,12 +457,17 @@ export async function loadBootstrap(user) {
     address: row.address || '',
     phone: row.phone || '',
     services: row.services || '',
+    verificationStatus: row.verification_status || 'pending',
+    ...(isAdmin ? { userId: Number(row.user_id) } : {}),
   }));
 
   const associationResult = await pool.query(
-    `SELECT a.id, a.name, a.address, a.phone, a.services, w.name_ar AS wilaya_name
+    `SELECT a.id, a.user_id, a.name, a.address, a.phone, a.services,
+            a.verification_status, w.name_ar AS wilaya_name
        FROM associations a LEFT JOIN wilayas w ON w.id = a.wilaya_id
-      WHERE a.verification_status = 'approved' ORDER BY w.code, a.name`
+      WHERE ($1::boolean OR a.verification_status = 'approved')
+      ORDER BY w.code, a.name, a.id`,
+    [isAdmin]
   );
   const associations = associationResult.rows.map((row) => ({
     id: Number(row.id),
@@ -429,6 +476,8 @@ export async function loadBootstrap(user) {
     address: row.address || '',
     phone: row.phone || '',
     services: row.services || '',
+    verificationStatus: row.verification_status || 'pending',
+    ...(isAdmin ? { userId: Number(row.user_id) } : {}),
   }));
 
   const partners = [

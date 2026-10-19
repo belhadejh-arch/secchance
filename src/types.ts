@@ -178,6 +178,8 @@ export interface TreatmentCenter {
   address: string;
   phone: string;
   services: string;
+  userId?: number;
+  verificationStatus?: string;
   municipality?: string;
   receptionInformation?: string;
   latitude?: number;
@@ -191,6 +193,8 @@ export interface Association {
   address: string;
   phone: string;
   services: string;
+  userId?: number;
+  verificationStatus?: string;
   municipality?: string;
   latitude?: number;
   longitude?: number;

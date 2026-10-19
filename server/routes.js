@@ -1571,13 +1571,22 @@ async function getPublicServices() {
             u.first_name AS provider_first_name, u.last_name AS provider_last_name
        FROM services s
        JOIN users u ON u.id = s.provider_id
-       LEFT JOIN specialist_profiles sp ON sp.user_id = u.id
-       LEFT JOIN centers c ON c.user_id = u.id
-       LEFT JOIN associations a ON a.user_id = u.id
+       LEFT JOIN LATERAL (
+         SELECT BOOL_OR(verification_status = 'approved') AS approved
+           FROM specialist_profiles WHERE user_id = u.id
+       ) sp ON TRUE
+       LEFT JOIN LATERAL (
+         SELECT BOOL_OR(verification_status = 'approved') AS approved
+           FROM centers WHERE user_id = u.id
+       ) c ON TRUE
+       LEFT JOIN LATERAL (
+         SELECT BOOL_OR(verification_status = 'approved') AS approved
+           FROM associations WHERE user_id = u.id
+       ) a ON TRUE
       WHERE s.is_active = 1 AND u.status = 'active' AND COALESCE(u.is_verified, 0) = 1
         AND (u.role_slug <> 'admin' OR $1::boolean)
         AND s.category IN ('legal', 'psychological') AND s.amount_dzd > 0
-        AND COALESCE(sp.verification_status, c.verification_status, a.verification_status, 'approved') = 'approved'
+        AND COALESCE(sp.approved, c.approved, a.approved, TRUE)
       ORDER BY is_demo DESC, s.category, s.title`,
     [demoPaymentsEnabled()]
   );

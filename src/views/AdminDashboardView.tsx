@@ -54,6 +54,8 @@ import {
   RequestStatus,
   Priority,
   LegalReference,
+  TreatmentCenter,
+  Association,
 } from '../types';
 import {
   createUserInDb,
@@ -73,6 +75,8 @@ import {
 interface AdminDashboardViewProps {
   currentUser: User | null;
   users: User[];
+  centers?: TreatmentCenter[];
+  associations?: Association[];
   requests: CareRequest[];
   appointments: Appointment[];
   reports: SpecialistReport[];
@@ -86,6 +90,8 @@ interface AdminDashboardViewProps {
 export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
   currentUser,
   users,
+  centers = [],
+  associations = [],
   requests,
   appointments,
   reports,
@@ -288,6 +294,18 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
   const totalLawyers = users.filter((u) => ['lawyer', 'legal_advisor'].includes(u.roleSlug)).length;
   const totalMedical = users.filter((u) => ['doctor', 'clinic', 'hospital', 'psychologist'].includes(u.roleSlug)).length;
   const totalAssociations = users.filter((u) => u.roleSlug === 'association').length;
+  const clinicAccounts = users.filter((u) =>
+    ['clinic', 'hospital', 'treatment_center'].includes(u.roleSlug)
+  );
+  const clinicAccountIds = new Set(clinicAccounts.map((user) => String(user.id)));
+  const directoryCenters = centers.filter(
+    (center) => !center.userId || !clinicAccountIds.has(String(center.userId))
+  );
+  const associationAccounts = users.filter((u) => u.roleSlug === 'association');
+  const associationAccountIds = new Set(associationAccounts.map((user) => String(user.id)));
+  const directoryAssociations = associations.filter(
+    (association) => !association.userId || !associationAccountIds.has(String(association.userId))
+  );
 
   const newRequests = requests.filter((r) => r.status === 'NEW' || r.status === 'PENDING_PROVIDER').length;
   const inProgressRequests = requests.filter((r) => r.status === 'IN_PROGRESS' || r.status === 'ACCEPTED').length;
@@ -640,7 +658,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
           }`}
         >
           <Building className="w-3.5 h-3.5" />
-          <span>الجمعيات ({totalAssociations})</span>
+          <span>الجمعيات ({totalAssociations + directoryAssociations.length})</span>
         </button>
 
         <button
@@ -652,7 +670,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
           }`}
         >
           <Building className="w-3.5 h-3.5" />
-          <span>العيادات/المستشفيات ({users.filter((u) => ['clinic', 'hospital', 'treatment_center'].includes(u.roleSlug)).length})</span>
+          <span>العيادات/المستشفيات ({clinicAccounts.length + directoryCenters.length})</span>
         </button>
 
         <button
@@ -1617,9 +1635,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            {users
-              .filter((u) => u.roleSlug === 'association')
-              .map((assoc) => (
+            {associationAccounts.map((assoc) => (
                 <div key={assoc.id} className="bg-white border border-[#CCD8D5] rounded-[16px] p-4 shadow-xs space-y-2">
                   <div className="flex items-start justify-between">
                     <h4 className="font-black text-sm text-[#203945]">{assoc.firstName}</h4>
@@ -1639,8 +1655,31 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                     </button>
                   </div>
                 </div>
-              ))}
+            ))}
           </div>
+          {directoryAssociations.length > 0 && (
+            <section className="space-y-3 border-t border-[#E0E8E6] pt-4">
+              <h4 className="font-bold text-sm text-[#203945]">الجمعيات المسجلة في دليل المنصة ({directoryAssociations.length})</h4>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {directoryAssociations.map((association) => (
+                  <article key={`directory-association-${association.id}`} className="rounded-[16px] border border-[#CCD8D5] bg-white p-4 space-y-2">
+                    <div className="flex items-start justify-between gap-2">
+                      <h5 className="font-black text-sm text-[#203945]">{association.name}</h5>
+                      <span className="rounded-full bg-[#E8F4EF] px-2 py-0.5 text-[10px] font-bold text-[#25866D]">
+                        {association.verificationStatus === 'approved' ? 'معتمدة' : association.verificationStatus === 'rejected' ? 'مرفوضة' : 'قيد المراجعة'}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-[#203945]/70">{association.services || 'خدمات الجمعية'}</p>
+                    <p className="text-[11px] text-[#1766A6]">{association.wilayaName} · {association.address}</p>
+                    <p className="text-[11px] text-[#203945]/65">الهاتف: {association.phone || 'غير متوفر'}</p>
+                  </article>
+                ))}
+              </div>
+            </section>
+          )}
+          {associationAccounts.length === 0 && directoryAssociations.length === 0 && (
+            <p className="rounded-xl bg-white p-3 text-xs text-[#203945]/70">لا توجد حسابات جمعيات أو سجلات جمعية في الدليل.</p>
+          )}
         </div>
       )}
 
@@ -1931,9 +1970,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-            {users
-              .filter((u) => ['clinic', 'hospital', 'treatment_center'].includes(u.roleSlug))
-              .map((inst) => (
+            {clinicAccounts.map((inst) => (
                 <div key={inst.id} className="bg-white border border-[#CCD8D5] rounded-[16px] p-4 shadow-xs space-y-2.5">
                   <div className="flex items-start justify-between">
                     <div>
@@ -1955,8 +1992,31 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                     </button>
                   </div>
                 </div>
-              ))}
+            ))}
           </div>
+          {directoryCenters.length > 0 && (
+            <section className="space-y-3 border-t border-[#E0E8E6] pt-4">
+              <h4 className="font-bold text-sm text-[#203945]">العيادات والمراكز الموجودة في دليل المنصة ({directoryCenters.length})</h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                {directoryCenters.map((center) => (
+                  <article key={`directory-center-${center.id}`} className="rounded-[16px] border border-[#CCD8D5] bg-white p-4 space-y-2">
+                    <div className="flex items-start justify-between gap-2">
+                      <h5 className="font-black text-sm text-[#203945]">{center.name}</h5>
+                      <span className="rounded-full bg-[#E8F4EF] px-2 py-0.5 text-[10px] font-bold text-[#25866D]">
+                        {center.verificationStatus === 'approved' ? 'معتمدة' : center.verificationStatus === 'rejected' ? 'مرفوضة' : 'قيد المراجعة'}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-[#203945]/70">{center.services || 'خدمات المؤسسة'}</p>
+                    <p className="text-[11px] text-[#1766A6]">{center.wilayaName} · {center.address}</p>
+                    <p className="text-[11px] text-[#203945]/65">الهاتف: {center.phone || 'غير متوفر'}</p>
+                  </article>
+                ))}
+              </div>
+            </section>
+          )}
+          {clinicAccounts.length === 0 && directoryCenters.length === 0 && (
+            <p className="rounded-xl bg-white p-3 text-xs text-[#203945]/70">لا توجد حسابات عيادات أو سجلات مؤسسات في الدليل.</p>
+          )}
         </div>
       )}
 

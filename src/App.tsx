@@ -13,6 +13,8 @@ import {
   PartnerOrganization,
   TreatmentFollowUp,
   PlatformNotification,
+  TreatmentCenter,
+  Association,
 } from './types';
 import {
   initializeDatabase,
@@ -21,6 +23,8 @@ import {
   getPaymentConfig,
   logoutUser,
   subscribeToUsers,
+  subscribeToCenters,
+  subscribeToAssociations,
   subscribeToServices,
   subscribeToCareRequests,
   subscribeToAppointments,
@@ -120,6 +124,8 @@ export function App() {
 
   // Database-backed state
   const [users, setUsers] = useState<User[]>([]);
+  const [centers, setCenters] = useState<TreatmentCenter[]>([]);
+  const [associations, setAssociations] = useState<Association[]>([]);
   const [services, setServices] = useState<ServiceItem[]>([]);
   const [demoPayments, setDemoPayments] = useState(false);
   const [careRequests, setCareRequests] = useState<CareRequest[]>([]);
@@ -185,6 +191,8 @@ export function App() {
         return current && latest && JSON.stringify(current) !== JSON.stringify(latest) ? latest : current;
       });
     });
+    const unsubCenters = subscribeToCenters(setCenters);
+    const unsubAssociations = subscribeToAssociations(setAssociations);
     const unsubServices = subscribeToServices((data) => setServices(data));
 
     const unsubRequests = subscribeToCareRequests((data) => {
@@ -223,6 +231,8 @@ export function App() {
 
     return () => {
       unsubUsers();
+      unsubCenters();
+      unsubAssociations();
       unsubServices();
       unsubRequests();
       unsubAppts();
@@ -595,6 +605,8 @@ export function App() {
             <AdminDashboardView
               currentUser={currentUser}
               users={users}
+              centers={centers}
+              associations={associations}
               requests={careRequests}
               appointments={appointments}
               reports={specialistReports}
