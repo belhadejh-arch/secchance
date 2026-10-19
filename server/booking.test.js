@@ -16,16 +16,24 @@ test('the configured Neon database is the single preferred source in every envir
     { connectionString: 'accounts-db', source: 'NEON_DATABASE_URL' }
   );
   assert.deepEqual(
+    resolveDatabaseConfig({ NODE_ENV: 'test', TEST_DATABASE_URL: 'isolated-test-db', DATABASE_URL: 'real-db' }),
+    { connectionString: 'isolated-test-db', source: 'TEST_DATABASE_URL' }
+  );
+  assert.deepEqual(
     resolveDatabaseConfig({ NODE_ENV: 'production', DATABASE_URL: 'only-db' }),
     { connectionString: 'only-db', source: 'DATABASE_URL' }
   );
 });
 
-test('account approval, service publication and demo booking lifecycle', async () => {
+test('account approval, service publication and demo booking lifecycle', {
+  skip: !process.env.TEST_DATABASE_URL,
+}, async () => {
   const schema = `scp_test_${crypto.randomBytes(8).toString('hex')}`;
   const oldOptions = process.env.PGOPTIONS;
+  const oldNodeEnv = process.env.NODE_ENV;
   const oldMode = process.env.PAYMENT_MODE;
   const oldChargily = process.env.CHARGILY_MODE;
+  process.env.NODE_ENV = 'test';
   process.env.PGOPTIONS = `--search_path=${schema}`;
   process.env.PAYMENT_MODE = 'demo';
   process.env.CHARGILY_MODE = 'test';
@@ -263,6 +271,8 @@ test('account approval, service publication and demo booking lifecycle', async (
     await pool.end();
     if (oldOptions === undefined) delete process.env.PGOPTIONS;
     else process.env.PGOPTIONS = oldOptions;
+    if (oldNodeEnv === undefined) delete process.env.NODE_ENV;
+    else process.env.NODE_ENV = oldNodeEnv;
     if (oldMode === undefined) delete process.env.PAYMENT_MODE;
     else process.env.PAYMENT_MODE = oldMode;
     if (oldChargily === undefined) delete process.env.CHARGILY_MODE;
