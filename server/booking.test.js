@@ -176,6 +176,8 @@ test('account approval, service publication and demo booking lifecycle', async (
     const previousWindow = globalThis.window;
     const storage = new Map();
     const events = new EventTarget();
+    let signalBootstrapStarted;
+    const bootstrapStarted = new Promise((resolve) => { signalBootstrapStarted = resolve; });
     let unsubscribe;
     try {
       globalThis.window = {
@@ -186,15 +188,29 @@ test('account approval, service publication and demo booking lifecycle', async (
         },
         dispatchEvent: (event) => events.dispatchEvent(event),
       };
-      globalThis.fetch = (path, options) => nativeFetch(
-        typeof path === 'string' && path.startsWith('/api/v1') ? `${base.replace('/api/v1', '')}${path}` : path,
-        options
-      );
+      globalThis.fetch = async (path, options) => {
+        if (
+          options &&
+          typeof path === 'string' &&
+          path.endsWith('/bootstrap') &&
+          !options.headers?.Authorization &&
+          storage.size === 0
+        ) {
+          signalBootstrapStarted();
+          await new Promise((resolve) => setTimeout(resolve, 50));
+        }
+        const url = typeof path === 'string' && path.startsWith('/api/v1')
+          ? `${base.replace('/api/v1', '')}${path}`
+          : path;
+        return nativeFetch(url, options);
+      };
       const client = await vite.ssrLoadModule('/src/services/dbService.ts');
-      const frontendLogin = await client.authenticateUser('admin@example.invalid', adminPassword);
-      assert.equal(frontendLogin.user.roleSlug, 'admin');
       let visibleUsers = [];
       unsubscribe = client.subscribeToUsers((users) => { visibleUsers = users; });
+      await bootstrapStarted;
+      const frontendLogin = await client.authenticateUser('admin@example.invalid', adminPassword);
+      assert.equal(frontendLogin.user.roleSlug, 'admin');
+      assert.equal((await client.getCurrentUser()).roleSlug, 'admin');
       const frontendCreated = await client.createUserInDb({
         ...input('lawyer', 'frontend-created@example.invalid'),
         accountType: 'lawyer', status: 'active',

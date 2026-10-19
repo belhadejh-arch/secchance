@@ -22,19 +22,28 @@ const apiBase = (import.meta.env.VITE_API_URL || '').replace(/\/+$/, '');
 const apiPath = (path: string) => `${apiBase}/api/v1${path}`;
 
 async function api<T>(path: string, options: RequestInit = {}): Promise<T> {
-  const token = getSessionToken();
+  const requestToken = getSessionToken();
   const response = await fetch(apiPath(path), {
     ...options,
     credentials: 'include',
     headers: {
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(requestToken ? { Authorization: `Bearer ${requestToken}` } : {}),
       ...(options.body ? { 'Content-Type': 'application/json' } : {}),
       ...options.headers,
     },
   });
   const result = await response.json().catch(() => ({}));
   if (!response.ok) {
-    if (response.status === 401 && !path.startsWith('/auth/')) expireSession();
+    // An unauthenticated request started before login may finish after a new
+    // session is established. Its 401 must not clear the newer session.
+    if (
+      response.status === 401 &&
+      requestToken &&
+      requestToken === getSessionToken() &&
+      !path.startsWith('/auth/')
+    ) {
+      expireSession();
+    }
     throw new Error(result.error || `تعذر إكمال الطلب (${response.status}).`);
   }
   return result as T;

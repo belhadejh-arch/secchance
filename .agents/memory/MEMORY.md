@@ -5,3 +5,4 @@
 - [App database target checks](app-database-target-checks.md) — If DDL succeeds but the app still reports missing tables, verify schema through the app's own connection.
 - [Demo payment requirement](demo-payment-requirement.md) — Users require a working simulated payment and confirmed booking, not an appointment-only mockup.
 - [Administration synchronization](admin-synchronization.md) — All registration paths must update every matching administration section without replacing the admin session.
+- [Session expiry races](session-expiry-races.md) — A late 401 from a request started without credentials must never invalidate a session established afterward.
