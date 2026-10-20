@@ -55,6 +55,11 @@ test('account approval, service publication and demo booking lifecycle', {
     // Account activation must also work on legacy databases without this
     // optional uniqueness constraint.
     await pool.query('ALTER TABLE services DROP CONSTRAINT IF EXISTS services_provider_id_category_key');
+    // Booking must not depend on the conversation-participant unique
+    // constraint, which is absent from the existing shared database.
+    await pool.query(
+      'ALTER TABLE conversation_participants DROP CONSTRAINT IF EXISTS conversation_participants_conversation_id_user_id_key'
+    );
     await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
     const base = `http://127.0.0.1:${server.address().port}/api/v1`;
     async function api(path, method = 'GET', body, cookie) {

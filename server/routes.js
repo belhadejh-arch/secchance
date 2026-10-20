@@ -727,10 +727,16 @@ async function createRequest(body, user, req) {
     );
     await client.query(
       `INSERT INTO conversation_participants (conversation_id, user_id, joined_at)
-       VALUES ($1, $2, NOW()), ($1, $3, NOW())
-       ON CONFLICT (conversation_id, user_id) DO NOTHING`,
-      [conversation.rows[0].id, user.id, providerId]
+       VALUES ($1, $2, NOW())`,
+      [conversation.rows[0].id, user.id]
     );
+    if (Number(providerId) !== Number(user.id)) {
+      await client.query(
+        `INSERT INTO conversation_participants (conversation_id, user_id, joined_at)
+         VALUES ($1, $2, NOW())`,
+        [conversation.rows[0].id, providerId]
+      );
+    }
     await client.query(
       `INSERT INTO request_history (request_id, user_id, action, from_status, to_status, details, created_at)
        VALUES ($1, $2, 'REQUEST_CREATED', NULL, $3, 'أرسل المستفيد طلب استشارة مع الموافقة على معالجة بياناتها.', NOW())`,
