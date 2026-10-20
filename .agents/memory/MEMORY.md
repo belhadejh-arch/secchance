@@ -6,3 +6,4 @@
 - [Demo payment requirement](demo-payment-requirement.md) — Users require a working simulated payment and confirmed booking, not an appointment-only mockup.
 - [Administration synchronization](admin-synchronization.md) — All registration paths must update every matching administration section without replacing the admin session.
 - [Session expiry races](session-expiry-races.md) — A late 401 from a request started without credentials must never invalidate a session established afterward.
+- [Isolated PostgreSQL tests](isolated-postgres-tests.md) — Local temporary clusters need a private socket directory and the initdb-created runner role.

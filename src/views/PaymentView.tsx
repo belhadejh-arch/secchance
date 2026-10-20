@@ -59,14 +59,13 @@ export const PaymentView: React.FC<PaymentViewProps> = ({
 
     setIsProcessing(true);
     setPaymentError('');
-    setDemoCardNumber('');
-    setDemoCardholder('');
-    setDemoExpiry('');
-    setDemoCvv('');
-
     try {
       // Card fields are intentionally never sent to the server or persisted.
       await onConfirmDemoPayment(request.id);
+      setDemoCardNumber('');
+      setDemoCardholder('');
+      setDemoExpiry('');
+      setDemoCvv('');
     } catch (error) {
       setPaymentError(
         error instanceof Error ? error.message : 'تعذر تأكيد الموعد التجريبي.'
@@ -182,7 +181,9 @@ export const PaymentView: React.FC<PaymentViewProps> = ({
                 id="demo-edahabia-expiry"
                 name="demo-edahabia-expiry"
                 type="text"
-                inputMode="numeric"
+                inputMode="text"
+                autoCapitalize="none"
+                spellCheck={false}
                 autoComplete="off"
                 dir="ltr"
                 required
