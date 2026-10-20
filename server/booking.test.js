@@ -60,6 +60,9 @@ test('account approval, service publication and demo booking lifecycle', {
     await pool.query(
       'ALTER TABLE conversation_participants DROP CONSTRAINT IF EXISTS conversation_participants_conversation_id_user_id_key'
     );
+    // The connected Neon schema requires an explicit payment transaction
+    // currency and does not provide a default for it.
+    await pool.query('ALTER TABLE payment_transactions ALTER COLUMN currency DROP DEFAULT');
     await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
     const base = `http://127.0.0.1:${server.address().port}/api/v1`;
     async function api(path, method = 'GET', body, cookie) {
@@ -140,6 +143,7 @@ test('account approval, service publication and demo booking lifecycle', {
     assert.equal(snapshot.data.appointments[0].status, 'CONFIRMED');
     assert.equal(snapshot.data.transactions.length, 1);
     assert.equal(snapshot.data.transactions[0].paymentMethod, 'DEMO');
+    assert.equal(snapshot.data.transactions[0].currency, 'DZD');
     assert.equal(snapshot.data.transactions[0].status, 'SUCCESSFUL');
 
     const createdByAdmin = await api('/users', 'POST', {

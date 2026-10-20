@@ -812,8 +812,8 @@ async function confirmDemoAppointment(requestId, user, req) {
     );
     await client.query(
       `INSERT INTO payment_transactions
-         (payment_id, gateway, gateway_transaction_id, amount_dzd, status, event_id)
-       VALUES ($1, 'demo', $2, $3, 'PAID', $2)`,
+         (payment_id, gateway, gateway_transaction_id, amount_dzd, currency, status, event_id)
+       VALUES ($1, 'demo', $2, $3, 'DZD', 'PAID', $2)`,
       [payment.rows[0].id, transactionId, booking.amount_dzd]
     );
     await client.query(
