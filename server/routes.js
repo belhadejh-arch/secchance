@@ -367,13 +367,26 @@ async function saveDefaultConsultationService(client, user) {
   const description = category === 'legal'
     ? 'استشارة مباشرة مع مستشار قانوني مؤهل. لا تمثل رأيًا قانونيًا آليًا.'
     : 'استشارة مباشرة مع أخصائي نفسي عيادي مؤهل. لا تقدم تشخيصًا طبيًا آليًا.';
+  // Older production databases may not have the optional unique index on
+  // (provider_id, category). Serialize this application-level upsert so
+  // account approval still works on those schemas, and avoid adding another
+  // duplicate when a legacy database already contains a service row.
   await client.query(
-    `INSERT INTO services (provider_id, title, description, amount_dzd, category, is_active, created_at, updated_at)
-     VALUES ($1, $2, $3, 500, $4, 1, NOW(), NOW())
-     ON CONFLICT (provider_id, category) DO UPDATE
-       SET is_active = 1, updated_at = NOW()`,
-    [user.id, title, description, category]
+    'SELECT pg_advisory_xact_lock(hashtext($1))',
+    [`default-service:${user.id}:${category}`]
   );
+  const updated = await client.query(
+    `UPDATE services SET is_active = 1, updated_at = NOW()
+      WHERE provider_id = $1 AND category = $2`,
+    [user.id, category]
+  );
+  if (updated.rowCount === 0) {
+    await client.query(
+      `INSERT INTO services (provider_id, title, description, amount_dzd, category, is_active, created_at, updated_at)
+       VALUES ($1, $2, $3, 500, $4, 1, NOW(), NOW())`,
+      [user.id, title, description, category]
+    );
+  }
 }
 
 async function updateRequest(requestId, body, user, req) {

@@ -96,6 +96,7 @@ export const NewRequestView: React.FC<NewRequestViewProps> = ({
   const selectedService =
     consultationServices.find((service) => service.id === selectedServiceId) ??
     consultationServices[0];
+  const isDemoService = selectedService?.isDemo === true;
   const getServiceForProvider = (providerId: number | string) =>
     consultationServices.find(
       (service) =>
@@ -151,6 +152,53 @@ export const NewRequestView: React.FC<NewRequestViewProps> = ({
         return startsAt > Date.now() && !alreadyBooked && !pendingRequest;
       })
       .sort((a, b) => `${a.date} ${a.time}`.localeCompare(`${b.date} ${b.time}`));
+  const getAvailableDemoSlots = () => {
+    if (!selectedService || !isDemoService) return [];
+    const durationMinutes = selectedService.category === 'psychological' ? 50 : 30;
+    const providerId = String(selectedService.providerId);
+    const slots = Array.from({ length: 14 }, (_, index) => {
+      const date = new Date();
+      date.setDate(date.getDate() + index + 1);
+      const localDate = [
+        date.getFullYear(),
+        String(date.getMonth() + 1).padStart(2, '0'),
+        String(date.getDate()).padStart(2, '0'),
+      ].join('-');
+      return ['10:00', '14:00', '16:00'].map((time) => ({
+        date: localDate,
+        time,
+        durationMinutes,
+      }));
+    }).flat();
+    return slots
+      .filter((slot) => {
+        const start = new Date(`${slot.date}T${slot.time}:00`).getTime();
+        const end = start + durationMinutes * 60_000;
+        const appointmentConflict = appointments.some((appointment) => {
+          if (
+            String(appointment.specialistId) !== providerId ||
+            appointment.date !== slot.date ||
+            appointment.status === 'CANCELLED'
+          ) return false;
+          const existingStart = new Date(`${appointment.date}T${appointment.time}:00`).getTime();
+          const existingDuration =
+            appointment.type === 'psychological' ? 50 : appointment.type === 'legal' ? 30 : durationMinutes;
+          return start < existingStart + existingDuration * 60_000 && end > existingStart;
+        });
+        const requestConflict = requests.some((request) => {
+          if (
+            String(request.providerId) !== providerId ||
+            request.appointmentDate !== slot.date ||
+            !['PENDING_PROVIDER', 'WAITING_PAYMENT', 'ACCEPTED', 'PAID', 'APPOINTMENT_CONFIRMED', 'IN_PROGRESS'].includes(request.status)
+          ) return false;
+          const existingStart = new Date(`${request.appointmentDate}T${request.appointmentTime}:00`).getTime();
+          const existingDuration = Number(request.durationMinutes) || durationMinutes;
+          return start < existingStart + existingDuration * 60_000 && end > existingStart;
+        });
+        return start > Date.now() && !appointmentConflict && !requestConflict;
+      })
+      .sort((a, b) => `${a.date} ${a.time}`.localeCompare(`${b.date} ${b.time}`));
+  };
   const eligibleSpecialists = specialists.filter(
     (specialist) =>
       specialist.status === 'active' &&
@@ -162,25 +210,42 @@ export const NewRequestView: React.FC<NewRequestViewProps> = ({
   const selectedSpecialist = eligibleSpecialists.find(
     (specialist) => String(specialist.id) === String(selectedSpecialistId)
   );
+  const availableSlots = isDemoService
+    ? getAvailableDemoSlots()
+    : selectedSpecialist
+      ? getAvailableSlots(selectedSpecialist).filter(
+          (slot) => Number(slot.durationMinutes) >= requiredDurationMinutes
+        )
+      : [];
   const selectedProviderService = selectedSpecialist
     ? getServiceForProvider(selectedSpecialist.id) ?? selectedService
     : selectedService;
-  const availableSlots = selectedSpecialist
-    ? getAvailableSlots(selectedSpecialist).filter(
-        (slot) => Number(slot.durationMinutes) >= requiredDurationMinutes
-      )
-    : [];
   const selectedSlot = availableSlots.find(
     (slot) => `${slot.date}|${slot.time}` === selectedSlotKey
   );
   const appointmentDuration = selectedService?.durationMinutes ?? selectedSlot?.durationMinutes;
 
   const handleCreateAppointmentRequest = async () => {
-    if (!selectedProviderService || !currentUser || !selectedSpecialist || !selectedSlot || !serviceTermsAccepted) {
-      setSubmissionError('يرجى اختيار مختص وموعد متاح والموافقة على شروط الخدمة وسياسة الإلغاء.');
+    if (
+      !selectedProviderService ||
+      !currentUser ||
+      (!isDemoService && !selectedSpecialist) ||
+      !selectedSlot ||
+      !serviceTermsAccepted
+    ) {
+      setSubmissionError(
+        isDemoService
+          ? 'يرجى اختيار موعد تجريبي والموافقة على شروط الخدمة وسياسة الإلغاء.'
+          : 'يرجى اختيار مختص وموعد متاح والموافقة على شروط الخدمة وسياسة الإلغاء.'
+      );
       return;
     }
-    const slotStillAvailable = getAvailableSlots(selectedSpecialist).some(
+    const currentSlots = isDemoService
+      ? getAvailableDemoSlots()
+      : selectedSpecialist
+        ? getAvailableSlots(selectedSpecialist)
+        : [];
+    const slotStillAvailable = currentSlots.some(
       (slot) => slot.date === selectedSlot.date && slot.time === selectedSlot.time
     );
     if (!slotStillAvailable) {
@@ -199,8 +264,10 @@ export const NewRequestView: React.FC<NewRequestViewProps> = ({
         legalDraft?.wilaya ?? currentUser.wilayaName ?? '16. الجزائر العاصمة',
         `${consultationTopic ? `[موضوع الاستشارة: ${consultationTopic}] ` : ''}[لمن الحالة: ${targetPerson === 'self' ? 'أنا' : 'أحد أفراد أسرتي'}] ${problemDescription}`,
         {
-          specialistId: selectedSpecialist.id,
-          specialistName: `${selectedSpecialist.firstName} ${selectedSpecialist.lastName}`.trim(),
+          specialistId: isDemoService ? selectedService.providerId : selectedSpecialist!.id,
+          specialistName: isDemoService
+            ? 'حجز تجريبي — إدارة المنصة'
+            : `${selectedSpecialist!.firstName} ${selectedSpecialist!.lastName}`.trim(),
           appointmentDate: selectedSlot.date,
           appointmentTime: selectedSlot.time,
           durationMinutes: appointmentDuration,
@@ -215,8 +282,12 @@ export const NewRequestView: React.FC<NewRequestViewProps> = ({
       );
       setBookingRequestCreated(true);
       setStep(7);
-    } catch {
-      setSubmissionError('تعذر تسجيل طلب الموعد. تحقق من الاتصال أو صلاحيات الحساب ثم حاول مجدداً.');
+    } catch (error) {
+      setSubmissionError(
+        error instanceof Error
+          ? error.message
+          : 'تعذر تسجيل طلب الموعد. تحقق من الاتصال أو صلاحيات الحساب ثم حاول مجدداً.'
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -615,7 +686,17 @@ export const NewRequestView: React.FC<NewRequestViewProps> = ({
           </div>
 
           <div className="space-y-3">
-            {eligibleSpecialists.length === 0 ? (
+            {isDemoService ? (
+              <article className="space-y-3 rounded-[16px] border border-[#DCEBF4] bg-white p-4">
+                <h3 className="font-black text-sm text-[#203945]">حجز تجريبي عبر إدارة المنصة</h3>
+                <p className="text-xs leading-relaxed text-[#203945]/75">
+                  هذا حجز تدريبي لتجربة تعبئة البيانات والدفع الوهمي فقط؛ لا يعيّن مختصًا ولا يقدم استشارة فعلية.
+                </p>
+                <p className="text-xs font-bold text-[#1766A6]">
+                  السعر: {selectedService?.amountDzd.toLocaleString('ar-DZ')} دج — دون تحصيل أموال حقيقية
+                </p>
+              </article>
+            ) : eligibleSpecialists.length === 0 ? (
               <div className="rounded-[14px] border border-[#E0E8E6] bg-white p-5 text-center text-sm text-[#203945]/70">
                 لا يوجد حالياً مختص معتمد نشر موعداً متاحاً لهذه الاستشارة. سيظهر المختص هنا بعد اعتماد حسابه وإضافة مواعيده من لوحة المختص.
               </div>
@@ -702,11 +783,11 @@ export const NewRequestView: React.FC<NewRequestViewProps> = ({
             </button>
             <button
               type="button"
-              disabled={!selectedSpecialist}
+              disabled={!isDemoService && !selectedSpecialist}
               onClick={() => setStep(6)}
               className="px-6 py-2.5 rounded-[12px] bg-[#1766A6] hover:bg-[#125386] disabled:opacity-50 text-white font-bold text-xs sm:text-sm shadow-xs transition-colors flex items-center gap-2"
             >
-              <span>المتابعة إلى حجز الموعد</span>
+              <span>{isDemoService ? 'المتابعة إلى الموعد التجريبي' : 'المتابعة إلى حجز الموعد'}</span>
               <ArrowRight className="w-4 h-4" />
             </button>
           </div>
@@ -718,12 +799,23 @@ export const NewRequestView: React.FC<NewRequestViewProps> = ({
         <div className="bg-[#FBFDFC] rounded-[20px] border border-[#E0E8E6] p-6 shadow-xs space-y-5">
           <div>
             <h2 className="text-[17px] font-black text-[#203945]">الشاشة 09: حجز الموعد</h2>
-            <p className="text-xs text-[#203945]/70 mt-1">اختر موعداً ما زال متاحاً للمختص المحدد.</p>
+            <p className="text-xs text-[#203945]/70 mt-1">
+              {isDemoService
+                ? 'اختر موعدًا تجريبيًا متاحًا لإكمال خطوات الحجز والدفع الوهمي.'
+                : 'اختر موعداً ما زال متاحاً للمختص المحدد.'}
+            </p>
           </div>
 
           <div className="rounded-[16px] border border-[#DCEBF4] bg-[#EAF3F8] p-4 space-y-2 text-xs text-[#203945]">
             <p><strong>الخدمة:</strong> {selectedProviderService?.title}</p>
-            <p><strong>المختص:</strong> {selectedSpecialist ? `${selectedSpecialist.firstName} ${selectedSpecialist.lastName}` : '—'}</p>
+            <p>
+              <strong>{isDemoService ? 'نوع الحجز:' : 'المختص:'}</strong>{' '}
+              {isDemoService
+                ? 'تجريبي — لا يعيّن مختصًا'
+                : selectedSpecialist
+                  ? `${selectedSpecialist.firstName} ${selectedSpecialist.lastName}`
+                  : '—'}
+            </p>
             <p><strong>السعر:</strong> {selectedProviderService?.amountDzd.toLocaleString('ar-DZ')} دج</p>
             <p><strong>مدة الخدمة:</strong> {appointmentDuration ? `${appointmentDuration} دقيقة` : 'غير محددة'}</p>
           </div>
@@ -732,7 +824,9 @@ export const NewRequestView: React.FC<NewRequestViewProps> = ({
             <h3 className="text-sm font-bold text-[#203945]">التاريخ والساعة المتاحان</h3>
             {availableSlots.length === 0 ? (
               <p className="rounded-[12px] bg-amber-50 p-3 text-xs text-amber-900">
-                لم تعد هناك مواعيد متاحة لهذا المختص. ارجع واختر مختصاً آخر.
+                {isDemoService
+                  ? 'لا توجد مواعيد تجريبية متاحة الآن. حاول لاحقًا.'
+                  : 'لم تعد هناك مواعيد متاحة لهذا المختص. ارجع واختر مختصاً آخر.'}
               </p>
             ) : (
               <div className="grid gap-2 sm:grid-cols-2">

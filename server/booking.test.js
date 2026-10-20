@@ -52,6 +52,9 @@ test('account approval, service publication and demo booking lifecycle', {
   try {
     await pool.query(`CREATE SCHEMA ${schema}`);
     await pool.query(await fs.readFile(new URL('./schema.sql', import.meta.url), 'utf8'));
+    // Account activation must also work on legacy databases without this
+    // optional uniqueness constraint.
+    await pool.query('ALTER TABLE services DROP CONSTRAINT IF EXISTS services_provider_id_category_key');
     await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
     const base = `http://127.0.0.1:${server.address().port}/api/v1`;
     async function api(path, method = 'GET', body, cookie) {
