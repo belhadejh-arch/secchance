@@ -36,7 +36,7 @@ ADMIN_PHONE=0550000000
 اربط نفس المستودع بمشروع Vercel، ثم استخدم:
 
 ```text
-Install Command: npm ci --registry=https://registry.npmjs.org
+Install Command: npm ci --registry=https://registry.npmjs.org --replace-registry-host=always
 Build Command: npm run build:frontend
 Output Directory: dist
 ```

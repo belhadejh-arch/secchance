@@ -1,6 +1,6 @@
 {
   "framework": "vite",
-  "installCommand": "npm ci --registry=https://registry.npmjs.org",
+  "installCommand": "npm ci --registry=https://registry.npmjs.org --replace-registry-host=always",
   "buildCommand": "npm run build:frontend",
   "outputDirectory": "dist",
   "rewrites": [
