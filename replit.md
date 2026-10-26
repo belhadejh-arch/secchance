@@ -110,6 +110,9 @@ npm start
 # Vercel Build Command
 npm run build:frontend
 
+# Vercel Install Command
+npm ci --registry=https://registry.npmjs.org
+
 # Vercel Output Directory
 dist
 ```
